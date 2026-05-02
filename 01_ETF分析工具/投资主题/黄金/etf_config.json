@@ -1,0 +1,45 @@
+{
+  "theme": "黄金",
+  "description": "黄金ETF，防御层核心配置。对冲信用货币贬值、地缘政治风险，在康波萧条期的必要实物资产配置",
+  "framework_role": "防御层-黄金配置",
+  "target_allocation": "15-20%",
+  "cycle_logic": "萧条期（2026年）类滞胀环境下，实物资产抗通胀、抗货币贬值，应对债务危机与地缘冲突",
+  "etfs": [
+    {
+      "code": "518880",
+      "name": "华安黄金易ETF",
+      "index_code": "AU9999",
+      "index_name": "上海黄金交易所Au99.99",
+      "manager": "华安基金",
+      "inception_date": "2013-07-29",
+      "scale": 245.0,
+      "fee": 0.50,
+      "url": "https://www.huaan.com.cn"
+    },
+    {
+      "code": "159934",
+      "name": "易方达黄金ETF",
+      "index_code": "AU9999",
+      "index_name": "上海黄金交易所Au99.99",
+      "manager": "易方达基金",
+      "inception_date": "2013-08-13",
+      "scale": 180.5,
+      "fee": 0.50,
+      "url": "https://www.efunds.com.cn"
+    },
+    {
+      "code": "159937",
+      "name": "博时黄金ETF",
+      "index_code": "AU9999",
+      "index_name": "上海黄金交易所Au99.99",
+      "manager": "博时基金",
+      "inception_date": "2014-07-18",
+      "scale": 155.0,
+      "fee": 0.50,
+      "url": "https://www.bosera.com"
+    }
+  ],
+  "notes": "黄金ETF直接挂钩黄金现货价格，不依赖股票成分。作为康波萧条期的核心防御配置，建议长期持有。",
+  "last_updated": "2026-04-23",
+  "update_frequency": "季度"
+}

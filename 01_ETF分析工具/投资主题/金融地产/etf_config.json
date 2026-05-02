@@ -1,0 +1,42 @@
+{
+  "theme": "金融地产",
+  "description": "金融地产相关主题，涵盖银行、保险、房地产等领域",
+  "etfs": [
+    {
+      "code": "511680",
+      "name": "国泰银行ETF",
+      "index_code": "000990",
+      "index_name": "中证银行指数",
+      "manager": "国泰基金",
+      "inception_date": "2019-05-31",
+      "scale": 55.0,
+      "fee": 0.15,
+      "url": "https://www.gtfund.com"
+    },
+    {
+      "code": "159963",
+      "name": "易方达消费指数ETF",
+      "index_code": "399950",
+      "index_name": "中证消费指数",
+      "manager": "易方达基金",
+      "inception_date": "2019-01-25",
+      "scale": 65.0,
+      "fee": 0.15,
+      "url": "https://www.efunds.com.cn"
+    },
+    {
+      "code": "512200",
+      "name": "华泰柏瑞房地产ETF",
+      "index_code": "399808",
+      "index_name": "中证房地产指数",
+      "manager": "华泰柏瑞",
+      "inception_date": "2015-02-06",
+      "scale": 18.5,
+      "fee": 0.12,
+      "url": "https://www.huatai.com"
+    }
+  ],
+  "notes": "金融地产是传统强周期行业，与经济周期高度相关。政策导向对该行业影响深远。银行板块防守性较强，地产板块波动性较大。",
+  "last_updated": "2026-04-23",
+  "update_frequency": "季度"
+}

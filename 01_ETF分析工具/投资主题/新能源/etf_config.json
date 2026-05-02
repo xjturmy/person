@@ -1,0 +1,42 @@
+{
+  "theme": "新能源",
+  "description": "新能源相关主题，涵盖新能源汽车、光伏、风电等领域的ETF",
+  "etfs": [
+    {
+      "code": "516030",
+      "name": "华夏新能源汽车ETF",
+      "index_code": "399417",
+      "index_name": "新能源汽车指数",
+      "manager": "华夏基金",
+      "inception_date": "2021-12-01",
+      "scale": 45.3,
+      "fee": 0.15,
+      "url": "https://www.huaxiafunds.com"
+    },
+    {
+      "code": "515790",
+      "name": "华夏科创板50ETF",
+      "index_code": "000688",
+      "index_name": "科创板50指数",
+      "manager": "华夏基金",
+      "inception_date": "2020-07-22",
+      "scale": 52.1,
+      "fee": 0.15,
+      "url": "https://www.huaxiafunds.com"
+    },
+    {
+      "code": "515700",
+      "name": "华泰柏瑞中证新能源ETF",
+      "index_code": "399011",
+      "index_name": "中证新能源指数",
+      "manager": "华泰柏瑞",
+      "inception_date": "2020-11-05",
+      "scale": 38.5,
+      "fee": 0.12,
+      "url": "https://www.huatai.com"
+    }
+  ],
+  "notes": "新能源是未来发展的重要方向，包括纯电动、插电混动、燃料电池等多个细分领域。该主题下的ETF主要跟踪与新能源相关的指数。",
+  "last_updated": "2026-04-23",
+  "update_frequency": "季度"
+}

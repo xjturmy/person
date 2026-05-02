@@ -1,0 +1,45 @@
+{
+  "theme": "云计算",
+  "description": "云计算ETF，进攻权益-AI应用层配置。AI商业化的基础设施，第六次康波的核心应用场景",
+  "framework_role": "进攻权益-AI应用",
+  "target_allocation": "2-3%",
+  "cycle_logic": "AI商业化需要大规模算力基础设施，云计算公司是AI变现的核心承载者。萧条期小仓位布局第六次康波",
+  "etfs": [
+    {
+      "code": "516510",
+      "name": "华夏中证云计算与大数据主题ETF",
+      "index_code": "930851",
+      "index_name": "中证云计算与大数据主题指数",
+      "manager": "华夏基金",
+      "inception_date": "2021-03-25",
+      "scale": 18.5,
+      "fee": 0.50,
+      "url": "https://www.chinaamc.com"
+    },
+    {
+      "code": "159890",
+      "name": "嘉实中证云计算与大数据主题ETF",
+      "index_code": "930851",
+      "index_name": "中证云计算与大数据主题指数",
+      "manager": "嘉实基金",
+      "inception_date": "2021-04-15",
+      "scale": 12.0,
+      "fee": 0.50,
+      "url": "https://www.jsfund.cn"
+    },
+    {
+      "code": "517390",
+      "name": "工银中证云计算ETF",
+      "index_code": "930851",
+      "index_name": "中证云计算与大数据主题指数",
+      "manager": "工银瑞信基金",
+      "inception_date": "2022-08-05",
+      "scale": 8.5,
+      "fee": 0.50,
+      "url": "https://www.icbccs.com.cn"
+    }
+  ],
+  "notes": "云计算是AI应用的核心基础设施。随着AI大模型商业化推进，云计算需求持续增长。注意估值水平，避免追高。",
+  "last_updated": "2026-04-23",
+  "update_frequency": "季度"
+}

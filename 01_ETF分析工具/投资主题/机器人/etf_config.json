@@ -1,0 +1,31 @@
+{
+  "theme": "机器人",
+  "description": "机器人和自动化相关主题，涵盖工业机器人、服务机器人、自动化设备等",
+  "etfs": [
+    {
+      "code": "515000",
+      "name": "华夏中证机器人指数ETF",
+      "index_code": "000592",
+      "index_name": "中证机器人指数",
+      "manager": "华夏基金",
+      "inception_date": "2020-08-24",
+      "scale": 42.0,
+      "fee": 0.15,
+      "url": "https://www.huaxiafunds.com"
+    },
+    {
+      "code": "159615",
+      "name": "广发机器人指数ETF",
+      "index_code": "399696",
+      "index_name": "机器人指数",
+      "manager": "广发基金",
+      "inception_date": "2020-12-18",
+      "scale": 35.0,
+      "fee": 0.15,
+      "url": "https://www.gffunds.com.cn"
+    }
+  ],
+  "notes": "机器人产业是新兴产业之一，包括工业机器人、服务机器人、核心零部件等。随着产业升级和劳动力成本上升，机器人应用前景广阔。",
+  "last_updated": "2026-04-23",
+  "update_frequency": "季度"
+}

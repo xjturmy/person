@@ -1,0 +1,53 @@
+{
+  "theme": "芯片半导体",
+  "description": "芯片和半导体相关主题，涵盖芯片设计、制造、设备、材料等整个产业链",
+  "etfs": [
+    {
+      "code": "588000",
+      "name": "科创板50ETF",
+      "index_code": "000688",
+      "index_name": "科创板50指数",
+      "manager": "华夏基金",
+      "inception_date": "2020-08-20",
+      "scale": 60.0,
+      "fee": 0.15,
+      "url": "https://www.huaxiafunds.com"
+    },
+    {
+      "code": "512480",
+      "name": "中证芯片设计指数ETF",
+      "index_code": "399396",
+      "index_name": "中证芯片设计指数",
+      "manager": "中信建投基金",
+      "inception_date": "2020-04-02",
+      "scale": 38.0,
+      "fee": 0.15,
+      "url": "https://www.cfit.com.cn"
+    },
+    {
+      "code": "510390",
+      "name": "华泰柏瑞中证电子50指数ETF",
+      "index_code": "399428",
+      "index_name": "电子50指数",
+      "manager": "华泰柏瑞",
+      "inception_date": "2020-12-18",
+      "scale": 45.0,
+      "fee": 0.12,
+      "url": "https://www.huatai.com"
+    },
+    {
+      "code": "512720",
+      "name": "南方芯片指数ETF",
+      "index_code": "399686",
+      "index_name": "中证新能源汽车与芯片指数",
+      "manager": "南方基金",
+      "inception_date": "2020-10-23",
+      "scale": 42.0,
+      "fee": 0.15,
+      "url": "https://www.nffund.com"
+    }
+  ],
+  "notes": "芯片和半导体是战略性产业，涉及国家信息安全和产业升级。包括设计、制造、封测、设备、材料等多个环节。科技自主化成为长期主题。",
+  "last_updated": "2026-04-23",
+  "update_frequency": "季度"
+}
