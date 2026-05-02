@@ -19,7 +19,7 @@ from datetime import datetime
 import pandas as pd
 
 
-COMPANIES_DIR = Path("/Users/gongyong/Desktop/Keyi/Ruby/preson/02_companies")
+COMPANIES_DIR = Path("/Users/gongyong/Desktop/Keyi/preson/02_companies")
 OUTPUT_DIR = COMPANIES_DIR / "_汇总"
 
 

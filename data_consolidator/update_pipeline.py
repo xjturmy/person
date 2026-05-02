@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 
-ROOT = Path("/Users/gongyong/Desktop/Keyi/Ruby/preson")
+ROOT = Path("/Users/gongyong/Desktop/Keyi/preson")
 SCRIPTS = ROOT / ".tools"
 CONSOLIDATOR = SCRIPTS / "data_consolidator" / "consolidate.py"
 FETCH_PIPELINE = SCRIPTS / "lixinger-archiver" / "run_full_pipeline.py"

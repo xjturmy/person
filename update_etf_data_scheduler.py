@@ -176,7 +176,7 @@ def main():
                        help="立即执行更新")
     parser.add_argument("--type", choices=["constituents", "fundamentals"],
                        help="更新类型 (与 --now 一起使用)")
-    parser.add_argument("--project-root", default="/Users/gongyong/Desktop/Keyi/Ruby/preson",
+    parser.add_argument("--project-root", default="/Users/gongyong/Desktop/Keyi/preson",
                        help="项目根目录")
     parser.add_argument("--show-config", action="store_true",
                        help="显示当前配置")

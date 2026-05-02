@@ -15,7 +15,7 @@ from datetime import datetime
 import pandas as pd
 
 
-COMPANIES_DIR = Path("/Users/gongyong/Desktop/Keyi/Ruby/preson/02_companies")
+COMPANIES_DIR = Path("/Users/gongyong/Desktop/Keyi/preson/02_companies")
 
 MODULES = {
     "00_最近一月数据": "最近一月",
