@@ -8,7 +8,8 @@ from pathlib import Path
 
 
 def _kb_root() -> Path:
-    return Path(__file__).resolve().parents[4]
+    # .tools/lixinger-archiver/lixinger_resolve_token.py → preson/
+    return Path(__file__).resolve().parents[2]
 
 
 def _token_from_account_md(path: Path) -> str:
@@ -44,6 +45,7 @@ def resolve_lixinger_token(cli_token: str | None) -> str:
     root = _kb_root()
     for raw in (
         (os.getenv("LIXINGER_TOKEN_FILE") or "").strip(),
+        str(root / ".config" / ".lixinger_token"),
         str(root / ".lixinger_token"),
     ):
         if not raw:
@@ -57,7 +59,11 @@ def resolve_lixinger_token(cli_token: str | None) -> str:
             continue
         if line:
             return line
-    t2 = _token_from_account_md(root / "03_行业与宏观" / "账号密码.md")
-    if t2:
-        return t2
+    for md_path in (
+        root / ".config" / "credentials.md",
+        root / "03_行业与宏观" / "账号密码.md",
+    ):
+        t2 = _token_from_account_md(md_path)
+        if t2:
+            return t2
     return ""

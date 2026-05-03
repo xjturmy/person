@@ -1,0 +1,143 @@
+master: lynch
+master_cn: 彼得·林奇
+method: GARP（Growth at Reasonable Price）+ 六类公司分类
+score_type: composite
+description: |
+  成长投资法 — 用合理价格买成长股。
+  核心：PEG ≤ 1（高增长不能没有理由）+ 六类公司分类 + 自由现金流校验。
+
+  原则："先定性，后定量"——先判断公司是哪类，再用对应规则评分。
+
+# 六类公司分类（彼得林奇核心框架）
+company_classification:
+  slow_grower:
+    name: 缓慢增长型
+    growth_range: [0, 0.10]                      # 营收 CAGR 0-10%
+    key_indicators:
+      - dividend_yield > 0.04
+      - debt_ratio < 0.50
+    examples_a_share: [12_招商银行]
+    investment_logic: 高股息现金奶牛，不指望股价大涨
+    pe_ceiling: 12
+    peg_logic: not_applicable                    # 缓慢增长不用 PEG
+
+  stalwart:
+    name: 稳健增长型 ⭐ 林奇最爱
+    growth_range: [0.10, 0.20]                   # 营收 CAGR 10-20%
+    key_indicators:
+      - non_recurring_eps_cagr_5y >= 0.12
+      - long_term_roe > 0.15
+      - debt_ratio < 0.50
+    examples_a_share: [06_贵州茅台, 11_五粮液, 13_伊利股份, 07_美的集团]
+    investment_logic: 投资组合压舱石
+    pe_ceiling: 25
+    peg_target: <= 1.0                           # 稳健成长 PEG ≤ 1
+
+  fast_grower:
+    name: 快速增长型 ⭐ 十倍股来源
+    growth_range: [0.20, 0.50]                   # 营收 CAGR 20-50%
+    key_indicators:
+      - revenue_cagr_3y >= 0.25                  # 更优 ≥ 35%
+      - quarterly_revenue_yoy > 0.20             # 连续 8 个季度
+      - market_share < 0.01                      # 还有渗透空间
+      - debt_ratio < 0.40                        # 铁律
+    examples_a_share: [16_宁德时代, 10_比亚迪, 03_蜜雪集团, 14_中际旭创]
+    investment_logic: 寻找十倍股
+    pe_ceiling: 40
+    peg_target: <= 1.5                           # 快速成长 PEG 可放宽
+
+  cyclical:
+    name: 周期型
+    key_indicators:
+      - revenue_volatility > 0.20                # 营收波动大
+      - tied_to_macro_cycle: true
+    examples_a_share: [02_三美股份, 05_中国中车]
+    investment_logic: 低买高卖（PE 高时买入，PE 低时卖出 — 反直觉）
+    pe_logic: inverse                            # 周期股 PE 反向解读
+    peg_logic: not_applicable
+
+  turnaround:
+    name: 困境反转型
+    key_indicators:
+      - earnings_recently_negative_or_low
+      - balance_sheet_improving
+      - new_management_or_strategy
+    examples_a_share: []                          # 当前 15 家无典型困境股
+    investment_logic: 高风险高回报，错杀机会
+    pe_logic: not_applicable_until_turnaround_confirmed
+
+  asset_play:
+    name: 隐蔽资产型
+    key_indicators:
+      - hidden_assets_value > market_cap * 0.3   # 隐蔽资产 > 市值 30%
+      - examples: 土地/品牌/股权/版权
+    examples_a_share: []
+    investment_logic: 资产重估
+    valuation_method: NAV                        # 用净资产价值法
+
+# 通用 GARP 评分规则（适用于稳健 + 快速增长型）
+garp_rules:
+  - id: peg_reasonable
+    name: PEG ≤ 1（GARP 核心）
+    formula: pe_ttm / (eps_growth_3y * 100) <= 1
+    weight: 3
+    score_if_pass: 3
+    score_if_fail: 0
+    notes: 林奇核心公式 — 高 PE 必须有高增长支撑
+
+  - id: low_debt
+    name: 低负债（≤ 40%）
+    formula: total_liabilities / total_assets <= 0.40
+    weight: 2
+    score_if_pass: 2
+    score_if_fail: 0
+    data_source: safety
+    notes: 快速增长型铁律，避免增长靠加杠杆
+
+  - id: positive_fcf
+    name: 自由现金流为正
+    formula: fcf > 0
+    weight: 2
+    score_if_pass: 2
+    score_if_fail: 0
+    data_source: cashflow
+    notes: 排除"纸面利润，无现金"的伪成长
+
+  - id: institutional_holdings
+    name: 机构持仓比例 < 60%
+    formula: institutional_holding_ratio < 0.60
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    notes: 林奇偏好"被忽视"的股票（机构尚未抢筹）
+
+  - id: insider_buying
+    name: 内部人净买入
+    formula: insider_net_buying_6m > 0
+    weight: 2
+    score_if_pass: 2
+    score_if_fail: 0
+    data_source: 自计算（A 股需爬取大股东增减持公告）
+    notes: 林奇名言"内部人卖出有 100 个理由，买入只有 1 个"
+
+# 总分阈值
+threshold:
+  excellent: 8                     # 8-10 分：强成长股
+  good: 5                          # 5-7 分：合格成长股
+  warning: 3                       # < 3 分：增长不足或高估
+
+# 行业适配
+industry_first_classify: true     # 必须先分类，再套规则
+
+# 与项目知识库对照
+knowledge_reference:
+  - ../../01_knowledge/03_投资策略与选股/02_成长投资法/01_彼得林奇六类判断.md
+
+# 关键提醒
+warnings:
+  - id: classify_first
+    msg: "先定性（六类分类），后定量（GARP 评分）—— 误判类型 = 灾难性决策"
+  - id: cyclical_pe_inverse
+    msg: 周期股 PE 反向解读 — 高 PE 是低谷，低 PE 是周期顶部
+  - id: not_for_slow_growers
+    msg: PEG 不适用于缓慢增长型（用股息率代替）

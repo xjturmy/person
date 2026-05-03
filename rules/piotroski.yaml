@@ -1,0 +1,127 @@
+master: piotroski
+master_cn: 约瑟夫·皮奥特罗斯基
+method: F-Score 9 项财务体检
+score_type: binary
+max_score: 9
+description: |
+  量化体检法 — 在低估值股池里筛健康公司，避开价值陷阱。
+  9 项规则全部 0/1 评分，满分 9。
+  原论文回测：低 P/B 股池中做多 8-9 分 + 做空 0-1 分，年化超额收益 23%。
+
+threshold:
+  excellent: 8       # 8-9 分：强势价值股
+  good: 6            # 6-7 分：健康公司
+  warning: 4         # 4-5 分：平庸
+  # 0-3 分：价值陷阱
+
+# 银行 / 保险用单独的行业版本
+exclude_industries: []
+industry_specific_files:
+  银行: piotroski_bank.yaml      # 待补
+  保险: piotroski_insurance.yaml # 待补
+
+rules:
+  # ===== 维度 A：盈利能力（4 分）=====
+  - id: f1_roa_positive
+    name: ROA 为正
+    formula: roa > 0
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: profitability
+    data_source: profitability.roa
+
+  - id: f2_cfo_positive
+    name: 经营现金流为正
+    formula: cfo > 0
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: profitability
+    data_source: cashflow.cfo
+
+  - id: f3_roa_growth
+    name: ROA 同比改善
+    formula: yoy(roa) > 0
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: profitability
+    data_source: profitability.roa
+
+  - id: f4_accrual_quality
+    name: 应计质量（CFO ≥ 净利润）
+    formula: cfo_to_ni >= 1.0
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: profitability
+    data_source: cashflow.经营活动产生的现金流量净额对净利润的比率
+    notes: |
+      原 Piotroski f4 = (CFO/TA > ROA) ⇔ CFO > NI(因 ROA = NI/TA)。
+      用理杏仁衍生指标"CFO/净利润比"等价表达,避开拉 BS 原始字段。
+      防财务造假关键项 — 利润必须由现金驱动。
+
+  # ===== 维度 B：杠杆 / 流动性（3 分）=====
+  - id: f5_leverage_decrease
+    name: 有息负债率下降（代理长期负债率）
+    formula: yoy(interest_debt_ratio) < 0
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: leverage
+    data_source: safety.有息负债率
+    notes: |
+      原 Piotroski f5 = yoy(LTD/TA) < 0。
+      "有息负债率"(总有息负债/总资产)是更严的代理 — 包含短期借款,
+      但仍能反映"杠杆是否在收缩",作为 LTD/TA 的合理替代。
+
+  - id: f6_liquidity_improve
+    name: 流动比率改善
+    formula: yoy(current_ratio) > 0
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: leverage
+    data_source: safety.current_ratio
+
+  - id: f7_no_dilution
+    name: 无股本稀释（净利润÷EPS 反推股本未增）
+    formula: yoy(net_income / eps) <= 0
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: leverage
+    data_source: growth.归属于母公司普通股股东的净利润 + growth.基本每股收益
+    notes: |
+      原 Piotroski f7 = shares(t) ≤ shares(t-1)。
+      由于 EPS = 净利润/股本 → 股本 = 净利润/EPS,
+      yoy(NI/EPS) ≤ 0 等价于"股本未增加"。
+      有四舍五入误差(±1%),不影响显著扩股的检测。
+
+  # ===== 维度 C：经营效率（2 分）=====
+  - id: f8_gross_margin_expand
+    name: 毛利率扩张
+    formula: yoy(gross_margin) > 0
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: efficiency
+    data_source: profitability.gross_margin
+
+  - id: f9_asset_turnover_improve
+    name: 营业收入增长（代理资产周转改善）
+    formula: yoy(revenue) > 0
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: efficiency
+    data_source: growth.营业收入
+    notes: |
+      原 Piotroski f9 = yoy(revenue/TA) > 0。
+      规模扩张(yoy(revenue) > 0)是资产周转改善的合理代理 —
+      除非资产同步加速膨胀,否则收入增长意味着周转改善。
+      搭配 f3(yoy(roa)>0)使用可以更准确捕捉真正的效率提升。
+
+# 参考实现：astro30/valinvest（Python 已有现成）
+reference_implementation: https://github.com/astro30/valinvest

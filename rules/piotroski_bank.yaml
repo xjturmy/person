@@ -1,0 +1,134 @@
+master: piotroski_bank
+master_cn: 约瑟夫·皮奥特罗斯基（银行业适配版）
+method: F-Score 9 项财务体检（银行业）
+score_type: binary
+max_score: 9
+description: |
+  Piotroski F-Score 银行业适配版 — 原版 F-Score 的"流动比率"、"毛利率"、
+  "资产周转率"在银行业不适用，本版本将这 5 项替换为银行核心监管指标：
+  CET1 资本充足率、NPL 不良率、净息差(NIM)、成本收入比、ROA(银行口径)。
+
+  适用：A 股上市银行（招商银行 / 工商银行 / 平安银行 等）
+
+apply_to_industries:
+  - 银行
+  - 商业银行
+  - 国有大行
+
+threshold:
+  excellent: 8
+  good: 6
+  warning: 4
+
+rules:
+  # ===== 维度 A：盈利能力（4 分）保留原版 =====
+  - id: f1_roa_positive
+    name: ROA(银行口径) 为正
+    formula: roa_bank > 0
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: profitability
+    notes: 银行 ROA 通常 0.8%-1.2%，远低于工业企业，但仍要求 > 0
+
+  - id: f2_cfo_positive
+    name: 净利润为正（银行不用 CFO，用归母净利润）
+    formula: net_income_attributable > 0
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: profitability
+    notes: 银行经营性现金流概念与工业不同，用归母净利润替代
+
+  - id: f3_roa_growth
+    name: ROA 同比改善
+    formula: yoy(roa_bank) > 0
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: profitability
+
+  - id: f4_nim_stable_or_growing
+    name: 净息差(NIM) 稳定或扩张
+    formula: yoy(nim) >= -0.001                    # 允许 ±10bp 波动
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: profitability
+    data_source: 自计算（利息收入-利息支出）/平均生息资产
+    notes: 替代原版"应计质量"项；银行核心盈利来源
+
+  # ===== 维度 B：监管资本 / 资产质量（3 分）替换 =====
+  - id: f5_cet1_improvement
+    name: CET1 核心一级资本充足率改善
+    formula: yoy(cet1_ratio) >= 0
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: capital
+    data_source: 银行年报"资本充足率附表"
+    notes: |
+      监管底线 7.5%；优秀银行 ≥ 10%；
+      替代原版"长期负债率下降"
+
+  - id: f6_npl_decrease
+    name: 不良贷款率下降
+    formula: yoy(npl_ratio) < 0
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: capital
+    data_source: 银行年报"贷款五级分类"
+    notes: 替代原版"流动比率改善"
+
+  - id: f7_no_dilution
+    name: 无股本稀释
+    formula: shares_outstanding(t) <= shares_outstanding(t-1)
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: capital
+    notes: 银行常通过定增募资补充资本，要警惕；保留原版
+
+  # ===== 维度 C：经营效率（2 分）替换 =====
+  - id: f8_cost_income_ratio_improvement
+    name: 成本收入比改善（下降）
+    formula: yoy(cost_income_ratio) < 0
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: efficiency
+    data_source: 自计算 业务管理费/营业收入
+    notes: |
+      银行核心效率指标；优秀银行 < 30%
+      替代原版"毛利率扩张"
+
+  - id: f9_provision_coverage_strong
+    name: 拨备覆盖率充足（≥ 200% 或同比上升）
+    formula: provision_coverage_ratio >= 2.0 OR yoy(provision_coverage_ratio) > 0
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: efficiency
+    data_source: 银行年报
+    notes: |
+      监管底线 150%；优秀银行 ≥ 300%
+      替代原版"资产周转率改善"
+      高拨备 = 抗风险缓冲厚
+
+# A 股银行适配性
+expected_a_share_fit:
+  - 12_招商银行: 7-9       # 头部银行，CET1/NPL/拨备均优秀
+
+# 数据来源备注
+data_source_notes:
+  cet1_ratio: 资本充足率三级体系，用核心一级资本充足率
+  nim: 通常财报披露为"净利息收益率"
+  npl_ratio: 不良贷款余额/贷款总额
+  cost_income_ratio: 业务及管理费/营业收入
+  provision_coverage_ratio: 贷款损失准备/不良贷款余额
+  reference: 银保监会披露的银行业季度数据
+
+knowledge_reference:
+  - ../../01_knowledge/03_投资策略与选股/07_量化体检法.md
+  - ../../02_companies/12_招商银行/

@@ -1,0 +1,107 @@
+master: damodaran
+master_cn: 阿斯沃斯·达莫达兰
+method: 两阶段 DCF 估值
+score_type: composite
+description: |
+  DCF 估值法 — "故事 → 数字 → 估值"三步法。
+  不是评分而是估值，输出每股内在价值区间。
+  PE/PB 都是 DCF 的简化推论；DCF 是回答"为什么值这个价"的根本工具。
+
+output_type: valuation_range          # 估值不是单点，是区间
+output_view: v_dcf_valuation
+
+# 三阶段架构（A 股标准两阶段 + 永续）
+model:
+  type: two_stage_dcf
+  forecast_years: 5                   # 显性预测期（高速/中速增长）
+  perpetual: true                     # 永续阶段
+  formula: |
+    EV = Σ(t=1..n) FCF_t/(1+WACC)^t + TV/(1+WACC)^n
+    TV = FCF_(n+1) / (WACC - g)
+    Equity = EV - net_debt
+    intrinsic_per_share = Equity / shares_outstanding
+
+# A 股 2026 年默认参数
+default_params_a_share:
+  rf: 0.023                           # 10 年期国债收益率
+  erp: 0.065                          # A 股股权风险溢价（Damodaran 官网中国数据）
+  perpetual_g: 0.025                  # 永续增长率（接近长期 GDP）
+  tax_rate_normal: 0.25               # 一般企业税率
+  tax_rate_hightech: 0.15             # 高新技术企业
+
+# 公司分类 → 公式选择
+company_classification:
+  steady_mature:
+    description: 稳态成熟（增长稳定）
+    formula: single_stage_gordon       # 单阶段 Gordon
+    examples: [06_贵州茅台, 12_招商银行, 07_美的集团, 13_伊利股份]
+    growth_rate: 0.05-0.08
+
+  high_growth:
+    description: 高速增长期
+    formula: two_stage_dcf              # 两阶段 DCF
+    examples: [10_比亚迪, 16_宁德时代, 14_中际旭创, 03_蜜雪集团]
+    growth_rate: 0.15-0.25
+    fade_to: 0.05                       # 终值前回落到稳态增长
+
+  cyclical:
+    description: 周期股（用跨周期平均）
+    formula: cross_cycle_average_dcf
+    examples: [02_三美股份, 05_中国中车]
+    fcf_input: rolling_avg(fcf, 7)      # 7 年平均
+
+  financial:
+    description: 金融股 → 不适用 DCF
+    formula: ddm_or_rim                 # DDM / 剩余收益模型
+    examples: [12_招商银行, 01_新华保险]
+    note: DCF 不适合，改用 DDM 或 RIM
+
+# WACC 行业默认值（A 股）
+wacc_by_industry:
+  消费白马: 0.075
+  公用事业: 0.065
+  传统制造业: 0.085
+  科技成长: 0.10
+  新能源: 0.095
+  医药: 0.085
+  default: 0.085
+
+# 敏感性分析（强制输出 3×3 矩阵）
+sensitivity_analysis:
+  enabled: true
+  required: true                       # DCF 单点估值不可用，必须输出区间
+  axes:
+    wacc: [-0.01, 0, +0.01]            # WACC ±1%
+    perpetual_g: [-0.005, 0, +0.005]   # g ±0.5%
+  output: 3x3 矩阵 + 估值区间
+
+# 安全边际计算
+safety_margin:
+  formula: (intrinsic_value - market_price) / intrinsic_value
+  thresholds:
+    strong_buy: 0.40                   # > 40% 折价 → 强烈买入
+    buy: 0.20                          # 20-40% 折价 → 买入
+    hold: -0.10                        # -10%~+20% → 持有
+    sell: -0.30                        # > 30% 溢价 → 卖出
+
+# A 股不适用清单
+exclude_industries:
+  - 银行                               # 用 DDM/RIM
+  - 保险                               # 用内含价值法
+  - 房地产                             # 用 NAV
+  - 早期亏损公司                       # 用 VC 估值法
+
+# Damodaran 三大警告（不可忽视）
+warnings:
+  - id: garbage_in_garbage_out
+    msg: 输入假设错了，输出再精确也是错的；永远输出区间
+  - id: not_for_story_stocks
+    msg: 没有稳定盈利的成长股，DCF 失效
+  - id: do_not_reverse_engineer
+    msg: 不要用"我觉得值 X 元"反推假设 — 这是自我验证
+
+# 数据源参考
+external_resources:
+  damodaran_official: https://pages.stern.nyu.edu/~adamodar/
+  erp_country_data: 每月更新各国股权风险溢价
+  beta_industry_data: 每月更新各行业 Beta

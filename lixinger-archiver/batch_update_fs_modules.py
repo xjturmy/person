@@ -207,43 +207,38 @@ def update_company_fs(
             for old in d.glob(f"{company.name}_{suffix}_合并报表_*.md"):
                 old.unlink(missing_ok=True)
 
-    # 按模块分组，每模块一次 API 请求（4次代替14次）
-    modules: dict[str, list] = {}
-    for spec in specs:
-        modules.setdefault(spec[0], []).append(spec)
+    # 4 个模块共享同一 fs/{category} URL,合并到一次 API 请求(1 次代替原来的 4 次)
+    seen: set[str] = set()
+    metrics: list[str] = []
+    for _, _, value_metric, yoy_metric, _, _ in specs:
+        for m in (value_metric, yoy_metric):
+            if m and m not in seen:
+                seen.add(m)
+                metrics.append(m)
 
-    for mod, mod_specs in modules.items():
-        seen: set[str] = set()
-        metrics: list[str] = []
-        for _, _, value_metric, yoy_metric, _, _ in mod_specs:
-            for m in (value_metric, yoy_metric):
-                if m and m not in seen:
-                    seen.add(m)
-                    metrics.append(m)
+    payload = {
+        "token": token,
+        "stockCodes": [company.stock],
+        "startDate": start_date,
+        "endDate": end_date,
+        "metricsList": metrics,
+    }
+    rows = post_api(url, payload)
 
-        payload = {
-            "token": token,
-            "stockCodes": [company.stock],
-            "startDate": start_date,
-            "endDate": end_date,
-            "metricsList": metrics,
-        }
-        rows = post_api(url, payload)
-
+    for mod, suffix, value_metric, yoy_metric, value_col, yoy_col in specs:
         out_dir = root / mod
         out_dir.mkdir(parents=True, exist_ok=True)
-        for _, suffix, value_metric, yoy_metric, value_col, yoy_col in mod_specs:
-            out_name = f"{company.name}_{suffix}_合并报表_{ts}.csv"
-            out_csv = out_dir / out_name
-            write_series_csv(
-                out_path=str(out_csv),
-                rows=rows,
-                value_metric=value_metric,
-                value_col=value_col,
-                yoy_metric=yoy_metric,
-                yoy_col=yoy_col,
-            )
-            write_md_sidecar(out_csv)
+        out_name = f"{company.name}_{suffix}_合并报表_{ts}.csv"
+        out_csv = out_dir / out_name
+        write_series_csv(
+            out_path=str(out_csv),
+            rows=rows,
+            value_metric=value_metric,
+            value_col=value_col,
+            yoy_metric=yoy_metric,
+            yoy_col=yoy_col,
+        )
+        write_md_sidecar(out_csv)
 
 
 def main() -> None:

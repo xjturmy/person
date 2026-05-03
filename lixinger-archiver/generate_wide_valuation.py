@@ -160,6 +160,12 @@ def main() -> None:
     p.add_argument("--out-dir", required=True, help="输出目录（公司档案库/01_估值分析）")
     p.add_argument("--years", type=int, default=10, help="回溯年数（默认10）")
     p.add_argument("--clean-existing", action="store_true", help="写入前清理该目录下旧的同类宽表CSV")
+    p.add_argument(
+        "--metrics-preset",
+        default="full",
+        choices=["full", "core3"],
+        help="指标预设：full=5 估值核心+全部分位点(默认,与历史一致);core3=只保留 PE-TTM/PB/PS-TTM 及其分位点",
+    )
     args = p.parse_args()
 
     token = resolve_lixinger_token(args.token)
@@ -175,38 +181,15 @@ def main() -> None:
     start = start_d.strftime("%Y-%m-%d")
     end = end_d.strftime("%Y-%m-%d")
 
-    metrics = [
-        "sp",
-        "mc",
-        "cmc",
-        "ecmc",
-        "pe_ttm",
-        "pe_ttm.y10.cvpos",
-        "pe_ttm.y10.q8v",
-        "pe_ttm.y10.q5v",
-        "pe_ttm.y10.q2v",
-        "d_pe_ttm",
-        "d_pe_ttm.y10.cvpos",
-        "d_pe_ttm.y10.q8v",
-        "d_pe_ttm.y10.q5v",
-        "d_pe_ttm.y10.q2v",
-        "pb",
-        "pb.y10.cvpos",
-        "pb.y10.q8v",
-        "pb.y10.q5v",
-        "pb.y10.q2v",
-        "pb_wo_gw",
-        "pb_wo_gw.y10.cvpos",
-        "pb_wo_gw.y10.q8v",
-        "pb_wo_gw.y10.q5v",
-        "pb_wo_gw.y10.q2v",
-        "ps_ttm",
-        "ps_ttm.y10.cvpos",
-        "ps_ttm.y10.q8v",
-        "ps_ttm.y10.q5v",
-        "ps_ttm.y10.q2v",
-        "dyr",
-    ]
+    base_keys_full = ["pe_ttm", "d_pe_ttm", "pb", "pb_wo_gw", "ps_ttm"]
+    base_keys_core3 = ["pe_ttm", "pb", "ps_ttm"]
+    base_keys = base_keys_core3 if args.metrics_preset == "core3" else base_keys_full
+
+    metrics = ["sp", "mc", "cmc", "ecmc"]
+    for k in base_keys:
+        metrics.append(k)
+        metrics.extend([f"{k}.y10.cvpos", f"{k}.y10.q8v", f"{k}.y10.q5v", f"{k}.y10.q2v"])
+    metrics.append("dyr")
 
     rows = fetch_dataset(token=token, stock=args.stock, start=start, end=end, metrics=metrics)
     os.makedirs(args.out_dir, exist_ok=True)
@@ -228,7 +211,7 @@ def main() -> None:
                 old.unlink(missing_ok=True)
 
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    mapping = [
+    mapping_full = [
         ("pe_ttm", "PE-TTM", True, f"{args.name}_PE-TTM_{ts}.csv"),
         ("d_pe_ttm", "PE-TTM(扣非)", True, f"{args.name}_Deduction of PE-TTM_{ts}.csv"),
         ("pb", "PB", True, f"{args.name}_PB_{ts}.csv"),
@@ -236,6 +219,7 @@ def main() -> None:
         ("ps_ttm", "PS-TTM", True, f"{args.name}_PS-TTM_{ts}.csv"),
         ("dyr", "股息率", False, f"{args.name}_Dividend Yield Ratio_{ts}.csv"),
     ]
+    mapping = [m for m in mapping_full if m[0] in (*base_keys, "dyr")]
 
     for key, label, with_stats, filename in mapping:
         out_p = os.path.join(args.out_dir, filename)

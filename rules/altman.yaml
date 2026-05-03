@@ -1,0 +1,92 @@
+master: altman
+master_cn: 爱德华·阿特曼
+method: Z-Score 破产预警
+score_type: continuous
+description: |
+  破产预警法 — 5 项财务比率合成的破产概率指标。
+  非选股工具，是绝对回避名单过滤器。
+  原论文：破产前 1 年准确率 95%，前 2 年 72%。
+
+# 提供两套公式：原版 Z（制造业）+ Z'' （非制造业，A 股推荐）
+formulas:
+  z_original:
+    name: Z-Score 原版（制造业上市公司）
+    formula: 1.2*A + 1.4*B + 3.3*C + 0.6*D + 1.0*E
+    threshold:
+      safe: 2.99       # > 2.99 安全
+      gray: 1.81       # 1.81-2.99 灰色
+      # < 1.81 危险
+
+  z_double_prime:
+    name: Z''-Score（非制造业 / 新兴市场推荐）
+    formula: 6.56*A + 3.26*B + 6.72*C + 1.05*D_prime
+    threshold:
+      safe: 2.6        # > 2.6 安全
+      gray: 1.1        # 1.1-2.6 灰色
+      # < 1.1 危险
+    a_share_recommendation: true   # A 股推荐用此版本
+
+# 变量定义
+variables:
+  A:
+    name: 营运资金 / 总资产
+    formula: (current_assets - current_liabilities) / total_assets
+    data_source: safety
+  B:
+    name: 留存收益 / 总资产
+    formula: retained_earnings / total_assets
+    data_source: profitability + safety
+  C:
+    name: EBIT / 总资产
+    formula: ebit / total_assets
+    data_source: profitability + safety
+  D:
+    name: 股票市值 / 总负债（原版）
+    formula: market_cap / total_liabilities
+    data_source: valuation + safety
+  D_prime:
+    name: 账面权益 / 总负债（Z'' 用）
+    formula: book_equity / total_liabilities
+    data_source: safety
+  E:
+    name: 营业收入 / 总资产
+    formula: revenue / total_assets
+    data_source: profitability + safety
+
+# 行业映射 → 公式选择
+industry_formula_mapping:
+  传统制造业: z_original
+  消费品: z_double_prime
+  医药: z_double_prime
+  新能源: z_double_prime
+  科技: z_double_prime
+  default: z_double_prime         # A 股默认 Z''
+
+# 不适用行业 → 跳过
+exclude_industries:
+  - 银行         # 用 CAR 资本充足率替代
+  - 保险         # 用偿付能力充足率替代
+  - 房地产       # 存货周转异常
+
+# 复合预警信号（命中 ≥ 3 项 → 立即清出股票池）
+critical_warning_combo:
+  trigger_count: 3
+  signals:
+    - id: z_danger
+      condition: z_score < threshold.gray
+    - id: piotroski_low
+      condition: piotroski_f_score < 3
+      reference: piotroski.yaml
+    - id: high_leverage
+      condition: total_liabilities / total_assets > 0.80
+      data_source: safety
+    - id: cfo_negative_2y
+      condition: cfo(t) < 0 AND cfo(t-1) < 0
+      data_source: cashflow
+
+# 输出格式
+output:
+  view_name: v_altman
+  fields: [ticker, date, z_score, formula_used, rating]
+  ratings: [safe, gray, danger]
+  alert_threshold: gray            # 跌破灰色区即标黄

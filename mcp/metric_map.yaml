@@ -1,0 +1,73 @@
+# 指标名 → 数据文件和列名的映射
+# 格式：alias: {file: CSV文件名(无扩展名), col: 列名}
+# DuckDB 后端已启用，file 对应 table、col 对应列名（保留中文原列名以匹配 ingest）
+
+valuation:
+  pe_ttm:           {file: 估值, col: "PE-TTM"}
+  pe_ttm_pct:       {file: 估值, col: "PE-TTM_分位点"}
+  pb:               {file: 估值, col: "PB"}
+  pb_pct:           {file: 估值, col: "PB_分位点"}
+  ps_ttm:           {file: 估值, col: "PS-TTM"}
+  ps_ttm_pct:       {file: 估值, col: "PS-TTM_分位点"}
+  dividend_yield:   {file: 估值, col: "股息率"}
+  pe_ex_ttm:        {file: 估值, col: "PE-TTM(扣非)"}
+  pe_ex_ttm_pct:    {file: 估值, col: "PE-TTM(扣非) 分位点"}
+
+profitability:
+  net_margin:       {file: 盈利, col: "净利润率"}
+  roa:              {file: 盈利, col: "总资产收益率(ROA)"}
+  gross_margin:     {file: 盈利, col: "毛利率(GM)"}
+  roe:              {file: 盈利, col: "净资产收益率(ROE)"}
+
+growth:
+  revenue:          {file: 成长, col: "营业收入"}
+  net_profit:       {file: 成长, col: "归属于母公司普通股股东的净利润"}
+  eps:              {file: 成长, col: "基本每股收益"}
+  yoy:              {file: 成长, col: "累积同比"}
+
+cashflow:
+  fcf:              {file: 现金流, col: "自由现金流量"}
+  cfo:              {file: 现金流, col: "经营活动产生的现金流量净额"}
+  cfo_to_profit:    {file: 现金流, col: "经营活动产生的现金流量净额对净利润的比率"}
+
+safety:
+  debt_ratio:       {file: 安全性, col: "资产负债率"}
+  quick_ratio:      {file: 安全性, col: "速动比率"}
+  current_ratio:    {file: 安全性, col: "流动比率"}
+  interest_debt:    {file: 安全性, col: "有息负债率"}
+
+# 快速别名（中文 → alias）
+aliases:
+  市盈率: pe_ttm
+  PE: pe_ttm
+  PE-TTM: pe_ttm
+  PETTM: pe_ttm
+  PE分位: pe_ttm_pct
+  PE-TTM_分位点: pe_ttm_pct
+  市净率: pb
+  PB: pb
+  PB分位: pb_pct
+  PB_分位点: pb_pct
+  市销率: ps_ttm
+  PS: ps_ttm
+  PS-TTM: ps_ttm
+  PS分位: ps_ttm_pct
+  PS-TTM_分位点: ps_ttm_pct
+  扣非PE: pe_ex_ttm
+  PE-TTM(扣非): pe_ex_ttm
+  扣非PE分位: pe_ex_ttm_pct
+  PE-TTM(扣非)_分位点: pe_ex_ttm_pct
+  股息率: dividend_yield
+  ROE: roe
+  ROA: roa
+  毛利率: gross_margin
+  净利润率: net_margin
+  营业收入: revenue
+  净利润: net_profit
+  EPS: eps
+  自由现金流: fcf
+  经营现金流: cfo
+  资产负债率: debt_ratio
+  速动比率: quick_ratio
+  流动比率: current_ratio
+  有息负债率: interest_debt

@@ -1,0 +1,96 @@
+master: greenblatt
+master_cn: 乔尔·格林布拉特
+method: Magic Formula 神奇公式（双因子排名）
+score_type: rank
+description: |
+  神奇公式 — 仅用 2 个指标排序选股：ROIC（好生意）+ Earnings Yield（便宜）
+  原版回测 1988-2004 美股年化 30.8%，是 S&P 500 同期的 2.5 倍。
+  极简，但威力在全市场扫描，不限于 15 家自选池。
+
+# 原版固定取前 30 只，A 股可调整
+output_top_n: 30
+rebalance_freq: yearly             # A 股可改为 6_months
+universe: all_a_share              # 全 A 股扫描，不限自选
+
+# 排除清单（必须先过滤）
+exclude_filters:
+  industries:
+    - 银行
+    - 保险
+    - 证券
+    - 电力
+    - 燃气
+    - 水务
+  others:
+    - condition: "name LIKE 'ST%' OR name LIKE '*ST%'"
+      reason: ST/退市风险股
+    - condition: "list_age_years < 3"
+      reason: 上市不足 3 年（次新股）
+    - condition: "market_cap < 5e9"
+      reason: 市值 < 50 亿元（流动性不足）
+
+# 双因子定义
+factors:
+  roic:
+    name: 投入资本回报率（衡量"好生意"）
+    formula: ebit / invested_capital
+    invested_capital_def: net_working_capital + net_fixed_assets
+    a_share_ebit_proxy: operating_profit + interest_expense + d_a
+    notes: A 股财报无 EBIT 直接科目 → 用营业利润+利息+折旧摊销代替
+
+  earnings_yield:
+    name: 盈利收益率（衡量"便宜"）
+    formula: ebit / enterprise_value
+    ev_formula: market_cap + total_liabilities - cash
+    notes: 升级版 PE 倒数（考虑了债务）
+
+# 排名合成
+ranking:
+  step_1: 全市场按 ROIC 降序排名 → Rank_ROIC
+  step_2: 全市场按 EY 降序排名 → Rank_EY
+  step_3: Combined = Rank_ROIC + Rank_EY
+  step_4: Combined 升序 → 取前 N
+
+# 双重过滤（避免价值陷阱，A 股推荐增强）
+double_filter:
+  enabled: true
+  conditions:
+    - rule_ref: piotroski.yaml
+      min_score: 6
+      reason: 排除经营恶化的低估值陷阱
+    - rule_ref: altman.yaml
+      min_z_double_prime: 1.1
+      reason: 排除破产风险股
+
+# 实现伪代码（DuckDB）
+sql_template: |
+  WITH base AS (
+    SELECT
+      ticker, date,
+      operating_profit + interest_expense + d_a AS ebit,
+      (current_assets - current_liabilities) + fixed_assets_net AS invested_capital,
+      market_cap + total_liabilities - cash AS ev
+    FROM v_company_yearly
+    WHERE industry NOT IN ('银行','保险','证券','电力','燃气','水务')
+      AND market_cap > 5e9
+      AND name NOT LIKE 'ST%'
+  ),
+  ranked AS (
+    SELECT
+      ticker, date,
+      ebit / NULLIF(invested_capital, 0) AS roic,
+      ebit / NULLIF(ev, 0) AS earnings_yield,
+      RANK() OVER (PARTITION BY date ORDER BY ebit/NULLIF(invested_capital,0) DESC) AS rank_roic,
+      RANK() OVER (PARTITION BY date ORDER BY ebit/NULLIF(ev,0) DESC) AS rank_ey
+    FROM base
+  )
+  SELECT *, rank_roic + rank_ey AS combined_rank
+  FROM ranked
+  ORDER BY date DESC, combined_rank ASC
+  LIMIT 30;
+
+# 与本项目 15 家自选池的关系
+project_integration:
+  primary_use: 全市场新候选股发现
+  secondary_use: 验证 15 家自选公司是否仍在前 50 名内
+  output_view: v_magic_formula_yearly

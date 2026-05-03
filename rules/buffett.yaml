@@ -1,0 +1,95 @@
+master: buffett
+master_cn: 沃伦·巴菲特
+method: Owner Earnings + 5 项护城河门槛
+score_type: composite
+max_score: 10
+description: |
+  巴菲特价值确认法 — 用 Owner Earnings（所有者收益）替代净利润，
+  叠加 5 项护城河门槛（ROE / 负债 / 留存回报 / 回购 / 增长）。
+
+  核心思想：好生意（高 ROE 长期可持续）+ 好价格（OE 视角不贵）+ 好管理（资本配置高效）
+
+threshold:
+  excellent: 8     # 8-10 分：核心持仓
+  good: 6          # 6-7 分：观察池
+  warning: 4       # 4-5 分：谨慎
+  # < 4 分：不在巴菲特视野内
+
+exclude_industries:
+  - 银行           # 用 DDM/PB-ROE 替代
+  - 保险           # 用内含价值法替代
+  - 高研发科技     # R&D 资本化扭曲 OE
+
+rules:
+  - id: oe_growth
+    name: Owner Earnings 10 年复合增长率 ≥ 10%
+    formula: cagr(owner_earnings, 10) >= 0.10
+    weight: 2
+    pass_condition: ">= 10%"
+    score_if_pass: 2
+    score_if_fail: 0
+    data_source: 自计算 (net_income + d_a - maint_capex - dwc)
+    notes: |
+      简化版维持性 CapEx ≈ D&A；
+      数据不足 10 年时回退到 5 年 CAGR ≥ 12%
+
+  - id: roe_consistency
+    name: ROE 连续 10 年 ≥ 15%
+    formula: min(rolling(roe, 10)) >= 0.15
+    weight: 2
+    pass_condition: 每年 ≥ 15%
+    score_if_pass: 2
+    score_if_fail: 0
+    data_source: profitability.roe
+    notes: 巴菲特"15% 复合增长"门槛核心
+
+  - id: low_leverage
+    name: 长期负债 / 净利润 ≤ 5
+    formula: long_term_debt / net_income <= 5
+    weight: 2
+    pass_condition: ≤ 5 倍
+    score_if_pass: 2
+    score_if_fail: 0
+    data_source: safety.long_term_debt + profitability.net_income
+    notes: 巴菲特原话"5 年净利润能还清的债务才是好债务"
+
+  - id: retained_earnings_return
+    name: 留存收益再投资回报 ≥ 12%
+    formula: |
+      (eps_t - eps_{t-10}) / sum(retained_eps_per_year[t-9..t-1]) >= 0.12
+    weight: 2
+    pass_condition: ≥ 12%
+    score_if_pass: 2
+    score_if_fail: 0
+    data_source: 自计算
+    notes: |
+      衡量管理层把留存收益再投资的效率；
+      公式：(EPS 增量) / (留存 EPS 之和) ≥ 12%
+
+  - id: capital_allocation
+    name: 资本配置偏好（回购 > 0 或 ROIC ≥ 15%）
+    formula: buyback_yield > 0 OR roic >= 0.15
+    weight: 2
+    pass_condition: 任一条件满足
+    score_if_pass: 2
+    score_if_fail: 0
+    data_source: profitability.roic + valuation.buyback_yield
+    notes: 巴菲特偏好回购的公司（说明管理层认为股价低估）
+
+# A 股 15 家公司预期分布（基于知识文档评估）
+expected_a_share_fit:
+  - 06_贵州茅台:    9-10  # ⭐⭐⭐⭐⭐
+  - 11_五粮液:      8-9
+  - 07_美的集团:    8-9
+  - 13_伊利股份:    7-8
+  - 03_蜜雪集团:    7-8
+  - 09_三花智控:    6-7
+  - 02_三美股份:    6-7
+  - 12_招商银行:    skip  # 行业排除
+  - 01_新华保险:    skip  # 行业排除
+  - 16_宁德时代:    4-6   # 周期成长，OE 失真
+  - 10_比亚迪:      4-6   # 同上
+  - 14_中际旭创:    skip  # 高研发科技排除
+  - 15_恒瑞医药:    skip  # 同上
+  - 05_中国中车:    5-6   # 周期股
+  - 08_立讯精密:    5-6
