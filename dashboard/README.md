@@ -1,4 +1,4 @@
-# preson 投研驾驶舱(Dashboard)
+# 投资智能体(Dashboard)
 
 > 维度 3 交互层产物。Streamlit 4-tab 看图 + 嵌入式 Claude 终端,数据源 DuckDB(CSV 兜底)。
 

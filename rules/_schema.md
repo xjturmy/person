@@ -110,4 +110,4 @@ def run_score(ticker: str, rule_file: str) -> dict:
 | `greenblatt.yaml` | Greenblatt | [09_神奇公式法.md](../../01_knowledge/03_投资策略与选股/09_神奇公式法.md) |
 | `damodaran.yaml` | Damodaran | [10_DCF估值法.md](../../01_knowledge/03_投资策略与选股/10_DCF估值法.md) |
 | `graham.yaml` | 格雷厄姆 | [01_价值投资法/](../../01_knowledge/03_投资策略与选股/01_价值投资法/) |
-| `lynch.yaml` | 彼得·林奇 | [02_成长投资法/](../../01_knowledge/03_投资策略与选股/02_成长投资法/) |
+| `lynch.yaml` | 彼得·林奇 | [02_彼得林奇投资法/](../../01_knowledge/03_投资策略与选股/02_彼得林奇投资法/) |

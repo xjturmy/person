@@ -1,12 +1,25 @@
 master: piotroski_bank
 master_cn: 约瑟夫·皮奥特罗斯基（银行业适配版）
-method: F-Score 9 项财务体检（银行业）
+method: F-Score 9 项财务体检（银行业，sina 派生指标版）
 score_type: binary
 max_score: 9
 description: |
-  Piotroski F-Score 银行业适配版 — 原版 F-Score 的"流动比率"、"毛利率"、
-  "资产周转率"在银行业不适用，本版本将这 5 项替换为银行核心监管指标：
-  CET1 资本充足率、NPL 不良率、净息差(NIM)、成本收入比、ROA(银行口径)。
+  Piotroski F-Score 银行业适配版 v2(2026-05-05) — 原版"流动比率"/"毛利率"/"资产周转率"
+  在银行业不适用，且原 v1 设计的 NIM/CET1/NPL/拨备覆盖率/成本收入比 5 项核心监管指标
+  在公开数据源（理杏仁/sina/akshare）中**部分硬阻塞**：
+    - ❌ NPL 不良贷款率 — sina BS 不分项披露
+    - ❌ CET1 核心一级资本充足率 — 银保监单独披露，需另爬
+    - ❌ 真实拨备覆盖率 — 缺 NPL 分母
+
+  v2 改用 **sina 财报派生代理**（[.tools/db/fetch_bank_metrics.py](../db/fetch_bank_metrics.py)）：
+    - provision_to_loans      = 减:贷款损失准备 / 发放贷款及垫款
+                                （3% 通常对应拨备覆盖率 200%+，可代理"拨备充足度"）
+    - net_interest_to_revenue = 净利息收入 / 营业收入
+                                （反映利息业务依赖度）
+    - net_interest_yoy        = yoy(净利息收入)
+                                （代理 NIM 改善方向，剔除规模效应需配合 loans_yoy 看）
+    - loans_yoy               = yoy(发放贷款及垫款)
+                                （规模扩张速度）
 
   适用：A 股上市银行（招商银行 / 工商银行 / 平安银行 等）
 
@@ -24,7 +37,7 @@ rules:
   # ===== 维度 A：盈利能力（4 分）保留原版 =====
   - id: f1_roa_positive
     name: ROA(银行口径) 为正
-    formula: roa_bank > 0
+    formula: roa > 0
     weight: 1
     score_if_pass: 1
     score_if_fail: 0
@@ -33,7 +46,7 @@ rules:
 
   - id: f2_cfo_positive
     name: 净利润为正（银行不用 CFO，用归母净利润）
-    formula: net_income_attributable > 0
+    formula: net_income > 0
     weight: 1
     score_if_pass: 1
     score_if_fail: 0
@@ -42,44 +55,52 @@ rules:
 
   - id: f3_roa_growth
     name: ROA 同比改善
-    formula: yoy(roa_bank) > 0
+    formula: yoy(roa) > 0
     weight: 1
     score_if_pass: 1
     score_if_fail: 0
     dimension: profitability
 
-  - id: f4_nim_stable_or_growing
-    name: 净息差(NIM) 稳定或扩张
-    formula: yoy(nim) >= -0.001                    # 允许 ±10bp 波动
+  - id: f4_net_interest_growth
+    name: 净利息收入同比增长（NIM 改善代理）
+    formula: net_interest_yoy > 0
     weight: 1
     score_if_pass: 1
     score_if_fail: 0
     dimension: profitability
-    data_source: 自计算（利息收入-利息支出）/平均生息资产
-    notes: 替代原版"应计质量"项；银行核心盈利来源
-
-  # ===== 维度 B：监管资本 / 资产质量（3 分）替换 =====
-  - id: f5_cet1_improvement
-    name: CET1 核心一级资本充足率改善
-    formula: yoy(cet1_ratio) >= 0
-    weight: 1
-    score_if_pass: 1
-    score_if_fail: 0
-    dimension: capital
-    data_source: 银行年报"资本充足率附表"
+    data_source: bank_metrics 表(.tools/db/fetch_bank_metrics.py 派生)
     notes: |
-      监管底线 7.5%；优秀银行 ≥ 10%；
-      替代原版"长期负债率下降"
+      v1 原项 = yoy(NIM) >= -0.001;v2 用 yoy(净利息收入) > 0 代理。
+      局限:正向但不剔除规模效应,需配合 loans_yoy 一起看(若净利息 yoy < loans yoy
+      实际 NIM 是收窄的)。已知误差范围:中央贴现率剧变期偏差大。
 
-  - id: f6_npl_decrease
-    name: 不良贷款率下降
-    formula: yoy(npl_ratio) < 0
+  # ===== 维度 B：监管资本 / 资产质量（3 分）改用派生代理 =====
+  - id: f5_provision_buffer_strong
+    name: 拨备/贷款比 ≥ 2.5%(代理"拨备覆盖率充足")
+    formula: provision_to_loans >= 0.025
     weight: 1
     score_if_pass: 1
     score_if_fail: 0
     dimension: capital
-    data_source: 银行年报"贷款五级分类"
-    notes: 替代原版"流动比率改善"
+    data_source: bank_metrics 表
+    notes: |
+      v1 原项 = yoy(CET1 资本充足率) >= 0;v2 用拨备/贷款比 >= 2.5% 代理风险缓冲。
+      置信:中。3% 对应拨备覆盖率约 200%(招行 2025Q4 = 3.64% / 拨备覆盖率 411%);
+      但与 CET1 不直接同构(CET1 看资本结构,拨备看信用储备)。
+      硬阻塞 CET1:需爬银保监会单独披露报表,出路 = 用户提供 / Tushare Pro / 跳过。
+
+  - id: f6_provision_increasing
+    name: 拨备/贷款比同比上升(代理"信用储备改善")
+    formula: yoy(provision_to_loans) > 0
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: capital
+    data_source: bank_metrics 表
+    notes: |
+      v1 原项 = yoy(NPL) < 0;v2 用 yoy(拨备/贷款比) > 0 代理(提高拨备 = 储备前置)。
+      局限:这与 NPL 改善是不同维度。NPL 真值无公开 API,硬阻塞。
+      出路同 f5。
 
   - id: f7_no_dilution
     name: 无股本稀释
@@ -90,45 +111,66 @@ rules:
     dimension: capital
     notes: 银行常通过定增募资补充资本，要警惕；保留原版
 
-  # ===== 维度 C：经营效率（2 分）替换 =====
-  - id: f8_cost_income_ratio_improvement
-    name: 成本收入比改善（下降）
-    formula: yoy(cost_income_ratio) < 0
+  # ===== 维度 C：经营效率（2 分）改用派生代理 =====
+  - id: f8_net_interest_share_stable
+    name: 净利息收入占营收比 ≥ 55%(银行业务结构稳定代理)
+    formula: net_interest_to_revenue >= 0.55
     weight: 1
     score_if_pass: 1
     score_if_fail: 0
     dimension: efficiency
-    data_source: 自计算 业务管理费/营业收入
+    data_source: bank_metrics 表
     notes: |
-      银行核心效率指标；优秀银行 < 30%
-      替代原版"毛利率扩张"
+      v1 原项 = yoy(成本收入比) < 0;v2 改用利息业务占比 >= 55%(招行 2025Q4 = 64%)。
+      置信:低-中。利息占比高不直接等于成本收入比改善,但能筛掉中收业务异常激进
+      或非利息收入波动过大的银行。
+      硬阻塞成本收入比:需"业务及管理费"分项,sina IS 不直接列。
 
-  - id: f9_provision_coverage_strong
-    name: 拨备覆盖率充足（≥ 200% 或同比上升）
-    formula: provision_coverage_ratio >= 2.0 OR yoy(provision_coverage_ratio) > 0
+  - id: f9_loans_growth_healthy
+    name: 贷款规模 yoy 在 [3%, 15%] 健康区间
+    formula: loans_yoy >= 0.03 AND loans_yoy <= 0.15
     weight: 1
     score_if_pass: 1
     score_if_fail: 0
     dimension: efficiency
-    data_source: 银行年报
+    data_source: bank_metrics 表
     notes: |
-      监管底线 150%；优秀银行 ≥ 300%
-      替代原版"资产周转率改善"
-      高拨备 = 抗风险缓冲厚
+      v1 原项 = 拨备覆盖率 >= 200% OR yoy 上升;v2 改用贷款增速健康度。
+      < 3% 增长乏力 / > 15% 扩张过激风险偏好上升;招行常年 5-7% 健康区间。
+      置信:中。
 
 # A 股银行适配性
 expected_a_share_fit:
-  - 12_招商银行: 7-9       # 头部银行，CET1/NPL/拨备均优秀
+  - 12_招商银行: 6-8       # 头部银行;v2 派生代理保守估计区间略低于 v1 真值
 
-# 数据来源备注
+# 数据来源备注 (v2)
 data_source_notes:
-  cet1_ratio: 资本充足率三级体系，用核心一级资本充足率
-  nim: 通常财报披露为"净利息收益率"
-  npl_ratio: 不良贷款余额/贷款总额
-  cost_income_ratio: 业务及管理费/营业收入
-  provision_coverage_ratio: 贷款损失准备/不良贷款余额
-  reference: 银保监会披露的银行业季度数据
+  derived_metrics: bank_metrics 表(.tools/db/fetch_bank_metrics.py)
+  sina_endpoint: ak.stock_financial_report_sina(stock=sh{ticker}, symbol=资产负债表/利润表)
+  hard_blocked:
+    - NPL 不良贷款率
+    - CET1 核心一级资本充足率
+    - 真实拨备覆盖率(分母 NPL 缺)
+    - 成本收入比(业务及管理费分项缺)
+  unblock_paths:
+    - 用户提供理杏仁 fs/bank metric 字典
+    - Tushare Pro 银行专题接口(需付费 token)
+    - 爬银保监会季度数据公告
+    - 各行年报披露的"资本充足率附表"PDF 解析
 
 knowledge_reference:
   - ../../01_knowledge/03_投资策略与选股/07_量化体检法.md
   - ../../02_companies/12_招商银行/
+
+# v2 vs v1 改动审计 (2026-05-05 P3 部分解锁)
+changelog:
+  - date: "2026-05-05"
+    version: v2
+    note: |
+      P3 部分解锁:NIM/CET1/NPL/真实拨备覆盖率/成本收入比 5 项硬阻塞改用派生代理。
+      f4 NIM stable → 净利息收入 yoy(置信 中)
+      f5 CET1 改善 → 拨备/贷款 ≥ 2.5%(置信 中)
+      f6 NPL 下降  → yoy(拨备/贷款) > 0(置信 低-中,方向不同维度)
+      f8 成本收入比 → 净利息收入占比 ≥ 55%(置信 低-中)
+      f9 拨备覆盖率 → 贷款 yoy 健康区间(置信 中)
+      v1 真值版规则保留在 git 历史(此前 commit),用户拿到字典后可还原。

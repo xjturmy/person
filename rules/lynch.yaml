@@ -131,7 +131,7 @@ industry_first_classify: true     # 必须先分类，再套规则
 
 # 与项目知识库对照
 knowledge_reference:
-  - ../../01_knowledge/03_投资策略与选股/02_成长投资法/01_彼得林奇六类判断.md
+  - ../../01_knowledge/03_投资策略与选股/02_彼得林奇投资法/01_六类公司分类法.md
 
 # 关键提醒
 warnings:

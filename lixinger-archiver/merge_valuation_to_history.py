@@ -14,12 +14,14 @@ from pathlib import Path
 import pandas as pd
 
 # 目标 历史数据/估值.csv 列顺序(参考老格式,但 core3 仅含 PE-TTM/PB/PS-TTM/股息率)
+# 2026-05-06:加入"市值(元)"以解锁 graham/lynch/buffett 的市值阈值规则
 TARGET_COLS = [
     "date",
     "PE-TTM", "PE-TTM_分位点", "PE-TTM_80%分位点值", "PE-TTM_50%分位点值", "PE-TTM_20%分位点值",
     "股息率",
     "PS-TTM", "PS-TTM_分位点", "PS-TTM_80%分位点值", "PS-TTM_50%分位点值", "PS-TTM_20%分位点值",
     "PB", "PB_分位点", "PB_80%分位点值", "PB_50%分位点值", "PB_20%分位点值",
+    "市值(元)",
 ]
 
 # 文件名模式 → (核心列前缀, 是否带分位点)
@@ -63,6 +65,10 @@ def load_one(csv_path: Path, prefix: str, with_quantile: bool) -> pd.DataFrame:
             if src in df.columns:
                 out[tgt] = df[src].map(strip_excel_eq)
 
+    # 市值列(每个 wide CSV 都带,只在 PE-TTM 文件取一次,其他文件留空避免冲突)
+    if prefix == "PE-TTM" and "市值(元)" in df.columns:
+        out["市值(元)"] = df["市值(元)"].map(strip_excel_eq)
+
     return out
 
 
@@ -104,6 +110,21 @@ def process_company(folder: Path, name: str, dry_run: bool = False) -> tuple[int
     history_dir = base / "历史数据"
     history_dir.mkdir(exist_ok=True)
     target = history_dir / "估值.csv"
+
+    # outer-merge with existing: 新数据覆盖同 date,旧 date 保留 + 列做 outer-join 不丢
+    if target.exists():
+        old = pd.read_csv(target)
+        # 新数据日期范围内的行视为权威 → 从 old 删掉重叠 date 后再 concat
+        new_dates = set(merged["date"].astype(str))
+        old_keep = old[~old["date"].astype(str).isin(new_dates)]
+        # outer-concat 让两边都有的列对齐,各自独有列也保留
+        combined = pd.concat([merged, old_keep], ignore_index=True, sort=False)
+        # 列顺序:目标列 first,其他列追加
+        target_first = [c for c in TARGET_COLS if c in combined.columns]
+        extra = [c for c in combined.columns if c not in target_first]
+        combined = combined[target_first + extra]
+        combined = combined.sort_values("date", ascending=False).reset_index(drop=True)
+        merged = combined
 
     if not dry_run:
         merged.to_csv(target, index=False)

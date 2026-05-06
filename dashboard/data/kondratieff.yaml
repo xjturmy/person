@@ -1,0 +1,36 @@
+# 康波周期定位 — 静态配置(每年人工更新一次)
+#
+# 数据源:
+#   01_knowledge/01_宏观周期与资产配置/01_康波周期投资框架.md
+#   01_knowledge/01_宏观周期与资产配置/03_康波周期观察清单.md
+#
+# 用法:
+#   .tools/dashboard/tabs/market.py  _section_kondratieff_card()
+#   读取本 yaml 渲染区块 ① "康波周期定位卡"
+---
+cycle: 第五次康波(信息技术驱动)
+phase: 萧条期中后段
+phase_range: "2020 - 2030/35"
+phase_emoji: "🔴"
+
+core_conflicts:
+  - "🔴 旧动能衰竭:互联网红利耗尽 / 全球化退潮 / 房地产见顶"
+  - "🌱 新动能孕育:AI / 新能源 / 生物技术萌芽"
+  - "⚠️ 类滞胀环境:低增长 + 中高通胀 + 高债务"
+
+strategy_summary: 防御为主 65-75% / 现金 ≥25% / 安全边际提至 30%
+equity_target_pct: 25      # 进攻权益占比下限(%) — 用于 banner 综合信号
+equity_target_pct_max: 35  # 进攻权益占比上限(%)
+
+key_node:
+  date: "2030 前后"
+  description: "观察 AI 生产率验证 + 可控核聚变工程突破 + 第六次康波回升期信号"
+
+phases_table:
+  - {name: 繁荣期, range: "1991-2004", driver: "互联网兴起 / 全球化高潮"}
+  - {name: 衰退期, range: "2004-2020", driver: "2008 金融危机 / 2015 动荡"}
+  - {name: 萧条期, range: "2020-2030/35", driver: "疫情 / 高通胀 / 地缘冲突 / 债务高企", current: true}
+  - {name: 回升期, range: "2030/35-?", driver: "AI 商用化 / 新动能爆发"}
+
+last_updated: "2026-05-05"
+source_md: "01_knowledge/01_宏观周期与资产配置/01_康波周期投资框架.md"

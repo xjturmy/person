@@ -33,12 +33,21 @@ DUCKDB_METRIC_MAP: dict[str, list[tuple[str, str]]] = {
         ("净资产收益率(ROE)", "roe"),
         ("毛利率(GM)", "gross_margin"),
         ("净利润率", "net_margin"),
+        # P2 新增 2026-05-06
+        ("资本回报率(ROIC)", "roic"),
     ],
     "safety": [
         ("资产负债率", "debt_ratio"),
         ("流动比率", "current_ratio"),
         ("速动比率", "quick_ratio"),
         ("有息负债率", "interest_debt_ratio"),
+        # P2 BS 聚合 2026-05-06 — graham/buffett/altman/lynch 必需
+        ("资产合计", "total_assets"),
+        ("负债合计", "total_liabilities"),
+        ("所有者权益合计", "book_equity"),
+        ("流动资产合计", "current_assets"),
+        ("流动负债合计", "current_liabilities"),
+        ("长期负债合计", "long_term_debt"),
     ],
     "growth": [
         ("营业收入", "revenue"),
@@ -55,6 +64,16 @@ DUCKDB_METRIC_MAP: dict[str, list[tuple[str, str]]] = {
         ("PB", "pb"),
         ("PS-TTM", "ps_ttm"),
         ("股息率", "dividend_yield"),
+        # P2 市值 2026-05-06 — graham g1_size 必需
+        ("市值(元)", "market_cap"),
+    ],
+    # 银行业派生指标 (P3 部分解锁,2026-05-05)
+    # 由 .tools/db/fetch_bank_metrics.py 从 sina BS+IS 派生写入
+    "bank_metrics": [
+        ("provision_to_loans", "provision_to_loans"),
+        ("net_interest_to_revenue", "net_interest_to_revenue"),
+        ("net_interest_yoy", "net_interest_yoy"),
+        ("loans_yoy", "loans_yoy"),
     ],
 }
 
@@ -183,8 +202,17 @@ def load_duckdb_data(ticker: str, db_path: Path | None = None) -> CompanyData:
         name, category = info
         industry = CATEGORY_TO_INDUSTRY.get(category or "", "未知")
 
+        # 检查表存在(bank_metrics 是 P3 后新增,可能未建)
+        existing_tables = {
+            r[0] for r in con.execute(
+                "SELECT table_name FROM information_schema.tables"
+            ).fetchall()
+        }
+
         metrics: dict[str, dict[int, float]] = {}
         for table, mappings in DUCKDB_METRIC_MAP.items():
+            if table not in existing_tables:
+                continue
             for cn, key in mappings:
                 rows = con.execute(
                     f"SELECT EXTRACT(YEAR FROM date) AS y, value "
@@ -200,7 +228,65 @@ def load_duckdb_data(ticker: str, db_path: Path | None = None) -> CompanyData:
     finally:
         con.close()
 
+    # P2 衍生指标(2026-05-06)— 让 yaml 直接引用,不必每条规则自算
+    _add_derived_metrics(metrics)
+
     return CompanyData(ticker=ticker, name=name or ticker, industry=industry, metrics=metrics)
+
+
+def _add_derived_metrics(metrics: dict[str, dict[int, float]]) -> None:
+    """从 BS / 盈利 / 成长字段衍生常用聚合指标,原地修改 metrics dict。
+
+    衍生项:
+      - earnings_per_share = eps  (alias,yaml 公式兼容)
+      - net_current_assets = current_assets - current_liabilities (graham g2)
+      - debt_to_assets_pct = total_liabilities / total_assets * 100 (lynch 总负债率)
+      - eps_3y_avg = avg(eps[t-2..t])  (graham g5)
+      - eps_growth_3y = (eps[t]/eps[t-3])^(1/3) - 1  (lynch peg)
+    """
+    # alias
+    if "eps" in metrics and "earnings_per_share" not in metrics:
+        metrics["earnings_per_share"] = dict(metrics["eps"])
+
+    # net_current_assets
+    if "current_assets" in metrics and "current_liabilities" in metrics:
+        ncoa: dict[int, float] = {}
+        for y, ca in metrics["current_assets"].items():
+            cl = metrics["current_liabilities"].get(y)
+            if ca is not None and cl is not None:
+                ncoa[y] = ca - cl
+        if ncoa:
+            metrics["net_current_assets"] = ncoa
+
+    # debt_to_assets_pct(直接百分比形式,yaml 用 <= 40 / <= 0.4 都易判)
+    if "total_liabilities" in metrics and "total_assets" in metrics:
+        d2a: dict[int, float] = {}
+        for y, tl in metrics["total_liabilities"].items():
+            ta = metrics["total_assets"].get(y)
+            if tl is not None and ta is not None and ta != 0:
+                d2a[y] = tl / ta
+        if d2a:
+            metrics["debt_to_assets"] = d2a
+
+    # eps_3y_avg(滚动 3 年算术平均)
+    if "eps" in metrics:
+        eps_map = metrics["eps"]
+        avg3: dict[int, float] = {}
+        for y in sorted(eps_map):
+            vals = [eps_map.get(y), eps_map.get(y - 1), eps_map.get(y - 2)]
+            if all(v is not None for v in vals):
+                avg3[y] = sum(vals) / 3
+        if avg3:
+            metrics["eps_3y_avg"] = avg3
+
+        # eps_growth_3y(几何 CAGR,要求两端 >0)
+        cagr3: dict[int, float] = {}
+        for y in sorted(eps_map):
+            cur, base = eps_map.get(y), eps_map.get(y - 3)
+            if cur is not None and base is not None and base > 0 and cur > 0:
+                cagr3[y] = (cur / base) ** (1 / 3) - 1
+        if cagr3:
+            metrics["eps_growth_3y"] = cagr3
 
 
 # ---------- 公式求值器 ------------------------------------------------------

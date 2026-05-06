@@ -1,6 +1,6 @@
 # Dashboard 重设计待办
 
-> 目标:把现有 [.tools/dashboard/app.py](app.py) 的"4-tab + 红绿灯首页"升级为更清晰的投研驾驶舱
+> 目标:把现有 [.tools/dashboard/app.py](app.py) 的"4-tab + 红绿灯首页"升级为更清晰的投资智能体
 >
 > **创建**:2026-05-03(step-04 客串调研)
 > **当前选定**:**方向 B**(待开工)
@@ -24,13 +24,19 @@
 **前置要求**:把 5 维分位标准化到 0-100 的统一打分函数
 
 **实施 checklist**(开工时再细化):
-- [ ] 设计 5 维 0-100 评分函数(估值用分位反向、盈利用 ROE 区间、成长用 yoy 区间、现金流用 fcf/ni、安全用 Piotroski)
-- [ ] 顶部固定公司选择 + 综合评分徽章(`st.columns` + `st.metric`)
-- [ ] 雷达图组件(plotly Scatterpolar)
-- [ ] 5 张评分卡(`st.container(border=True)` + 自定义 HTML 徽章)
-- [ ] 子项展开:每张卡 click 看 Piotroski/规则明细
-- [ ] 保留终端 tab(原 step-03 的 ttyd 嵌入)
-- [ ] 旧 4-tab 内容降级到"详情" 二级页面
+- [x] 设计 5 维 0-100 评分函数 — 估值=PE 全周期分位反向 / 盈利=ROE 区间 / 成长=营收 YoY / 现金流=CFO/NI / 安全=负债率反向(银行保险跳过)
+- [x] 顶部固定公司选择 + 综合评分徽章 — 加权 0.25/0.25/0.15/0.15/0.20,4 档红绿灯(75/60/45)
+- [x] 雷达图组件(plotly Scatterpolar)— 5 维 0-100 闭合多边形
+- [x] 5 张评分卡(`st.container(border=True)` + 大号数字 + emoji 徽章)
+- [x] 子项展开:Piotroski 9/9 明细 + 评估年份切换
+- [x] 保留终端 tab(原 step-03 的 ttyd 嵌入)— 顺位移到第 6 tab
+- [x] 旧 4-tab 内容降级 — `🏠 公司主页` 升至第 1 tab,原"首页全景"改名"🌐 全景红绿灯"挪到第 2 位
+
+**实施产出**(2026-05-03 v2.0 W1):
+- [.tools/dashboard/score_card.py](score_card.py) — 5 维评分核心(190 行,可独立 CLI 验证)
+- [.tools/dashboard/app.py](app.py) `tab_home` — 雷达 + 5 卡 + F-Score 子项
+- 离线验证:5 家公司 0-100 区分度合理(茅台 81 / 美的 58 / 比亚迪 45)
+- AppTest headless:6 tabs 全渲染,切换 3 家公司 0 exception
 
 **示意布局**:
 

@@ -10,7 +10,9 @@
 """
 from __future__ import annotations
 
+import shutil
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Iterator
 
@@ -190,3 +192,115 @@ def load_portfolio(path: Path | None = None) -> Portfolio:
         exited=exited,
         benchmarks=doc.get("benchmarks") or [],
     )
+
+
+# ─── 写回(M4) ───────────────────────────────────────────────────────
+def _backup_yaml(path: Path) -> Path | None:
+    """写入前备份。返回备份路径(若原文件不存在则返回 None)."""
+    if not path.exists():
+        return None
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    bak = path.with_suffix(path.suffix + f".bak.{ts}")
+    shutil.copy2(path, bak)
+    return bak
+
+
+def save_portfolio(
+    doc: dict,
+    path: Path | None = None,
+    backup: bool = True,
+) -> Path | None:
+    """把 dict 写回 portfolio.yaml,先备份。返回备份路径。
+
+    doc 应包含 _meta / account / rebalance / holdings / exited / benchmarks 顶层键。
+    保留中文 + 注释丢失(yaml.safe_dump 不能保留注释,这是已知妥协)。
+    """
+    p = path or DEFAULT_YAML
+    bak_path = _backup_yaml(p) if backup else None
+
+    p.write_text(
+        yaml.safe_dump(
+            doc,
+            allow_unicode=True,
+            sort_keys=False,
+            default_flow_style=False,
+        ),
+        encoding="utf-8",
+    )
+    return bak_path
+
+
+def load_yaml_dict(path: Path | None = None) -> dict:
+    """读原始 dict(不解析为 dataclass),用于增量修改。"""
+    p = path or DEFAULT_YAML
+    if not p.exists():
+        return {
+            "_meta": {"version": "1.0", "status": "demo", "base_currency": "CNY"},
+            "account": {}, "rebalance": {}, "holdings": [], "exited": [],
+        }
+    return yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+
+
+def upsert_holdings(
+    new_rows: list[dict],
+    path: Path | None = None,
+    backup: bool = True,
+) -> tuple[Path | None, dict]:
+    """把 new_rows 合并进 portfolio.yaml.holdings,已有 ticker → 更新,新 ticker → 追加。
+
+    new_rows 每条字段:
+        ticker (str, 必填)
+        name (str)
+        shares (float)
+        cost_basis (float)
+        first_buy_date (str, optional)
+        target_weight (float, optional, 默认 0)
+        max_weight (float, optional)
+        thesis (str, optional)
+        tags (list[str], optional)
+        status (str, optional, 默认 active)
+
+    返回 (备份路径, 更新统计 {added: int, updated: int, status_flipped: bool})
+    """
+    doc = load_yaml_dict(path)
+    holdings = doc.setdefault("holdings", []) or []
+    by_ticker = {str(h.get("ticker")): h for h in holdings}
+
+    added = 0
+    updated = 0
+    for row in new_rows:
+        t = str(row.get("ticker", "")).strip()
+        if not t:
+            continue
+        existing = by_ticker.get(t)
+        if existing:
+            for k, v in row.items():
+                if v is None or v == "":
+                    continue
+                existing[k] = v
+            updated += 1
+        else:
+            new = {"ticker": t, "status": row.get("status", "active")}
+            for k in ("name", "shares", "cost_basis", "first_buy_date",
+                     "target_weight", "max_weight", "thesis", "tags"):
+                v = row.get(k)
+                if v is not None and v != "":
+                    new[k] = v
+            holdings.append(new)
+            by_ticker[t] = new
+            added += 1
+
+    # status: demo → live(首次写入 active)
+    meta = doc.setdefault("_meta", {})
+    status_flipped = False
+    if meta.get("status") == "demo" and any(
+        h.get("status") == "active" and h.get("shares") for h in holdings
+    ):
+        meta["status"] = "live"
+        status_flipped = True
+
+    meta["last_updated"] = datetime.now().strftime("%Y-%m-%d")
+    doc["holdings"] = holdings
+
+    bak = save_portfolio(doc, path=path, backup=backup)
+    return bak, {"added": added, "updated": updated, "status_flipped": status_flipped}

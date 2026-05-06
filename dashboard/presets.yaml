@@ -1,0 +1,80 @@
+# dash-02 公司筛选预设
+#
+# 设计:
+# - 5 套预设(巴菲特/格雷厄姆/林奇/格林布拉特/自定义)
+# - 4 套大师预设接 .tools/rules/{master_id}.yaml 评分体系(score_with_master)
+# - filters 段:快速预过滤(留存),不通过 = 不进入评分
+# - metrics 段:可用指标定义(自定义模式滑块来源)
+#
+# 字段:
+#   id            唯一标识
+#   name          中文名
+#   icon          UI 图标
+#   tagline       一句话定位
+#   description   一句话描述(候选清单标题用)
+#   rules_yaml    .tools/rules/{x}.yaml(null = 不接评分,纯硬过滤)
+#   book_origin   来源典籍
+#   knowledge_link 项目知识库相对路径
+#   filters       预过滤条件列表
+
+presets:
+  # 林奇置顶 — 采用最新六类分类器方法(M6 输出),per-class 5 维评分
+  - id: lynch
+    name: 林奇六类分析
+    icon: "🌱"
+    tagline: 六类公司自动分类 + 类型驱动评估(最新方法 · M6)
+    description: 自动判定 缓慢/稳健/快速/周期/反转/资产 六类,每类用专属 5 维评分(0-100)
+    rules_yaml: lynch                # GARP 规则保留作回退
+    use_classifier: true             # ★ 启用 lynch_classifier + compute_lynch_dims 新评分链路
+    book_origin: 《彼得林奇的成功投资》
+    knowledge_link: 01_knowledge/03_投资策略与选股/02_彼得林奇投资法/
+    # 不预过滤 — 让 6 类公司都出现,各自按类型阈值打分
+    filters: []
+
+  - id: buffett
+    name: 巴菲特护城河
+    icon: "💎"
+    tagline: 用合理价格买伟大企业,长期持有
+    description: 高 ROE + 现金流健康 + 低负债 — 优质企业的护城河信号
+    rules_yaml: buffett
+    book_origin: 巴菲特致股东信(1957-)
+    knowledge_link: 01_knowledge/03_投资策略与选股/01_价值投资法/01_商业模式理解.md
+    filters:
+      - { metric: roe,        op: ">=", value: 0.15 }
+      - { metric: cfo_to_ni,  op: ">=", value: 0.80 }
+      - { metric: debt_ratio, op: "<=", value: 0.65 }
+
+  - id: graham
+    name: 格雷厄姆深度
+    icon: "🛡️"
+    tagline: 5 毛钱买 1 块钱的资产 — 安全边际为王
+    description: 低 PE + 低 PB + 高股息 — 安全边际优先的深度价值
+    rules_yaml: graham
+    book_origin: 《聪明的投资者》第 14 章
+    knowledge_link: 01_knowledge/03_投资策略与选股/01_价值投资法/04_估值分析.md
+    filters:
+      - { metric: pe_pct_10y,     op: "<=", value: 0.30 }
+      - { metric: pb,             op: "<=", value: 4.0  }
+      - { metric: dividend_yield, op: ">=", value: 0.025 }
+
+  - id: greenblatt
+    name: 格林布拉特神奇公式
+    icon: "🎯"
+    tagline: EBIT 收益率 + ROC 双高(原版全市场扫描,自选池仅参考)
+    description: Magic Formula — 双因子(便宜 + 好生意)
+    rules_yaml: greenblatt
+    book_origin: 《股市稳赚》(The Little Book That Beats the Market)
+    knowledge_link: 01_knowledge/03_投资策略与选股/01_价值投资法/04_估值分析.md
+    filters: []
+
+# 可用指标(自定义模式的滑块来源)
+metrics:
+  pe:             { label: "PE-TTM",        unit: "倍", range: [0.0, 200.0], step: 1.0,  fmt: "%.1f"   }
+  pb:             { label: "PB",            unit: "倍", range: [0.0, 30.0],  step: 0.1,  fmt: "%.2f"   }
+  dividend_yield: { label: "股息率",         unit: "%",  range: [0.0, 0.15],  step: 0.005, fmt: "%.2f%%", scale: 100 }
+  pe_pct_10y:     { label: "PE 10y 分位",   unit: "%",  range: [0.0, 1.0],   step: 0.05, fmt: "%.0f%%", scale: 100 }
+  roe:            { label: "ROE",           unit: "%",  range: [0.0, 0.5],   step: 0.01, fmt: "%.1f%%", scale: 100 }
+  rev_yoy:        { label: "营收 YoY",      unit: "%",  range: [-0.5, 1.0],  step: 0.05, fmt: "%.0f%%", scale: 100 }
+  cfo_to_ni:      { label: "CFO/NI",        unit: "x",  range: [0.0, 3.0],   step: 0.1,  fmt: "%.2f"   }
+  debt_ratio:     { label: "资产负债率",     unit: "%",  range: [0.0, 1.0],   step: 0.05, fmt: "%.0f%%", scale: 100 }
+  fscore:         { label: "Piotroski F",  unit: "/9", range: [0, 9],       step: 1,    fmt: "%d"     }

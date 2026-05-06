@@ -101,10 +101,10 @@ rules:
 graham_number_check:
   formula: market_price / graham_number
   ratings:
-    extremely_cheap: < 0.5         # 极度低估
-    cheap: 0.5-0.8                  # 低估
-    fair: 0.8-1.2                   # 合理
-    expensive: > 1.2                # 高估
+    extremely_cheap: "< 0.5"         # 极度低估
+    cheap: "0.5-0.8"                 # 低估
+    fair: "0.8-1.2"                  # 合理
+    expensive: "> 1.2"               # 高估
 
 # A 股 15 家公司预期
 expected_a_share_fit:

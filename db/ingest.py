@@ -99,6 +99,19 @@ CREATE TABLE industry_pe (
     n_companies   INTEGER,
     PRIMARY KEY (date, industry_code)
 );
+
+-- dash-01:宏观温度计 5 项(M2 / CPI / 10Y / USDCNY / A50_PE)
+-- 由 .tools/db/fetch_macro.py 维护,与 ingest 全量重建解耦
+CREATE TABLE macro (
+    indicator VARCHAR NOT NULL,
+    date      DATE    NOT NULL,
+    value     DOUBLE,
+    unit      VARCHAR,
+    frequency VARCHAR,
+    source    VARCHAR DEFAULT 'akshare',
+    PRIMARY KEY (indicator, date)
+);
+CREATE INDEX idx_macro_date ON macro(date);
 """
 
 

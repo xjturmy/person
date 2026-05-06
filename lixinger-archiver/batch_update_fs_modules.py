@@ -28,15 +28,38 @@ from lixinger_csv_to_md import write_md_sidecar
 from lixinger_resolve_token import resolve_lixinger_token
 
 
-API_BASE = "https://open.lixinger.com/api/cn/company/fs"
+API_BASE_CN = "https://open.lixinger.com/api/cn/company/fs"
+API_BASE_HK = "https://open.lixinger.com/api/hk/company/fs"
+
+
+def api_base_for(category: str) -> str:
+    """港股走 /api/hk/,A 股 / 金融业走 /api/cn/."""
+    return API_BASE_HK if category == "hk" else API_BASE_CN
+
+
+# 兼容旧导入(若有)
+API_BASE = API_BASE_CN
 
 # 各行业分类中理杏仁不支持的指标（API 会返回 400 ValidationError）
 _FINANCIAL_EXCLUDED = {"q.m.gp_m.ttm", "q.m.lwi_ta_r.t", "q.m.c_r.t", "q.m.q_r.t"}
+
+# BS 字段(q.bs.*) 与 ROIC 在 fs/non_financial 端点验证有效
+# fs/bank、fs/insurance、fs/hk 端点字段命名不同(hk 5xx,金融业 400),需走 P3 单独路径
+_NEW_P2_FIELDS = {
+    "q.bs.ta.t", "q.bs.tl.t", "q.bs.toe.t",
+    "q.bs.ca.t", "q.bs.cl.t", "q.bs.ltl.t",
+    "q.m.roic.ttm",
+}
 CATEGORY_EXCLUDED_METRICS: dict[str, set[str]] = {
-    "insurance": _FINANCIAL_EXCLUDED,
-    "bank": _FINANCIAL_EXCLUDED,
-    "security": _FINANCIAL_EXCLUDED,
-    "other_financial": _FINANCIAL_EXCLUDED,
+    "insurance": _FINANCIAL_EXCLUDED | _NEW_P2_FIELDS,
+    "bank": _FINANCIAL_EXCLUDED | _NEW_P2_FIELDS,
+    "security": _FINANCIAL_EXCLUDED | _NEW_P2_FIELDS,
+    "other_financial": _FINANCIAL_EXCLUDED | _NEW_P2_FIELDS,
+    # 港股 /api/hk/non_financial:支持 19 字段;不支持以下 6 项(2026-05-06 实测)
+    "hk": {
+        "q.m.roic.ttm", "q.m.fcf.ttm", "q.m.lwi_ta_r.t", "q.m.q_r.t",
+        "q.bs.ca.t", "q.bs.cl.t",
+    },
 }
 
 
@@ -165,7 +188,11 @@ def update_company_fs(
     end_date: str,
     clean_existing: bool,
 ) -> None:
-    url = f"{API_BASE}/{company.category}"
+    # 港股走 /api/hk/ 域名(2026-05-06 校正);其它走 /api/cn/{category}
+    if company.category == "hk":
+        url = f"{API_BASE_HK}/non_financial"
+    else:
+        url = f"{API_BASE_CN}/{company.category}"
     root = Path(base_dir) / company.folder / "01_基本面数据"
 
     # 02~05 映射：模块目录、文件名后缀、值字段、同比字段
@@ -175,6 +202,7 @@ def update_company_fs(
         ("02_盈利分析", "总资产收益率(ROA)", "q.m.roa.ttm", None, "总资产收益率(ROA)", None),
         ("02_盈利分析", "毛利率(GM)", "q.m.gp_m.ttm", None, "毛利率(GM)", None),
         ("02_盈利分析", "净利润率", "q.m.np_s_r.ttm", None, "净利润率", None),
+        ("02_盈利分析", "资本回报率(ROIC)", "q.m.roic.ttm", None, "资本回报率(ROIC)", None),
         # 03_成长性分析
         ("03_成长性分析", "营业收入", "q.ps.oi.t", "q.ps.oi.t_y2y", "营业收入", "累积同比"),
         ("03_成长性分析", "归属于母公司普通股股东的净利润", "q.ps.npatoshopc.t", "q.ps.npatoshopc.t_y2y", "归属于母公司普通股股东的净利润", "累积同比"),
@@ -188,6 +216,13 @@ def update_company_fs(
         ("05_安全性分析", "有息负债率", "q.m.lwi_ta_r.t", None, "有息负债率", None),
         ("05_安全性分析", "流动比率", "q.m.c_r.t", None, "流动比率", None),
         ("05_安全性分析", "速动比率", "q.m.q_r.t", None, "速动比率", None),
+        # 05_安全性分析 — BS 聚合三件套(P2 缺口)
+        ("05_安全性分析", "资产合计", "q.bs.ta.t", None, "资产合计", None),
+        ("05_安全性分析", "负债合计", "q.bs.tl.t", None, "负债合计", None),
+        ("05_安全性分析", "所有者权益合计", "q.bs.toe.t", None, "所有者权益合计", None),
+        ("05_安全性分析", "流动资产合计", "q.bs.ca.t", None, "流动资产合计", None),
+        ("05_安全性分析", "流动负债合计", "q.bs.cl.t", None, "流动负债合计", None),
+        ("05_安全性分析", "长期负债合计", "q.bs.ltl.t", None, "长期负债合计", None),
     ]
 
     # 过滤掉当前分类不支持的指标
@@ -269,18 +304,27 @@ def main() -> None:
     if not companies:
         raise SystemExit("companies.csv 无有效公司记录")
 
+    failures: list[tuple[str, str]] = []
     for c in companies:
-        update_company_fs(
-            token=token,
-            company=c,
-            base_dir=args.base_dir,
-            start_date=start,
-            end_date=end,
-            clean_existing=args.clean_existing,
-        )
-        print(f"✅ 已更新 {c.folder} ({c.stock}) 的 02-05")
+        try:
+            update_company_fs(
+                token=token,
+                company=c,
+                base_dir=args.base_dir,
+                start_date=start,
+                end_date=end,
+                clean_existing=args.clean_existing,
+            )
+            print(f"✅ 已更新 {c.folder} ({c.stock}) 的 02-05")
+        except Exception as exc:  # noqa: BLE001
+            print(f"❌ {c.folder} ({c.stock}) 失败,跳过:{exc}", flush=True)
+            failures.append((c.folder, str(exc)))
 
-    print(f"\n🎉 全部完成：{len(companies)} 家公司，区间 {start} ~ {end}")
+    print(f"\n🎉 完成:{len(companies) - len(failures)}/{len(companies)} 家成功,区间 {start} ~ {end}")
+    if failures:
+        print(f"失败 {len(failures)} 家:")
+        for f, err in failures:
+            print(f"  - {f}: {err[:120]}")
 
 
 if __name__ == "__main__":
