@@ -42,6 +42,62 @@ for _p in (DASHBOARD_DIR, PORTFOLIO_DIR):
         sys.path.insert(0, str(_p))
 
 
+# ─── 理杏仁风格通用样式(全 Tab 共享) ───
+# 详见 memory/reference_lixinger_chart_style.md
+LIXINGER_FONT = ('"PingFang SC","Helvetica Neue","Microsoft YaHei",'
+                 '"Hiragino Sans GB","Noto Sans CJK SC",sans-serif')
+LIXINGER_LINE_COLOR = "#1f4e9c"     # 深沉金融蓝主线
+# 饱和色 → 浅色实心(opacity=1)映射,header_thermometer.bands 用得到
+# 比第一版更浅一档(更接近白底,数据折线和文字对比度更好)
+LIGHT_BAND_FILL = {
+    "#d9534f": "#fef5f4",   # 红 → 极浅红
+    "#fd7e14": "#fff7f0",   # 橙 → 极浅橙
+    "#f0ad4e": "#fffdf2",   # 黄 → 极浅黄
+    "#5cb85c": "#f2fcf6",   # 浅绿 → 极浅绿
+    "#1b8a3a": "#e6faee",   # 深绿 → 浅绿
+}
+# 对应深色文字(色带右侧标签用)
+LIGHT_BAND_TEXT = {
+    "#d9534f": "#c0392b", "#fd7e14": "#d35400", "#f0ad4e": "#b58a00",
+    "#5cb85c": "#27ae60", "#1b8a3a": "#1e8449",
+}
+
+
+def _apply_lixinger_layout(fig: go.Figure, *, height: int = 340,
+                           margin_t: int = 8, margin_b: int = 30,
+                           margin_l: int = 55, margin_r: int = 20,
+                           y_title: str = "", y_range=None,
+                           hovermode: str = "x unified") -> go.Figure:
+    """套用理杏仁风格 layout:白底 / 关 vertical grid / 中文字体栈 / 隐藏 spine."""
+    yaxis_cfg = dict(
+        showgrid=True, gridcolor="#f0f0f0", gridwidth=1,
+        zeroline=False, showline=False, ticks="",
+        tickfont=dict(size=12, color="#333", family=LIXINGER_FONT),
+    )
+    if y_title:
+        yaxis_cfg["title"] = dict(
+            text=y_title,
+            font=dict(size=13, color="#333", family=LIXINGER_FONT),
+            standoff=6,
+        )
+    if y_range is not None:
+        yaxis_cfg["range"] = y_range
+    fig.update_layout(
+        height=height,
+        margin=dict(t=margin_t, b=margin_b, l=margin_l, r=margin_r),
+        plot_bgcolor="white", paper_bgcolor="white",
+        yaxis=yaxis_cfg,
+        xaxis=dict(
+            title="", showgrid=False, zeroline=False, showline=False,
+            ticks="outside", tickcolor="#ddd", ticklen=4,
+            tickfont=dict(size=12, color="#333", family=LIXINGER_FONT),
+        ),
+        hovermode=hovermode, showlegend=False,
+        font=dict(family=LIXINGER_FONT, color="#333"),
+    )
+    return fig
+
+
 # ─── 格雷厄姆指数评级表(差值法,理杏仁口径,单位 %) ───
 # 来源:01_knowledge/02_权益类动态调整/04_格雷厄姆指数.md 第 41-47 行
 # 差值 = (1 / A股全指PE) − 10Y国债收益率
@@ -384,34 +440,92 @@ def _section_graham_index(macro_path: str, macro_mtime: float) -> None:
     diff_series_full = _load_graham_diff_series(macro_path, macro_mtime)
 
     with st.container(border=True):
-        # ─── 顶部 4 列:核心指标卡 ───
-        c1, c2, c3, c4 = st.columns([1.1, 1.1, 1.0, 1.8])
+        # ─── 顶部 3 列:核心指标卡(紧凑 2×2)+ 阈值红绿灯(含当前位置) ───
+        c1, c2, c3 = st.columns([1.1, 1.1, 2.2])
+
+        # 两列 metric 容器与 c3 红绿灯做等高对齐:c3 = 1 标题 + 4 档位 ≈ 175px
+        STAT_COL_HEIGHT = 175
+
+        def _stat(label: str, value: str, tip: str = "") -> str:
+            tip_attr = f' title="{tip}"' if tip else ""
+            return (
+                f"<div style='flex:1;display:flex;flex-direction:column;"
+                f"justify-content:center'>"
+                f"<div style='font-size:13px;color:#888;font-weight:400'{tip_attr}>"
+                f"{label}</div>"
+                f"<div style='font-size:28px;font-weight:600;"
+                f"line-height:1.15;margin-top:4px'>{value}</div>"
+                f"</div>"
+            )
+
+        def _stat_col(*cards: str) -> str:
+            return (
+                f"<div style='min-height:{STAT_COL_HEIGHT}px;display:flex;"
+                f"flex-direction:column;justify-content:space-between;gap:6px'>"
+                f"{''.join(cards)}</div>"
+            )
+
         with c1:
-            st.metric("A 股全指 PE-TTM", f"{pe:.2f}",
-                      help=f"最新 {hs['date']} · 中证全指 000985 市值加权 · 理杏仁 API")
-            st.metric("盈利收益率 1/PE", f"{ey_pct:.2f}%")
-        with c2:
-            st.metric("10Y 国债收益率", f"{bond_pct:.2f}%",
-                      help=f"最新 {yld['date']}")
-            st.metric("股债差(格雷厄姆)", f"{graham_diff:+.2f}%",
-                      help="盈利收益率 − 国债收益率 · 与理杏仁制图同口径")
-        with c3:
-            st.markdown(f"### {badge}")
-            st.markdown(f"**{label}**")
-            st.caption(f"建议权益 {eq_lo}-{eq_hi}%")
-        with c4:
             st.markdown(
-                "**📐 阈值红绿灯**(差值法,单位 %)\n\n"
-                "🟢🟢 ≥6% 极度吸引\n\n"
-                "🟢 4-6% 高度吸引\n\n"
-                "🟡 2-4% 吸引\n\n"
-                "🟠 0-2% 中性\n\n"
-                "🔴 <0% 不吸引",
+                _stat_col(
+                    _stat("A 股全指 PE-TTM", f"{pe:.2f}",
+                          f"最新 {hs['date']} · 中证全指 000985 市值加权 · 理杏仁 API"),
+                    _stat("盈利收益率 1/PE", f"{ey_pct:.2f}%"),
+                ),
+                unsafe_allow_html=True,
+            )
+        with c2:
+            st.markdown(
+                _stat_col(
+                    _stat("10Y 国债收益率", f"{bond_pct:.2f}%", f"最新 {yld['date']}"),
+                    _stat("股债差(格雷厄姆)", f"{graham_diff:+.2f}%",
+                          "盈利收益率 − 国债收益率 · 与理杏仁制图同口径"),
+                ),
+                unsafe_allow_html=True,
+            )
+        with c3:
+            # 4 档显示(≥6 极度吸引合并入 ≥4 高度吸引)— UI 简化,判定仍走原 5 档
+            BANDS_UI = [
+                ("🟢", "≥4%   高度吸引",  4.0),
+                ("🟡", "2-4%  吸引",       2.0),
+                ("🟠", "0-2%  中性",       0.0),
+                ("🔴", "&lt;0%   不吸引", -99.0),
+            ]
+            cur_idx = next(
+                (i for i, (_b, _t, lo) in enumerate(BANDS_UI) if graham_diff >= lo),
+                len(BANDS_UI) - 1,
+            )
+            rows_html = [
+                "<div style='font-weight:600;font-size:14px'>"
+                "📐 阈值红绿灯(差值法,单位 %)</div>"
+            ]
+            for i, (b, t, _lo) in enumerate(BANDS_UI):
+                if i == cur_idx:
+                    rows_html.append(
+                        f"<div style='font-weight:600;color:#111'>"
+                        f"{b} {t}  ← 当前 <b>{graham_diff:+.2f}%</b> "
+                        f"· 建议权益 <b>{eq_lo}-{eq_hi}%</b></div>"
+                    )
+                else:
+                    rows_html.append(
+                        f"<div style='color:#555'>{b} {t}</div>"
+                    )
+            st.markdown(
+                f"<div style='min-height:{STAT_COL_HEIGHT}px;display:flex;"
+                f"flex-direction:column;justify-content:space-between;gap:4px'>"
+                f"{''.join(rows_html)}</div>",
+                unsafe_allow_html=True,
             )
 
         st.markdown(
-            "<div style='border-top:1px dashed #ccc;margin:10px 0 8px'></div>"
-            "<div style='font-size:13px;color:#444'><b>📈 历史走势 + 当前位置</b> "
+            # 注入局部 CSS:压缩本容器内 element-container 默认间距
+            "<style>"
+            "div[data-testid='stVerticalBlock'] > div[data-testid='element-container']"
+            ":has(.js-plotly-plot){margin-top:-4px !important;margin-bottom:-8px !important}"
+            "</style>"
+            "<div style='border-top:1px dashed #ccc;margin:6px 0 2px'></div>"
+            "<div style='font-size:13px;color:#444;margin-bottom:0'>"
+            "<b>📈 历史走势 + 当前位置</b> "
             "<span style='color:#888;font-size:11px;margin-left:8px'>"
             "选时间窗口 → 看当前差值在该区间的相对位置(色带=阈值红绿灯)</span></div>",
             unsafe_allow_html=True,
@@ -451,81 +565,134 @@ def _section_graham_index(macro_path: str, macro_mtime: float) -> None:
         s3.metric(f"{sel_label}内最低", f"{win_min:+.2f}%")
         s4.metric(f"{sel_label}内最高", f"{win_max:+.2f}%")
 
-        # ─── 主图:差值时序 + 阈值色带 + 当前点 + 当前水平线 ───
-        # 自适应 y 轴:贴紧实际数据 + 包住 0/2 阈值线,留 0.4pp buffer
+        # ─── 主图:理杏仁风格(浅色实心色带 + 单一折线 + 当前点) ───
         BAND_EDGES = [-15, 0, 2, 4, 6, 15]   # 阈值法五档边界
-        BAND_FILLS = ["#d9534f", "#fd7e14", "#f0ad4e", "#5cb85c", "#1b8a3a"]
+        # 浅色实心色带(opacity=1)— 不与折线/散点产生颜色叠加
+        BAND_FILLS = ["#fef5f4", "#fff7f0", "#fffdf2", "#f2fcf6", "#e6faee"]
+        BAND_LABEL_COLORS = ["#c0392b", "#d35400", "#b58a00", "#27ae60", "#1e8449"]
+        BAND_LABELS = ["不吸引", "中性", "吸引", "高度吸引", "极度吸引"]
+        FONT_FAMILY = ('"PingFang SC","Helvetica Neue","Microsoft YaHei",'
+                       '"Hiragino Sans GB","Noto Sans CJK SC",sans-serif')
+
+        # 是否叠加历史散点(默认关闭,保持图面清爽)
+        show_hist = st.checkbox("叠加 HS300 历史关键时点(◇)", value=False,
+                                key="graham_show_hist")
+        hist_pts: list[dict] = []
+        if show_hist:
+            x_min = df_win["date"].min()
+            x_max = df_win["date"].max()
+            for h in GRAHAM_HISTORY:
+                d = pd.to_datetime(h["date"] + "-15", errors="coerce")
+                if pd.notna(d) and x_min <= d <= x_max:
+                    hist_pts.append({"date": d, "diff": h["diff"], "note": h["note"]})
+
         data_min = min(win_min, graham_diff)
         data_max = max(win_max, graham_diff)
-        # 至少包住 0 和 2(中性 / 吸引边界),让用户看到当前在哪一档
-        y_lo = min(data_min, 0) - 0.4
-        y_hi = max(data_max, 2) + 0.4
+        if hist_pts:
+            data_min = min(data_min, min(p["diff"] for p in hist_pts))
+            data_max = max(data_max, max(p["diff"] for p in hist_pts))
+        data_range = max(data_max - data_min, 0.5)
+        pad = max(data_range * 0.08, 0.25)
+        y_lo = data_min - pad
+        y_hi = data_max + pad
 
         fig = go.Figure()
-        # 阈值红绿灯色带 — 仅画落在 [y_lo, y_hi] 内的部分
-        for lo, hi, fill in zip(BAND_EDGES[:-1], BAND_EDGES[1:], BAND_FILLS):
+        # 浅色实心色带 — opacity 拉满,纯背景作用
+        for (lo, hi, fill, lab, lab_color) in zip(
+            BAND_EDGES[:-1], BAND_EDGES[1:], BAND_FILLS, BAND_LABELS, BAND_LABEL_COLORS,
+        ):
             seg_lo = max(lo, y_lo)
             seg_hi = min(hi, y_hi)
-            if seg_hi > seg_lo:
-                fig.add_hrect(y0=seg_lo, y1=seg_hi, fillcolor=fill,
-                              opacity=0.12, line_width=0, layer="below")
+            if seg_hi <= seg_lo:
+                continue
+            fig.add_hrect(y0=seg_lo, y1=seg_hi, fillcolor=fill,
+                          opacity=1.0, line_width=0, layer="below")
+            mid_y = (seg_lo + seg_hi) / 2
+            fig.add_annotation(
+                xref="paper", yref="y", x=0.995, y=mid_y,
+                text=f"<b>{lab}</b>",
+                showarrow=False, xanchor="right", yanchor="middle",
+                font=dict(size=11, color=lab_color, family=FONT_FAMILY),
+            )
 
-        # 阈值边界线 — 仅画落在 y 轴范围内的
-        for y, txt, color in [
-            (6.0, "极度吸引",  "#1b8a3a"),
-            (4.0, "高度吸引",  "#5cb85c"),
-            (2.0, "吸引",      "#f0ad4e"),
-            (0.0, "0% 中性",   "#888"),
-        ]:
-            if y_lo <= y <= y_hi:
-                fig.add_hline(y=y, line_dash="dot", line_color=color, opacity=0.6,
-                              annotation_text=f"{y:+.0f}% {txt}",
-                              annotation_position="right",
-                              annotation_font=dict(size=10, color=color))
-
-        # 折线
+        # 折线 — 加粗到 2.8px,样条平滑
         fig.add_trace(go.Scatter(
             x=df_win["date"], y=df_win["diff"],
             mode="lines", name="股债差",
-            line=dict(color="#0d6efd", width=2),
+            line=dict(color="#1f4e9c", width=2.8, shape="spline", smoothing=0.6),
             hovertemplate="%{x|%Y-%m-%d}<br>股债差: %{y:.2f}%<extra></extra>",
         ))
 
-        # 窗口中位数水平线
-        fig.add_hline(y=win_med, line_dash="longdash", line_color="#666", opacity=0.5,
-                      annotation_text=f"中位 {win_med:+.2f}%",
-                      annotation_position="left",
-                      annotation_font=dict(size=10, color="#666"))
+        # 历史散点(可选,默认关闭)
+        if hist_pts:
+            fig.add_trace(go.Scatter(
+                x=[p["date"] for p in hist_pts],
+                y=[p["diff"] for p in hist_pts],
+                mode="markers+text",
+                text=[p["note"][:2] for p in hist_pts],
+                textposition="top center",
+                textfont=dict(size=14, family=FONT_FAMILY),
+                marker=dict(size=11, color="#fff",
+                            line=dict(color="#555", width=1.5),
+                            symbol="diamond"),
+                name="历史时点",
+                hovertemplate=("%{x|%Y-%m}<br>股债差: %{y:.2f}%<br>"
+                               "<extra>HS300 历史对照</extra>"),
+                showlegend=False,
+            ))
 
-        # 当前值水平线 + 大点
-        fig.add_hline(y=graham_diff, line_dash="solid", line_color="#0d6efd",
-                      opacity=0.85, line_width=1.5,
-                      annotation_text=f"当前 {graham_diff:+.2f}%",
-                      annotation_position="top left",
-                      annotation_font=dict(size=12, color="#0d6efd"))
+        # 当前值 — 单一蓝圆 + 数字气泡(无水平线、无中位线)
+        cur_x = df_win["date"].iloc[-1]
         fig.add_trace(go.Scatter(
-            x=[df_win["date"].iloc[-1]], y=[graham_diff],
-            mode="markers+text",
-            text=[f"{graham_diff:+.2f}%"],
-            textposition="middle right",
-            marker=dict(size=14, color="#0d6efd",
-                        line=dict(color="white", width=2)),
-            showlegend=False,
-            hoverinfo="skip",
+            x=[cur_x], y=[graham_diff],
+            mode="markers",
+            marker=dict(size=14, color="#1f4e9c",
+                        line=dict(color="white", width=2.5),
+                        symbol="circle"),
+            showlegend=False, hoverinfo="skip",
         ))
+        fig.add_annotation(
+            x=cur_x, y=graham_diff,
+            text=f"<b>{graham_diff:+.2f}%</b>",
+            showarrow=True, arrowhead=0, arrowwidth=1.2, arrowcolor="#1f4e9c",
+            ax=-36, ay=-26,
+            font=dict(size=13, color="#1f4e9c", family=FONT_FAMILY),
+            bgcolor="rgba(255,255,255,0.95)",
+            bordercolor="#1f4e9c", borderwidth=1, borderpad=3,
+        )
 
         fig.update_layout(
-            height=380, margin=dict(t=20, b=30, l=40, r=120),
-            yaxis_title="股债差 (%)", xaxis_title="",
-            yaxis=dict(range=[y_lo, y_hi], fixedrange=False),
+            height=340, margin=dict(t=8, b=30, l=55, r=20),
+            plot_bgcolor="white", paper_bgcolor="white",
+            yaxis=dict(
+                range=[y_lo, y_hi], fixedrange=False,
+                title=dict(text="股债差 (%)",
+                           font=dict(size=13, color="#333", family=FONT_FAMILY),
+                           standoff=6),
+                tickfont=dict(size=12, color="#333", family=FONT_FAMILY),
+                showgrid=True, gridcolor="#f0f0f0", gridwidth=1,
+                zeroline=False, showline=False,
+                ticks="",
+            ),
+            xaxis=dict(
+                title="",
+                tickfont=dict(size=12, color="#333", family=FONT_FAMILY),
+                showgrid=False,            # 关闭 vertical grid
+                zeroline=False, showline=False,
+                ticks="outside", tickcolor="#ddd", ticklen=4,
+            ),
             hovermode="x unified", showlegend=False,
+            font=dict(family=FONT_FAMILY, color="#333"),
         )
         st.plotly_chart(fig, use_container_width=True)
 
-        st.caption(
-            f"💡 当前 **{graham_diff:+.2f}%** 在 **{sel_label}内** 处于 "
-            f"**{rank_pct*100:.1f}% 分位** · 评级 **{badge} {label}** · "
-            "色带=阈值红绿灯 / 蓝实线=当前值 / 灰长虚线=窗口中位"
+        st.markdown(
+            f"<div style='margin-top:-4px;font-size:12px;color:#666;"
+            f"line-height:1.5;font-family:{FONT_FAMILY}'>"
+            f"💡 当前 <b>{graham_diff:+.2f}%</b> 在 <b>{sel_label}内</b> 处于 "
+            f"<b>{rank_pct*100:.1f}% 分位</b> · 评级 <b>{badge} {label}</b> · "
+            "色带=阈值档位 / 蓝点=当前</div>",
+            unsafe_allow_html=True,
         )
 
         # ─── 沪深 300 历史标记点(知识库归档) ───
@@ -550,6 +717,92 @@ def _current_band(value: float, bands: list[dict]) -> dict | None:
         if ok_lo and ok_hi:
             return b
     return None
+
+
+def _section_company_graham_number(selected: str, db_mtime: float) -> None:
+    """单公司格氏数 PE×PB 实时位置卡片(D3 阶段 C 项 1)。
+
+    与 ② 格雷厄姆指数(全市场)对应:聚焦单只股票当前的格雷厄姆数判定。
+    数据源:graham_steps.load_graham_metrics + check_graham_number。
+    """
+    if not selected:
+        return
+    try:
+        from graham_steps import (
+            load_graham_metrics, check_graham_number, classify_graham_type,
+        )
+    except Exception as e:
+        st.caption(f"⚠️  graham_steps 模块加载失败:{e}")
+        return
+
+    # selected 是 folder 名(如 "贵州茅台"),通过 companies 表反查 ticker
+    try:
+        con = duckdb.connect(str(DB_PATH), read_only=True)
+        try:
+            row = con.execute(
+                "SELECT ticker FROM companies WHERE folder = ? OR name = ? LIMIT 1",
+                [selected, selected],
+            ).fetchone()
+            ticker = row[0] if row else ""
+        finally:
+            con.close()
+    except Exception as e:
+        st.caption(f"⚠️  ticker 反查失败:{e}")
+        return
+    if not ticker:
+        st.caption(f"(未找到 {selected} 的 ticker 映射)")
+        return
+
+    try:
+        m = load_graham_metrics(ticker)
+        gn = check_graham_number(m)
+        cls = classify_graham_type(m)
+    except Exception as e:
+        st.caption(f"⚠️  格氏数计算失败:{e}")
+        return
+
+    # 评级 → 颜色映射
+    grade_color = {
+        "严达标(原版)": "#10B981",     # 绿
+        "严达标": "#10B981",
+        "软达标 1 档": "#34D399",       # 浅绿
+        "软达标 2 档": "#F59E0B",       # 黄
+        "软达标": "#F59E0B",
+        "不达标(估值偏贵)": "#EF4444",  # 红
+        "不达标": "#EF4444",
+    }
+    color = grade_color.get(gn.grade, "#6B7280")
+
+    pe_str = f"{m.get('pe'):.2f}" if m.get("pe") is not None else "—"
+    pb_str = f"{m.get('pb'):.2f}" if m.get("pb") is not None else "—"
+    pe_x_pb_str = f"{gn.pe_x_pb:.2f}" if gn.pe_x_pb is not None else "—"
+
+    # 卡片渲染:单行 + 紧凑
+    with st.container(border=True):
+        c1, c2, c3, c4 = st.columns([1.0, 1.0, 1.2, 2.0])
+        c1.metric(f"📍 {selected}", ticker, help="当前选中公司,sidebar 切换")
+        c2.metric("PE", pe_str)
+        c2.metric("PB", pb_str)
+        c3.metric("PE × PB", pe_x_pb_str,
+                   delta=gn.grade,
+                   delta_color="off",
+                   help="格雷厄姆数:防御股 ≤ 22.5 严达标 / ≤ 30 软达标 1 / ≤ 50 软达标 2")
+        with c4:
+            st.markdown(
+                f'<div style="margin-top:8px;">'
+                f'<span style="font-size:13px;color:#6B7280;">价值类型</span>'
+                f'<div style="font-size:18px;font-weight:600;color:{color};margin-top:4px;">'
+                f'{cls.cls_emoji} {cls.cls_name}'
+                f'</div>'
+                f'<div style="font-size:12px;color:#6B7280;margin-top:6px;">'
+                f'置信度 {cls.confidence:.0%}'
+                f'</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        st.caption(
+            f"💡 完整五步分析(商业模式/盈利/财务/估值/审视)→ 切到 **💎 格雷厄姆分析法** Tab"
+        )
 
 
 def _section_thermometer_trends(db_path: str, mtime: float) -> None:
@@ -582,75 +835,105 @@ def _section_thermometer_trends(db_path: str, mtime: float) -> None:
         meta_col, chart_col = st.columns([1, 4])
 
         with meta_col:
-            st.markdown(f"**{ind['label']}**")
             st.markdown(
-                f"<div style='font-size:24px;font-weight:700;line-height:1.1;color:#0d6efd'>"
-                f"{ind['fmt'].format(cur)}</div>"
-                f"<div style='font-size:11px;color:#888'>{cur_date}</div>"
-                f"<div style='margin-top:4px;font-size:13px'>"
-                f"<b>{cur_emoji} {cur_label}</b></div>",
+                f"<div style='font-size:20px;font-weight:800;margin-bottom:10px;"
+                f"color:#1a1a1a'>{ind['label']}</div>",
                 unsafe_allow_html=True,
             )
-            meaning = ind.get("meaning", "")
-            if meaning:
-                st.caption(f"💡 {meaning}")
             if bands:
-                st.markdown("<div style='font-size:12px;color:#666;margin-top:6px'>"
-                            "<b>阈值红绿灯</b></div>", unsafe_allow_html=True)
                 for b in bands:
                     is_cur = (b is cur_band)
-                    style = ("font-weight:700;color:#000;background:#fff3cd;padding:1px 4px;"
-                             "border-radius:3px") if is_cur else "color:#777"
+                    style = ("font-weight:700;color:#000;background:#fff3cd;"
+                             "padding:3px 8px;border-radius:4px;"
+                             "border:1px solid #ffd96a") if is_cur else (
+                             "color:#666;padding:3px 8px;background:#fafafa;"
+                             "border-radius:4px;border:1px solid #eee")
                     st.markdown(
-                        f"<div style='font-size:11px;{style};margin:1px 0'>"
+                        f"<div style='font-size:13px;{style};margin:5px 0;"
+                        f"line-height:1.55'>"
                         f"{b['emoji']} {b['label']}{' ← 当前' if is_cur else ''}</div>",
                         unsafe_allow_html=True,
                     )
 
         with chart_col:
             fig = go.Figure()
-            # 先画底层红绿灯阈值带(填充区域)
+            # 数据范围 + 8% padding(贴紧数据,色带 clip 到可见区域)
             y_min = float(df["value"].min())
             y_max = float(df["value"].max())
+            data_range = max(y_max - y_min, 0.5)
+            pad = max(data_range * 0.08, 0.25)
+            y_lo = y_min - pad
+            y_hi = y_max + pad
+
+            # 浅色实心色带(opacity=1.0)+ 右侧深色档位标签
             for b in bands:
                 lo = b.get("lo"); hi = b.get("hi")
-                y0 = lo if lo is not None else (y_min - abs(y_min) * 0.2 - 1)
-                y1 = hi if hi is not None else (y_max + abs(y_max) * 0.2 + 1)
-                fig.add_hrect(
-                    y0=y0, y1=y1,
-                    fillcolor=b["fill"], opacity=0.10,
-                    line_width=0, layer="below",
-                )
-                # 阈值边界横线(虚线)
-                if lo is not None:
-                    fig.add_hline(
-                        y=lo, line_dash="dot", line_color=b["fill"],
-                        opacity=0.55, line_width=1,
-                    )
-            # 折线
+                y0 = lo if lo is not None else y_lo
+                y1 = hi if hi is not None else y_hi
+                seg_lo = max(y0, y_lo)
+                seg_hi = min(y1, y_hi)
+                if seg_hi <= seg_lo:
+                    continue
+                light_fill = LIGHT_BAND_FILL.get(b["fill"], "#f5f5f5")
+                fig.add_hrect(y0=seg_lo, y1=seg_hi, fillcolor=light_fill,
+                              opacity=1.0, line_width=0, layer="below")
+
+            # 折线 — 2.8px spline,深沉金融蓝
             fig.add_trace(go.Scatter(
                 x=df["date"], y=df["value"],
                 mode="lines", name=ind["label"],
-                line=dict(width=2.2, color="#0d6efd"),
+                line=dict(width=2.6, color=LIXINGER_LINE_COLOR,
+                          shape="spline", smoothing=0.6),
                 hovertemplate="%{x|%Y-%m-%d}<br>" + ind["label"] + ": %{y:.2f}<extra></extra>",
             ))
             # 当前点突出
             fig.add_trace(go.Scatter(
                 x=[df.iloc[-1]["date"]], y=[cur],
                 mode="markers",
-                marker=dict(size=10, color="#0d6efd",
-                            line=dict(color="white", width=2)),
+                marker=dict(size=11, color=LIXINGER_LINE_COLOR,
+                            line=dict(color="white", width=2.5)),
                 showlegend=False, hoverinfo="skip",
             ))
-            fig.update_layout(
-                height=210, margin=dict(t=10, b=20, l=30, r=10),
-                showlegend=False,
-                yaxis_title="", xaxis_title="",
-                hovermode="x unified",
+            _apply_lixinger_layout(
+                fig, height=210,
+                margin_t=8, margin_b=22, margin_l=42, margin_r=14,
+                y_range=[y_lo, y_hi],
             )
             st.plotly_chart(fig, use_container_width=True)
 
-        st.markdown("<div style='border-bottom:1px dashed #e0e0e0;margin:8px 0 12px'></div>",
+        # 全宽底部卡片(脱离左右两列,从最左侧贯穿到最右)
+        # 一行展开:数值 + 日期 + 档位 + 含义 + intro 介绍
+        meaning = ind.get("meaning", "")
+        intro = ind.get("intro", "")
+        meaning_html = (
+            "<span style='color:#555;margin-left:14px;padding-left:14px;"
+            "border-left:1px solid #d6dde5'>"
+            f"💡 <b>含义:</b>{meaning}</span>"
+        ) if meaning else ""
+        intro_html = (
+            "<div style='margin-top:6px;padding-top:6px;border-top:1px dashed #e2e6ea;"
+            "font-size:13px;color:#555;line-height:1.55'>"
+            f"📘 <b>是什么:</b>{intro}</div>"
+        ) if intro else ""
+        st.markdown(
+            "<div style='margin-top:-6px;padding:10px 14px;background:#f8f9fa;"
+            "border-left:3px solid #0d6efd;border-radius:3px'>"
+            # 第一行:数值 / 日期 / 档位 / 含义 一字排开
+            "<div style='display:flex;align-items:center;gap:14px;flex-wrap:wrap'>"
+            f"<span style='font-size:22px;font-weight:700;color:#0d6efd;line-height:1'>"
+            f"{ind['fmt'].format(cur)}</span>"
+            f"<span style='font-size:12px;color:#888'>{cur_date}</span>"
+            f"<span style='font-size:14px;font-weight:700;padding-left:14px;"
+            f"border-left:1px solid #d6dde5'>{cur_emoji} {cur_label}</span>"
+            f"{meaning_html}"
+            "</div>"
+            # 第二行:📘 是什么(M2 长介绍)
+            f"{intro_html}"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+        st.markdown("<div style='border-bottom:1px dashed #e0e0e0;margin:14px 0 18px'></div>",
                     unsafe_allow_html=True)
 
     if not have_any:
@@ -682,24 +965,66 @@ def _section_a_full_band(db_path: str, mtime: float) -> None:
     else:
         verdict, color = "🔴 高位(贵)", "#d9534f"
 
+    # 数据范围 + 8% padding
+    y_min = float(series.min()); y_max = float(series.max())
+    data_range = max(y_max - y_min, 0.5)
+    pad = max(data_range * 0.05, 0.4)
+    y_lo, y_hi = y_min - pad, y_max + pad
+
+    # 4 段分位带(浅色实心) + 右侧深色档位标签
+    BAND_DEFS = [
+        (y_lo, p20,  "#e6faee", "#1e8449", "低估 (≤20%)"),
+        (p20,  p50,  "#f2fcf6", "#27ae60", "偏低 (20-50%)"),
+        (p50,  p80,  "#fffdf2", "#b58a00", "中性 (50-80%)"),
+        (p80,  y_hi, "#fef5f4", "#c0392b", "高位 (>80%)"),
+    ]
+
     fig = go.Figure()
+    for lo, hi, fill, label_color, label_text in BAND_DEFS:
+        fig.add_hrect(y0=lo, y1=hi, fillcolor=fill, opacity=1.0,
+                      line_width=0, layer="below")
+        fig.add_annotation(
+            xref="paper", yref="y", x=0.995, y=(lo + hi) / 2,
+            text=f"<b>{label_text}</b>",
+            showarrow=False, xanchor="right", yanchor="middle",
+            font=dict(size=11, color=label_color, family=LIXINGER_FONT),
+        )
+
+    # 主线 — 2.8px spline
     fig.add_trace(go.Scatter(
         x=df["date"], y=df["value"], name="A 股全指 PE",
-        line=dict(color="#0d6efd", width=2),
+        line=dict(color=LIXINGER_LINE_COLOR, width=2.8,
+                  shape="spline", smoothing=0.6),
+        hovertemplate="%{x|%Y-%m-%d}<br>PE: %{y:.2f}x<extra></extra>",
     ))
-    fig.add_hline(y=p80, line_dash="dot", line_color="#d9534f",
-                  annotation_text=f"80% = {p80:.1f}")
-    fig.add_hline(y=p50, line_dash="dash", line_color="#888",
-                  annotation_text=f"50% = {p50:.1f}")
-    fig.add_hline(y=p20, line_dash="dot", line_color="#1b8a3a",
-                  annotation_text=f"20% = {p20:.1f}")
+
+    # 当前点 + 数字气泡(单一强调)
+    fig.add_trace(go.Scatter(
+        x=[cur_date], y=[cur], mode="markers",
+        marker=dict(size=14, color=LIXINGER_LINE_COLOR,
+                    line=dict(color="white", width=2.5)),
+        showlegend=False, hoverinfo="skip",
+    ))
     fig.add_annotation(
-        x=cur_date, y=cur, text=f"当前 {cur:.1f}<br>{pct*100:.0f}% 分位",
-        showarrow=True, arrowhead=2, ax=-50, ay=-40,
-        bgcolor="rgba(255,255,255,0.85)",
+        x=cur_date, y=cur,
+        text=f"<b>{cur:.1f}x · {pct*100:.0f}% 分位</b>",
+        showarrow=True, arrowhead=0, arrowwidth=1.2,
+        arrowcolor=LIXINGER_LINE_COLOR,
+        ax=-50, ay=-32,
+        font=dict(size=12, color=LIXINGER_LINE_COLOR, family=LIXINGER_FONT),
+        bgcolor="rgba(255,255,255,0.95)",
+        bordercolor=LIXINGER_LINE_COLOR, borderwidth=1, borderpad=3,
     )
-    fig.update_layout(height=380, hovermode="x unified",
-                      title=f"A 股全指 PE-TTM(市值加权)全周期分位带 · {verdict}")
+
+    _apply_lixinger_layout(fig, height=340, y_title="PE-TTM (x)",
+                           y_range=[y_lo, y_hi])
+
+    st.markdown(
+        f"<div style='font-size:13px;color:#444;margin:2px 0 6px'>"
+        f"全周期分位 <b>{pct*100:.0f}%</b> · 评级 <b>{verdict}</b> · "
+        f"P20={p20:.1f}x / P50={p50:.1f}x / P80={p80:.1f}x</div>",
+        unsafe_allow_html=True,
+    )
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -771,14 +1096,18 @@ def render(*args, **kwargs) -> None:
       render(companies, selected, db_mtime)
     """
     db_mtime = 0.0
+    selected = ""
     if len(args) == 1 and isinstance(args[0], (int, float)):
         db_mtime = float(args[0])
     elif len(args) >= 3 and isinstance(args[2], (int, float)):
         db_mtime = float(args[2])
+        selected = args[1] if isinstance(args[1], str) else ""
     elif "db_mtime" in kwargs:
         db_mtime = float(kwargs["db_mtime"])
     elif DB_PATH.exists():
         db_mtime = DB_PATH.stat().st_mtime
+    if not selected:
+        selected = kwargs.get("selected", "") or st.session_state.get("company", "")
 
     st.subheader("📊 L1 市场周期 · 现在是好时机吗?")
 
@@ -798,6 +1127,11 @@ def render(*args, **kwargs) -> None:
         # ② 格雷厄姆指数
         st.markdown("### ② 格雷厄姆指数 · 股票比债券更值得买吗?")
         _section_graham_index(macro_path, macro_mtime)
+
+        # ②.5 单公司格氏数 PE×PB(D3 阶段 C 项 1)
+        if selected:
+            st.markdown(f"#### ②.5 {selected} 格氏数 · 当前公司 PE×PB 实时位置")
+            _section_company_graham_number(selected, db_mtime)
 
         # ③ 5 项宏观时序(原段 1 改提问式)
         st.markdown("---")
