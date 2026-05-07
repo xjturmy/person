@@ -622,6 +622,20 @@ def render(app_globals: dict) -> None:
     folder_to_ticker_local = _folder_to_ticker(DB_MTIME)
     selected_ticker = folder_to_ticker_local.get(selected, "")
 
+    # ─── 区块 A-0:💡 vs 同行业建议卡(Phase C)─────────────────────
+    if selected_ticker:
+        try:
+            import sys as _sys
+            _here = str(Path(__file__).resolve().parent)
+            if _here not in _sys.path:
+                _sys.path.insert(0, _here)
+            import peer_advisor as _pa
+            _adv = _pa.advise(selected_ticker, name=selected)
+            if _adv is not None and _adv.n_peers > 0:
+                st.markdown(_pa.render_hero_card_html(_adv), unsafe_allow_html=True)
+        except Exception as _pa_e:
+            st.caption(f"⚠️ 同行建议引擎调用失败:{_pa_e}")
+
     # ─── V8 顶部:综合评分 + 雪花图(SWS 风格)+ 股价叠加全局 toggle ─
     score = company_score(selected_ticker, DB_MTIME) if selected_ticker else None
     head_left, head_mid = st.columns([1.0, 2.0])
