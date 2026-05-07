@@ -105,9 +105,41 @@ def capture(ticker: str, on_or_before: Optional[_date] = None) -> dict[str, Any]
         snap["fscore"] = None
 
         # 清洗 None
-        return {k: v for k, v in snap.items() if v is not None}
+        out = {k: v for k, v in snap.items() if v is not None}
     finally:
         con.close()
+
+    # Phase C C4 · 同行对比建议快照(peers.duckdb 独立库)
+    try:
+        import sys as _sys
+        _dash = ROOT / ".tools" / "dashboard"
+        if str(_dash) not in _sys.path:
+            _sys.path.insert(0, str(_dash))
+        import peer_advisor as _pa  # noqa: WPS433
+        _adv = _pa.advise(ticker)
+        if _adv is not None and _adv.n_peers > 0:
+            out["peer_advice"] = {
+                "overall_label": _adv.overall_label,
+                "quality_label": _adv.quality_label,
+                "weighted_sum": round(_adv.weighted_sum, 1),
+                "industry": _adv.industry,
+                "n_peers": _adv.n_peers,
+                "top_evidence": [
+                    {"metric": v.metric,
+                     "percentile": round(v.percentile, 0) if v.percentile is not None else None,
+                     "label": v.label,
+                     "signal": v.signal}
+                    for v in sorted(_adv.verdicts,
+                                     key=lambda x: abs(x.signal) * x.weight,
+                                     reverse=True)
+                    if v.signal != 0 and v.percentile is not None
+                ][:3],
+            }
+    except Exception:
+        # 同行库未刷新或缺数据时静默跳过,不阻塞主 snapshot
+        pass
+
+    return out
 
 
 if __name__ == "__main__":

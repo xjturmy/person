@@ -298,10 +298,13 @@ def _log_intake_decisions(payload: list[dict]) -> int:
     每条 ticker:
       - 已在 portfolio → action="加仓"(updated)
       - 不在 → action="买入"(added)
+
+    snapshot 含 peer_advice(C4)— 自动捕获当时 vs 同行评级。
     """
     try:
         sys.path.insert(0, str(ROOT / ".tools"))
         from decisions import db as decisions_db
+        from decisions import snapshot as decisions_snapshot
     except Exception:
         return 0
 
@@ -313,6 +316,11 @@ def _log_intake_decisions(payload: list[dict]) -> int:
             continue
         action = "加仓" if t in held else "买入"
         try:
+            snap = {}
+            try:
+                snap = decisions_snapshot.capture(t)
+            except Exception:
+                pass
             decisions_db.insert(
                 ticker=t,
                 folder="",
@@ -324,7 +332,7 @@ def _log_intake_decisions(payload: list[dict]) -> int:
                 thesis_5y="",
                 risks="",
                 tags="auto-intake",
-                snapshot={},
+                snapshot=snap,
             )
             logged += 1
         except Exception:
@@ -657,11 +665,28 @@ def _render_decision_log(
         st.caption("(暂无决策记录)")
         return
 
+    # C4 · 从 snapshot_json 解出 peer_advice
+    import json as _json
+    def _peer_label(j):
+        if not j or pd.isna(j):
+            return "—"
+        try:
+            d = _json.loads(j) if isinstance(j, str) else j
+            pa = d.get("peer_advice")
+            if pa:
+                sig = pa.get("weighted_sum", 0)
+                return f"{pa['overall_label']}({sig:+.0f})"
+        except Exception:
+            return "—"
+        return "—"
+    df = df.copy()
+    df["vs_peer"] = df["snapshot_json"].apply(_peer_label)
+
     df_view = df[["date", "folder", "ticker", "action", "weight_change", "price",
                   "snapshot_pe", "snapshot_pe_pct_10y", "snapshot_fscore",
-                  "rationale"]].copy()
+                  "vs_peer", "rationale"]].copy()
     df_view.columns = ["日期", "公司", "代码", "动作", "Δ%", "价格",
-                       "PE", "PE 分位", "F-Score", "理由"]
+                       "PE", "PE 分位", "F-Score", "vs 同行", "理由"]
 
     def _action_color(v):
         if not isinstance(v, str): return ""
