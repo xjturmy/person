@@ -1,0 +1,146 @@
+master: graham_insurance
+master_cn: 本杰明·格雷厄姆(保险业适配版)
+method: 防御型投资者准则 + EV/NBV 价值锚
+score_type: composite
+max_score: 10
+description: |
+  格雷厄姆深度价值投资法 — 保险业适配版(2026-05-07 D3 阶段 C)。
+
+  原版 7 准则在保险业的不适用项:
+    - g2 流动比率 ≥ 2 — 保险业资产端长期债券为主,不计流动
+    - g6/g7 PE × PB ≤ 22.5 — 保险业 PE 受准备金假设大幅波动,不可比
+    - 净资产口径不直接反映价值(传统会计 vs EV)
+
+  适配做法:
+    - **EV(内含价值)替代净资产** — P/EV < 0.8 是保险业"格氏数等价"
+    - **NBV margin(新业务价值率)** — 反映寿险定价权
+    - **偿付能力 ≥ 150%** — 监管底线(类比 CET1)
+
+  ⚠️ **数据硬阻塞**:理杏仁/sina/akshare 公开 API 均不直接提供 EV / NBV / 偿付能力
+  v0 用 PB / DY / ROE 作代理,**置信度低**,实际评分主要参考人工填入的 EV 估值
+
+  适用:A 股保险(中国平安 / 中国太保 / 中国人寿 / 新华保险)+ H 股(友邦保险等)
+
+apply_to_industries:
+  - 保险
+  - 寿险
+  - 财险
+
+threshold:
+  excellent: 8
+  good: 6
+  warning: 4
+
+# 保险业 Graham Number 替代式
+graham_number_insurance:
+  formula: P/EV ≤ 0.8(若 EV 数据可用)/ PB ≤ 1.5(代理)
+  meaning: |
+    保险业 PB 失真(传统会计净资产不含未来保单价值)
+    EV(内含价值)= 调整后净资产 + 有效业务价值,反映保险公司真实"账面值"
+    P/EV ≤ 0.8 = 0.8 元买 1 元真实账面值
+  rule: P/EV ≤ 0.8 + EV 增速 > 12% → 保险业"严达标"
+
+# 防御 7 准则(保险业改写)
+rules:
+  - id: gi1_size
+    name: 公司规模充足
+    formula: market_cap >= 5e10           # 保险业:500 亿(行业前 5)
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    notes: 头部险企抗系统风险 + 监管偏好
+
+  - id: gi2_solvency
+    name: 偿付能力 ≥ 150%(代理:无)
+    formula: false                          # 代理:无可靠数据 → 默认 None
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    notes: |
+      v1:偿付能力监管下限 100%,优秀 ≥ 200%
+      硬阻塞:理杏仁/sina 不公开,银保监季度披露需爬虫
+      v0 此项默认 None(等价"未校验通过"),用户手填后启用
+
+  - id: gi3_earnings_stability
+    name: 盈利稳定(10 年累计盈利)
+    formula: min(net_income, 10) > 0
+    weight: 2
+    score_if_pass: 2
+    score_if_fail: 0
+    notes: |
+      保险业受 750 日国债收益率影响利润大波动(2024 H1 预亏 50%+)
+      格雷厄姆要求"无亏损"在 A 股保险业过严,改为"10 年累计盈利"
+
+  - id: gi4_dividend_record
+    name: 持续派息(≥ 8 年,A 股保险更短)
+    formula: years_continuous_dividend >= 8
+    weight: 2
+    score_if_pass: 2
+    score_if_fail: 0
+    notes: |
+      A 股头部险企(平安/太保/国寿)2010+ 上市,A 股放宽到 8 年
+      新华保险 2011 上市 → 至 2026 = 15 年,合格
+
+  - id: gi5_roe_solid
+    name: ROE 稳定(5y 均 ≥ 10%)
+    formula: avg(roe, 5) >= 0.10
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    notes: |
+      保险业 ROE 5y 均:平安 10-12% / 太保 8-10% / 国寿 8-10% / 新华 8-10%
+      < 10% 说明在低利率环境下挣扎
+
+  - id: gi6_pb_below_2
+    name: PB ≤ 2.0(保险业折价区)
+    formula: pb <= 2.0
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    notes: |
+      保险业 PB > 2.0 通常已偏贵
+      平安长期 PB 1.0-1.5 / 太保 0.8-1.2 / 国寿 0.7-1.0 / 新华 0.5-0.8
+
+  - id: gi7_dividend_yield
+    name: DY ≥ 3%(保险业派息门槛)
+    formula: dividend_yield >= 0.03
+    weight: 2
+    score_if_pass: 2
+    score_if_fail: 0
+    notes: |
+      头部险企 DY 通常 4-5%(高股息保险股)
+      < 3% 说明派息政策保守 / 偿付能力压力
+
+# 数据来源备注
+data_source_notes:
+  current_data:
+    - PB / DY / ROE / market_cap / net_income → DuckDB(理杏仁)
+  hard_blocked:
+    - EV(内含价值)— 各险企季报披露,非数据库 metric
+    - NBV(新业务价值)— 同上
+    - 偿付能力 — 银保监季报
+  unblock_paths:
+    - 各险企季报 PDF 解析(EV/NBV 在"内含价值评估报告"中)
+    - 用户手填(每季度)写入 _配置/insurance_ev.csv
+    - 银保监季报爬虫(偿付能力)
+
+# A 股 4 大保险预期(基于 2025-2026 数据)
+expected_a_share_fit:
+  中国平安 601318: 7-9    # PB 1.0 / DY 4.5% / ROE 11% — 良好达标
+  中国太保 601601: 6-8    # PB 0.9 / DY 4% / ROE 9%
+  中国人寿 601628: 5-7    # PB 0.8 / DY 4% / ROE 9%
+  新华保险 601336: 6-8    # PB 0.6 / DY 4.5% / ROE 9% — 折价显著
+
+knowledge_reference:
+  - ../../01_knowledge/03_投资策略与选股/01_格雷厄姆投资法/03_防御型_ABCD评估.md
+  - ../../01_knowledge/03_投资策略与选股/01_格雷厄姆投资法/01_四类价值分类.md  # 第七节金融业适配
+  - ../../02_companies/01_新华保险/
+
+changelog:
+  - date: "2026-05-07"
+    version: v0
+    note: |
+      D3 阶段 C 起步 — 保险业 v0 框架建立
+      g2 偿付能力 / g6 EV/NBV 完全硬阻塞,等用户提供数据 / 银保监爬虫
+      v0 用 PB / DY / ROE 代理,置信度低
+      待 EV 数据接入后 v1 升级,引入 P/EV 替代 PE×PB

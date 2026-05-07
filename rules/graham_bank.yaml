@@ -1,0 +1,142 @@
+master: graham_bank
+master_cn: 本杰明·格雷厄姆(银行业适配版)
+method: 防御型投资者准则 + Graham Number(银行 PB×DY 替代式)
+score_type: composite
+max_score: 10
+description: |
+  格雷厄姆深度价值投资法 — 银行业适配版(2026-05-07 D3 阶段 C)。
+
+  原版 7 准则在银行业有 3 项不直接适用:
+    - g2 流动比率 ≥ 2 — 银行业不适用(资产端贷款不计流动)
+    - g3 10 年盈利持续 — 银行业适用,但波动小
+    - g6/g7 PE × PB ≤ 22.5 — 银行业 PB 通常 < 1.5,PE 5-10,PE×PB 远低于 22.5
+                              真正约束是 ROE / DY / CET1
+
+  适配做法:
+    - 用 PB × DY ≥ 0.04 替代格氏数(招行 PB 0.85 × DY 5% = 0.043 ✅)
+    - g2 改为 CET1 ≥ 8%(暂代理:用 ROE 稳定性 + 拨备/贷款 ≥ 2.5%)
+    - g7 PB 阈值放宽到 1.5(原版 1.5 适用)+ DY ≥ 3% 双约束
+
+  适用:A 股银行(招商银行 / 工商银行 / 建设银行 / 平安银行 / 兴业银行 等)
+
+apply_to_industries:
+  - 银行
+  - 商业银行
+  - 国有大行
+
+threshold:
+  excellent: 8
+  good: 6
+  warning: 4
+
+# 银行业 Graham Number 替代式
+graham_number_bank:
+  formula: PB × DY ≥ 0.04
+  meaning: |
+    银行 PE×PB 远低于 22.5 不等于"便宜",真正信号是 PB 折价 + 股息回报。
+    PB × DY ≥ 0.04 = "1 块账面值买回 4 分股息",是银行业的格氏数等价
+  rule: PB × DY 越高 → 银行越值得防御型买入
+  examples:
+    招商银行: PB 0.85 × DY 5.3% = 0.045 ✅
+    工商银行: PB 0.6 × DY 6% = 0.036 ⚠️
+    建设银行: PB 0.6 × DY 6.5% = 0.039 ⚠️
+
+# 防御 7 准则(银行业改写)
+rules:
+  - id: gb1_size
+    name: 公司规模充足
+    formula: market_cap >= 1e11           # 银行 A 股标准:1000 亿(头部)
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    notes: 头部银行系统重要性 + 抗系统风险
+
+  - id: gb2_capital_strength
+    name: 资本充足(CET1 ≥ 8% 或代理)
+    formula: provision_to_loans >= 0.025      # 代理:拨备/贷款 ≥ 2.5%(P3 解锁)
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    data_source: bank_metrics 表(.tools/db/fetch_bank_metrics.py)
+    notes: |
+      v1:CET1 ≥ 8%(银保监要求 7.5%,头部 11%+)硬阻塞(理杏仁/sina 无)
+      v2 代理:拨备/贷款 ≥ 2.5% — 招行 3.64%(代表强缓冲)
+      待 P3 字典解锁后改回 CET1 真值
+
+  - id: gb3_earnings_stability
+    name: 盈利稳定(10 年无亏损)
+    formula: min(net_income, 10) > 0
+    weight: 2
+    score_if_pass: 2
+    score_if_fail: 0
+    notes: 银行业盈利稳定性是核心(NPL 周期性)
+
+  - id: gb4_dividend_record
+    name: 持续派息(≥ 10 年)
+    formula: years_continuous_dividend >= 10
+    weight: 2
+    score_if_pass: 2
+    score_if_fail: 0
+    notes: 银行业 A 股大行连续派息均 ≥ 15 年
+
+  - id: gb5_roe_solid
+    name: ROE 稳定(5y 均 ≥ 10%)
+    formula: avg(roe, 5) >= 0.10
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    notes: |
+      格雷厄姆原版 g5 = 10y EPS 增长 ≥ 33%,银行业改用 ROE 稳定性
+      招行 5y ROE 均 ≈ 16%(优秀);工行/建行 ≈ 11-12%
+
+  - id: gb6_pb_below_1_5
+    name: PB ≤ 1.5(银行折价区)
+    formula: pb <= 1.5
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    notes: 银行 PB > 1.5 通常已偏贵(除非 ROE 持续 ≥ 18%)
+
+  - id: gb7_dividend_yield
+    name: DY ≥ 3% + PB×DY ≥ 0.04(双约束)
+    formula: dividend_yield >= 0.03 AND (pb * dividend_yield) >= 0.04
+    weight: 2
+    score_if_pass: 2
+    score_if_fail: 0
+    notes: |
+      DY ≥ 3% 是防御底线;PB×DY ≥ 0.04 是 A 股银行业格氏数替代
+      满足两者 → 银行业"严达标"
+
+# 数据来源备注
+data_source_notes:
+  derived_metrics:
+    - bank_metrics(.tools/db/fetch_bank_metrics.py 2026-05-05 派生)
+  hard_blocked:
+    - CET1(代理:provision_to_loans)
+    - NPL(代理:无,需 Tushare 或银保监)
+    - 实际拨备覆盖率(代理:provision_to_loans 视为充足度)
+  unblock_paths:
+    - 银保监季报爬虫
+    - Tushare Pro 银行专题接口
+    - 用户提供理杏仁 metric 字典
+
+# A 股 5 大银行预期
+expected_a_share_fit:
+  招商银行 600036: 9-10  # PB 0.85 / DY 5.3% / ROE 16% — 严达标
+  工商银行 601398: 7-8   # PB 0.6 / DY 6% / ROE 11%
+  建设银行 601939: 7-8   # PB 0.6 / DY 6.5% / ROE 12%
+  平安银行 000001: 5-6   # 中型股份行,折价 ROE 偏弱
+  兴业银行 601166: 5-6   # 同上
+
+knowledge_reference:
+  - ../../01_knowledge/03_投资策略与选股/01_格雷厄姆投资法/03_防御型_ABCD评估.md
+  - ../../01_knowledge/03_投资策略与选股/01_格雷厄姆投资法/01_四类价值分类.md  # 第七节金融业适配
+  - ../../02_companies/12_招商银行/
+
+changelog:
+  - date: "2026-05-07"
+    version: v1
+    note: |
+      D3 阶段 C 起步 — 对照 piotroski_bank v2 的派生代理模式建立 graham_bank 变体
+      原版 7 准则 → 银行 7 准则:格氏数改用 PB × DY ≥ 0.04
+      CET1 暂用 provision_to_loans ≥ 0.025 代理,待 P3 字典解锁

@@ -61,6 +61,7 @@ def card_html(label: str, value: str, hint: str = "",
 INDICATORS = [
     {"key": "M2_YOY",    "label": "M2 同比",    "unit": "%",       "fmt": "{:.1f}%",  "interpret": "high",
      "meaning":   "货币供应量增速,反映流动性松紧",
+     "intro":     "M2 是广义货币供应量,涵盖居民/企业/机关团体的全部存款。增速越高代表央行投放越积极、市场资金越宽松;增速过低则意味着流动性收紧,股票估值承压。",
      "thresholds": "🔴 <6% 紧缩 / 🟢 6-10% 适中 / 🟡 10-12% 偏松 / 🔴 >12% 过热",
      "bands": [
          {"emoji": "🔴", "label": "<6% 紧缩",   "lo": None, "hi": 6,    "fill": "#d9534f"},
@@ -70,6 +71,7 @@ INDICATORS = [
      ]},
     {"key": "CPI_YOY",   "label": "CPI 同比",   "unit": "%",       "fmt": "{:.1f}%",  "interpret": "high",
      "meaning":   "通胀水平,影响利率与企业利润",
+     "intro":     "CPI 衡量一篮子日常消费品价格的同比变化,是观测通胀的核心指标。CPI 偏高会推升加息预期、压制估值;长期负值则代表通缩,需求疲软,企业盈利易下滑。",
      "thresholds": "🔴 <0% 通缩 / 🟢 0-3% 健康 / 🟡 3-4% 偏高 / 🔴 >4% 过热",
      "bands": [
          {"emoji": "🔴", "label": "<0% 通缩",   "lo": None, "hi": 0,    "fill": "#d9534f"},
@@ -79,6 +81,7 @@ INDICATORS = [
      ]},
     {"key": "10Y_YIELD", "label": "10Y 国债",   "unit": "%",       "fmt": "{:.2f}%",  "interpret": "low",
      "meaning":   "无风险利率,股票估值锚",
+     "intro":     "10 年期国债到期收益率代表市场对长期无风险回报的定价,是 DCF 折现率的基础。利率上行会压制风险资产估值,下行则推动资金涌入股市,提升估值天花板。",
      "thresholds": "🟢 <2.5% 利好股 / 🟡 2.5-3.5% 平衡 / 🔴 >3.5% 压制估值",
      "bands": [
          {"emoji": "🟢", "label": "<2.5% 利好股",  "lo": None, "hi": 2.5,  "fill": "#1b8a3a"},
@@ -87,6 +90,7 @@ INDICATORS = [
      ]},
     {"key": "USDCNY",    "label": "USD/CNY",   "unit": "CNY/USD", "fmt": "{:.4f}",   "interpret": "high",
      "meaning":   "汇率,反映外资流入/流出压力",
+     "intro":     "美元兑人民币汇率,数字越小代表人民币越强。人民币升值通常伴随外资流入 A 股、北向资金增持;贬值压力大时北向资金易流出,出口股盈利受益但整体风险偏好下降。",
      "thresholds": "🟢 <7.0 升值 / 🟡 7.0-7.2 平稳 / 🔴 >7.2 贬值压力",
      "bands": [
          {"emoji": "🟢", "label": "<7.0 升值",     "lo": None, "hi": 7.0,  "fill": "#1b8a3a"},
@@ -95,6 +99,7 @@ INDICATORS = [
      ]},
     {"key": "A_FULL_PE", "label": "A 股全指 PE", "unit": "x",     "fmt": "{:.1f}x",  "interpret": "low",
      "meaning":   "全市场加权 PE(理杏仁口径,000985 中证全指,格雷厄姆指数主算)",
+     "intro":     "中证全指(000985)市盈率,覆盖沪深主板/创业板/科创板几乎全部上市公司,是 A 股整体估值最权威的单一指标。处于历史低分位时整体配置价值高,高分位则需警惕系统性回撤。",
      "thresholds": "🟢 <17 低估 / 🟢 17-20 偏低 / 🟡 20-23 合理 / 🟠 23-27 偏高 / 🔴 >27 高估",
      "bands": [
          {"emoji": "🟢", "label": "<17 低估",   "lo": None, "hi": 17,   "fill": "#1b8a3a"},

@@ -630,6 +630,46 @@ def _render_decision_log(
         with col_c:
             d_action = st.selectbox("⚡ 动作", list(decisions_db.ACTIONS), key="dc_action")
 
+        # C4 · 录入前同行建议提示(动态显示当前 d_company 的 peer_advice 摘要)
+        try:
+            _d_ticker = folder_to_ticker.get(d_company, "")
+            if _d_ticker:
+                import sys as _sys
+                _dash = ROOT / ".tools" / "dashboard"
+                if str(_dash) not in _sys.path:
+                    _sys.path.insert(0, str(_dash))
+                import peer_advisor as _pa  # noqa: WPS433
+                _adv = _pa.advise(_d_ticker)
+                if _adv is not None and _adv.n_peers > 0:
+                    _top3 = sorted(
+                        _adv.verdicts,
+                        key=lambda x: abs(x.signal) * x.weight,
+                        reverse=True,
+                    )
+                    _evidence = [
+                        f"{v.metric}={v.percentile:.0f}%·{v.label}"
+                        for v in _top3 if v.signal != 0 and v.percentile is not None
+                    ][:3]
+                    _bg = (
+                        "#1b8a3a" if "低估" in _adv.overall_label else
+                        "#d9534f" if "高估" in _adv.overall_label else
+                        "#f0ad4e"
+                    )
+                    st.markdown(
+                        f'<div style="padding:8px 12px;border-radius:6px;'
+                        f'background:{_bg};color:white;margin:6px 0;font-size:13px">'
+                        f'💡 vs 同行业(<b>{_adv.industry or "—"}</b> {_adv.n_peers} 家):'
+                        f'<b>{_adv.overall_emoji} {_adv.overall_label}</b> '
+                        f'· {_adv.quality_label} · 加权 {_adv.weighted_sum:+.0f}'
+                        f'<br><span style="font-size:12px;opacity:0.92">'
+                        f'Top: {" / ".join(_evidence) if _evidence else "(无显著信号)"}'
+                        f'</span></div>',
+                        unsafe_allow_html=True,
+                    )
+                    st.caption("⤴️ 录入快照会自动包含此结论(可在历史表 vs 同行 列回看)")
+        except Exception:
+            pass  # 同行库未刷新或缺数据时静默(主流程不阻塞)
+
         col_d, col_e = st.columns([1, 2])
         with col_d:
             d_weight = st.number_input("Δ 仓位 %", value=0.0, step=0.5, format="%.2f", key="dc_weight")

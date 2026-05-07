@@ -46,9 +46,14 @@ except Exception:
     pr = None
     dt = None
 
+try:
+    import industry_compare_view as icv  # B2/B3 行业横评
+except Exception:
+    icv = None
+
 # 强制 reload 自写 helper:streamlit 老进程会缓存 sys.modules,
 # 改动 score_card / peer_radar / decision_timeline 后浏览器只 Rerun 不重启 → AttributeError
-for _mod in (sc, pr, dt):
+for _mod in (sc, pr, dt, icv):
     if _mod is not None:
         try:
             importlib.reload(_mod)
@@ -169,9 +174,11 @@ PAGE_MARKET   = "📊 市场周期"
 PAGE_SCREENER = "🔍 公司筛选"
 PAGE_COMPANY  = "🏢 单公司详情"
 PAGE_LYNCH    = "🌱 林奇分析法"
+PAGE_GRAHAM   = "💎 格雷厄姆分析法"
+PAGE_GOLD     = "🥇 黄金分析法"
 PAGE_DC       = "💼 决策中心"
 PAGE_CLAUDE   = "🤖 Claude 终端"
-PAGES = [PAGE_MARKET, PAGE_SCREENER, PAGE_COMPANY, PAGE_LYNCH, PAGE_DC, PAGE_CLAUDE]
+PAGES = [PAGE_MARKET, PAGE_SCREENER, PAGE_COMPANY, PAGE_LYNCH, PAGE_GRAHAM, PAGE_GOLD, PAGE_DC, PAGE_CLAUDE]
 
 with st.sidebar:
     # M0 #1:字体 + 行距 CSS(sidebar 视觉减负)
@@ -373,6 +380,38 @@ if page == PAGE_LYNCH:
         )
     except Exception as _e:
         st.error(f"林奇分析法加载失败:{_e}")
+        import traceback as _tb
+        st.caption(_tb.format_exc())
+
+# ─── D3 格雷厄姆分析法(深度价值五步框架)─────────────────────────────
+if page == PAGE_GRAHAM:
+    try:
+        from tabs import graham_analysis as _graham_mod
+        _graham_mod.render(
+            companies=companies,
+            selected=selected,
+            db_mtime=DB_MTIME,
+            decisions_db=decisions_db,
+            folder_to_ticker_fn=_folder_to_ticker(DB_MTIME),
+        )
+    except Exception as _e:
+        st.error(f"格雷厄姆分析法加载失败:{_e}")
+        import traceback as _tb
+        st.caption(_tb.format_exc())
+
+# ─── D2 黄金分析法(三身份决策框架)──────────────────────────────────
+if page == PAGE_GOLD:
+    try:
+        from tabs import gold_analysis as _gold_mod
+        _gold_mod.render(
+            companies=companies,
+            selected=selected,
+            db_mtime=DB_MTIME,
+            decisions_db=decisions_db,
+            folder_to_ticker_fn=_folder_to_ticker(DB_MTIME),
+        )
+    except Exception as _e:
+        st.error(f"黄金分析法加载失败:{_e}")
         import traceback as _tb
         st.caption(_tb.format_exc())
 

@@ -1,14 +1,16 @@
-"""周末自动更新管道:akshare 增量 → 全量重 ingest → validate 报告。
+"""周末自动更新管道:akshare 增量 → 全量重 ingest → validate → 同行刷新。
 
 用法:
     .venv/bin/python .tools/db/update.py
     .venv/bin/python .tools/db/update.py --skip-akshare   # 仅重新 ingest+validate
+    .venv/bin/python .tools/db/update.py --skip-peers     # 跳过 peers 刷新
     .venv/bin/python .tools/db/update.py --quiet          # 适合 cron(只在异常时报警)
 
 退出码:
     0 = 全部 OK
     1 = validate 报 critical
     2 = akshare 抓取或 ingest 出错
+    (peers 刷新失败仅 warning,不阻塞退出码)
 """
 from __future__ import annotations
 
@@ -42,8 +44,14 @@ def run(label: str, cmd: list[str], log_path: Path, quiet: bool) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--skip-akshare", action="store_true")
+    parser.add_argument("--skip-peers", action="store_true",
+                        help="跳过 peers 刷新(同行池 + 基本面 + PEG)")
+    parser.add_argument("--skip-gold", action="store_true",
+                        help="跳过黄金模块更新(prices + real_rate + ETF + ratios)")
     parser.add_argument("--years", type=int, default=10)
     parser.add_argument("--industry-days", type=int, default=10)
+    parser.add_argument("--peers-n", type=int, default=6,
+                        help="每家公司选 n 个行业对标(默认 6)")
     parser.add_argument("--quiet", action="store_true",
                         help="仅在异常时打印(适合 cron)")
     args = parser.parse_args()
@@ -72,9 +80,45 @@ def main() -> int:
 
     rc = run("validate", [str(PY), str(ROOT / ".tools/db/validate.py")],
              log_path, args.quiet)
+    validate_rc = rc
+
+    if not args.skip_peers:
+        peers_rc = run(
+            "fetch_peers (industry + fundamentals + PEG + F-Score lite)",
+            [str(PY), str(ROOT / ".tools/db/fetch_peers.py"),
+             "--n", str(args.peers_n)],
+            log_path, args.quiet,
+        )
+        if peers_rc != 0 and not args.quiet:
+            print(f"   ⚠️  peers 刷新失败(non-blocking),见 {log_path}")
+
+    # ───── 黄金模块(独立 gold.duckdb,失败不阻塞主流程)─────
+    if not args.skip_gold:
+        gold_steps = [
+            ("fetch_gold_prices",  ".tools/db/fetch_gold_prices.py"),
+            ("fetch_real_rate",    ".tools/db/fetch_real_rate.py"),
+            ("fetch_gold_etf",     ".tools/db/fetch_gold_etf.py"),
+            ("fetch_gold_ratios",  ".tools/db/fetch_gold_ratios.py"),
+        ]
+        for label, script in gold_steps:
+            extra = ["--skip-spdr"] if label == "fetch_gold_etf" else []
+            gold_rc = run(label,
+                          [str(PY), str(ROOT / script), *extra],
+                          log_path, args.quiet)
+            if gold_rc != 0 and not args.quiet:
+                print(f"   ⚠️  {label} 失败(non-blocking),见 {log_path}")
+
+        # Phase 2.4 范式引擎:每周记录一次投票快照
+        engine_rc = run(
+            "paradigm_engine (vote + record snapshot)",
+            [str(PY), str(ROOT / ".tools/dashboard/paradigm_engine.py"), "--write"],
+            log_path, args.quiet,
+        )
+        if engine_rc != 0 and not args.quiet:
+            print(f"   ⚠️  paradigm_engine 失败(non-blocking),见 {log_path}")
 
     print(f"\nupdate done. log: {log_path}")
-    return 1 if rc == 1 else 0
+    return 1 if validate_rc == 1 else 0
 
 
 if __name__ == "__main__":
