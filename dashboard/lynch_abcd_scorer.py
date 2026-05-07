@@ -186,20 +186,36 @@ def _stalwart_company(m: dict, manual: dict) -> tuple[list[ScoreItem], list[Adju
         items.append(ScoreItem("rev_cagr", "营收 5y CAGR", sc, 20,
                                 "auto", lab, raw_value=pct))
 
-    # 1.2 增长连续性(15)— 用最近营收 YoY 近似(每季 8 季数据 _quarterly_yoy 难直接拿)
-    yoy = m.get("rev_yoy_recent")
-    if yoy is None:
-        items.append(_missing("growth_continuity", "增长连续性", 15, "rev_yoy"))
-    else:
-        pct = yoy * 100
-        if pct >= 10:
-            sc, lab = 15, f"最新 YoY {pct:.1f}% ≥ 10%(近似 8/8 季)"
-        elif pct >= 5:
-            sc, lab = 10, f"最新 YoY {pct:.1f}% 偏弱"
+    # 1.2 增长连续性(15)— 8 季单季 YoY 滑窗,稳健类铁律 ≥6/8 季 >10%
+    qc = m.get("quarterly_continuity")
+    if qc is not None and qc.n_quarters > 0:
+        n, h10 = qc.n_quarters, qc.hits_10pct
+        latest_pct = (qc.latest_yoy or 0) * 100
+        if h10 >= 6:
+            sc, lab = 15, f"近 {n} 季 {h10}/{n} >10%(稳健铁律达标);最新 {latest_pct:+.1f}%"
+        elif h10 >= 4:
+            sc, lab = 10, f"近 {n} 季 {h10}/{n} >10%(部分达标);最新 {latest_pct:+.1f}%"
+        elif h10 >= 2:
+            sc, lab = 6, f"近 {n} 季仅 {h10}/{n} >10%(增长疲软);最新 {latest_pct:+.1f}%"
         else:
-            sc, lab = 3, f"最新 YoY {pct:.1f}% 已断档"
-        items.append(ScoreItem("growth_continuity", "增长连续性(单季 YoY)", sc, 15,
-                                "auto", lab, raw_value=pct))
+            sc, lab = 3, f"近 {n} 季 {h10}/{n} >10%(增长断档);最新 {latest_pct:+.1f}%"
+        items.append(ScoreItem("growth_continuity", "增长连续性(8 季)", sc, 15,
+                                "auto", lab, raw_value=h10))
+    else:
+        # fallback:无 8 季数据时退到旧的最新 YoY 近似
+        yoy = m.get("rev_yoy_recent")
+        if yoy is None:
+            items.append(_missing("growth_continuity", "增长连续性", 15, "rev_yoy"))
+        else:
+            pct = yoy * 100
+            if pct >= 10:
+                sc, lab = 12, f"最新 YoY {pct:.1f}%(8 季数据缺,用单季近似;扣 3 分保守)"
+            elif pct >= 5:
+                sc, lab = 8, f"最新 YoY {pct:.1f}% 偏弱"
+            else:
+                sc, lab = 3, f"最新 YoY {pct:.1f}% 已断档"
+            items.append(ScoreItem("growth_continuity", "增长连续性(单季 YoY · fallback)",
+                                    sc, 15, "auto", lab, raw_value=pct))
 
     # 1.3 净利率稳定性(10)— 自动从 5y 净利率时序算变异系数
     cv = m.get("net_margin_5y_cv")
@@ -242,25 +258,27 @@ def _stalwart_company(m: dict, manual: dict) -> tuple[list[ScoreItem], list[Adju
         items.append(ScoreItem("roe_durability", "ROE 持续性", sc, 15,
                                 "auto", lab, raw_value=pct))
 
-    # 2.2 毛利率 vs 行业(10)— 自动从 profitability 表行业 key 取
+    # 2.2 毛利率 vs 行业(10)— 自动从 profitability 表行业 key 取,无则回退静态字典
     diff_pp = m.get("gross_margin_vs_industry_pp")
     co_gm = m.get("gross_margin_self")
     ind_gm = m.get("gross_margin_industry_median")
+    gm_source = m.get("gross_margin_industry_source")
     if diff_pp is None:
         items.append(_manual_or_missing(
             "gross_margin_vs_peers", "毛利率 vs 行业", 10,
             manual.get("gross_margin_vs_peers"),
-            hint="领先 ≥5pp = 10 分;持平 = 6 分;落后 = 0 分(行业数据缺)",
+            hint="领先 ≥5pp = 10 分;持平 = 6 分;落后 = 0 分(银行/保险不适用毛利率指标)",
         ))
     else:
         co_pct = (co_gm * 100) if co_gm and co_gm < 1 else (co_gm or 0)
         ind_pct = (ind_gm * 100) if ind_gm and ind_gm < 1 else (ind_gm or 0)
+        src_tag = " · 静态基准(未校验)" if gm_source == "static" else ""
         if diff_pp >= 5:
-            sc, lab = 10, f"自身 {co_pct:.1f}% vs 行业 {ind_pct:.1f}% · 领先 +{diff_pp:.1f}pp"
+            sc, lab = 10, f"自身 {co_pct:.1f}% vs 行业 {ind_pct:.1f}% · 领先 +{diff_pp:.1f}pp{src_tag}"
         elif diff_pp >= -1:
-            sc, lab = 6, f"自身 {co_pct:.1f}% vs 行业 {ind_pct:.1f}% · 持平 {diff_pp:+.1f}pp"
+            sc, lab = 6, f"自身 {co_pct:.1f}% vs 行业 {ind_pct:.1f}% · 持平 {diff_pp:+.1f}pp{src_tag}"
         else:
-            sc, lab = 0, f"自身 {co_pct:.1f}% vs 行业 {ind_pct:.1f}% · 落后 {diff_pp:+.1f}pp"
+            sc, lab = 0, f"自身 {co_pct:.1f}% vs 行业 {ind_pct:.1f}% · 落后 {diff_pp:+.1f}pp{src_tag}"
         items.append(ScoreItem("gross_margin_vs_peers", "毛利率 vs 行业",
                                 sc, 10, "auto", lab, raw_value=diff_pp))
 
@@ -575,20 +593,36 @@ def _fast_company(m: dict, manual: dict) -> tuple[list[ScoreItem], list[AdjustIt
         items.append(ScoreItem("rev_cagr", "营收 3y CAGR", sc, 25,
                                 "auto", lab, raw_value=pct))
 
-    # 1.2 增长连续性(15)— 用最新季 YoY
-    yoy = m.get("rev_yoy_recent")
-    if yoy is None:
-        items.append(_missing("growth_continuity", "增长连续性", 15, "rev_yoy"))
-    else:
-        pct = yoy * 100
-        if pct >= 20:
-            sc, lab = 15, f"最新 YoY {pct:.1f}% ≥ 20%"
-        elif pct >= 10:
-            sc, lab = 10, f"最新 YoY {pct:.1f}% 偏弱"
+    # 1.2 增长连续性(15)— 8 季单季 YoY 滑窗,快速类铁律 ≥6/8 季 >20%
+    qc = m.get("quarterly_continuity")
+    if qc is not None and qc.n_quarters > 0:
+        n, h20, h10 = qc.n_quarters, qc.hits_20pct, qc.hits_10pct
+        latest_pct = (qc.latest_yoy or 0) * 100
+        if h20 >= 6:
+            sc, lab = 15, f"近 {n} 季 {h20}/{n} >20%(快速铁律达标);最新 {latest_pct:+.1f}%"
+        elif h20 >= 4:
+            sc, lab = 10, f"近 {n} 季 {h20}/{n} >20%(快速边缘);最新 {latest_pct:+.1f}%"
+        elif h10 >= 4:
+            sc, lab = 5, f"近 {n} 季仅 {h20}/{n} >20% 但 {h10}/{n} >10%(已退化稳健);最新 {latest_pct:+.1f}%"
         else:
-            sc, lab = 3, f"最新 YoY {pct:.1f}% 已显著放缓"
-        items.append(ScoreItem("growth_continuity", "增长连续性(单季 YoY)", sc, 15,
-                                "auto", lab, raw_value=pct))
+            sc, lab = 1, f"近 {n} 季 {h20}/{n} >20%(快速属性丧失);最新 {latest_pct:+.1f}%"
+        items.append(ScoreItem("growth_continuity", "增长连续性(8 季)", sc, 15,
+                                "auto", lab, raw_value=h20))
+    else:
+        # fallback:无 8 季数据时退到旧的最新 YoY 近似
+        yoy = m.get("rev_yoy_recent")
+        if yoy is None:
+            items.append(_missing("growth_continuity", "增长连续性", 15, "rev_yoy"))
+        else:
+            pct = yoy * 100
+            if pct >= 20:
+                sc, lab = 12, f"最新 YoY {pct:.1f}%(8 季数据缺,扣 3 分保守)"
+            elif pct >= 10:
+                sc, lab = 8, f"最新 YoY {pct:.1f}% 偏弱"
+            else:
+                sc, lab = 3, f"最新 YoY {pct:.1f}% 已显著放缓"
+            items.append(ScoreItem("growth_continuity", "增长连续性(单季 YoY · fallback)",
+                                    sc, 15, "auto", lab, raw_value=pct))
 
     # 1.3 市场空间/份额(10)— 用 CAGR 强度做"还在抢份额"的代理
     cagr_pct = (cagr or 0) * 100
@@ -923,22 +957,24 @@ def _cyclical_company(m: dict, manual: dict) -> tuple[list[ScoreItem], list[Adju
         items.append(_missing("debt_structure", "债务结构与成本", 10,
                                 "流动负债/总负债"))
 
-    # 2.1 成本竞争力(20)— 毛利率 vs 行业 代理
+    # 2.1 成本竞争力(20)— 毛利率 vs 行业 代理(静态字典回退)
     diff_pp = m.get("gross_margin_vs_industry_pp")
+    gm_source = m.get("gross_margin_industry_source")
     manual_v = manual.get("cost_competitive")
     if manual_v is not None:
         v = max(0, min(20, float(manual_v)))
         items.append(ScoreItem("cost_competitive", "成本竞争力",
                                 v, 20, "manual", f"用户评分 {v:.0f}/20"))
     elif diff_pp is not None:
+        src_tag = " · 静态基准(未校验)" if gm_source == "static" else ""
         if diff_pp >= 8:
-            v, lab = 20, f"毛利率领先行业 {diff_pp:.1f}pp(成本前 20%)"
+            v, lab = 20, f"毛利率领先行业 {diff_pp:.1f}pp(成本前 20%){src_tag}"
         elif diff_pp >= 3:
-            v, lab = 12, f"毛利率领先行业 {diff_pp:.1f}pp(前 40%)"
+            v, lab = 12, f"毛利率领先行业 {diff_pp:.1f}pp(前 40%){src_tag}"
         elif diff_pp >= -2:
-            v, lab = 8, f"毛利率与行业持平 {diff_pp:+.1f}pp"
+            v, lab = 8, f"毛利率与行业持平 {diff_pp:+.1f}pp{src_tag}"
         else:
-            v, lab = 2, f"毛利率落后 {diff_pp:.1f}pp(成本高企)"
+            v, lab = 2, f"毛利率落后 {diff_pp:.1f}pp(成本高企){src_tag}"
         items.append(ScoreItem("cost_competitive", "成本竞争力",
                                 v, 20, "auto",
                                 f"代理估算 {v}/20:{lab}(用毛利率行业差代理单位现金成本)",
@@ -1266,6 +1302,19 @@ def score_abcd(ticker: str, m: dict, cls_id: str,
         return None
     manual = manual or {}
     spec = _DISPATCH[cls_id]
+
+    # 注入 8 季单季 YoY 连续性(stalwart / fast 评分时共用)
+    if "quarterly_continuity" not in m and ticker:
+        try:
+            import duckdb
+            from lynch_classifier import DB_PATH, quarterly_continuity
+            con = duckdb.connect(str(DB_PATH), read_only=True)
+            try:
+                m["quarterly_continuity"] = quarterly_continuity(con, ticker, n_quarters=8)
+            finally:
+                con.close()
+        except Exception:
+            m["quarterly_continuity"] = None
 
     # 公司质量
     c_items, c_adjusts = spec["company"](m, manual)

@@ -40,8 +40,43 @@ if str(DASHBOARD_DIR) not in sys.path:
 
 from lynch_classifier import (  # noqa: E402
     CLASS_META, LYNCH_DIM_SCHEMA, ClassificationResult,
+    QuarterlyContinuity,
     classify_ticker, compute_lynch_dims, load_metrics_from_db, overall_lynch,
+    quarterly_continuity,
 )
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def _quarterly_continuity_cached(ticker: str, db_mtime: float,
+                                  n_quarters: int = 8) -> dict | None:
+    """Streamlit 缓存层 — 内层调 lynch_classifier.quarterly_continuity 纯函数。
+
+    返回 dict(可缓存,QuarterlyContinuity dataclass 不直接 cache 友好);
+    上层 _step_2 调 _qc_from_dict 还原成 QuarterlyContinuity 用 fast_grower_pass 等方法。
+    """
+    if not ticker:
+        return None
+    con = duckdb.connect(str(DB_PATH), read_only=True)
+    try:
+        qc = quarterly_continuity(con, ticker, n_quarters=n_quarters)
+    finally:
+        con.close()
+    return qc.to_dict() if qc and qc.n_quarters > 0 else None
+
+
+def _qc_from_dict(d: dict | None) -> QuarterlyContinuity | None:
+    if not d:
+        return None
+    return QuarterlyContinuity(
+        series=[(s, float(y)) for s, y in d["series"]],
+        n_quarters=d["n_quarters"],
+        hits_20pct=d["hits_20pct"],
+        hits_10pct=d["hits_10pct"],
+        hits_0=d["hits_0"],
+        latest_yoy=d["latest_yoy"],
+        median_yoy=d["median_yoy"],
+        source=d["source"],
+    )
 
 
 # ─── 类型驱动阈值表 ──────────────────────────────────────────────────────
@@ -1124,25 +1159,33 @@ def _step_2_growth_check(ticker: str, m: dict, cls_id_used: str) -> None:
                 icon="🚨",
             )
 
-    # 层 2:季度连续性(db_mtime 在层 1 已计算)
-    st.markdown("**层 2:连续性(近 8 季营收 YoY,>20% 绿区)**")
-    qdf = _quarterly_yoy(ticker, db_mtime, n_quarters=8)
-    if qdf.empty:
-        st.caption("(growth 表无 '同比' 数据,跳过季度连续性)")
+    # 层 2:季度连续性(db_mtime 在层 1 已计算)— 8 季单季 YoY 滑窗
+    qc = _qc_from_dict(_quarterly_continuity_cached(ticker, db_mtime, n_quarters=8))
+    threshold_yoy = 0.20 if cls_id_used == "fast_grower" else 0.10
+    threshold_label = ">20%" if cls_id_used == "fast_grower" else ">10%"
+    st.markdown(f"**层 2:连续性(近 8 季营收 YoY,{threshold_label} 绿区)**")
+
+    if qc is None:
+        st.caption("(growth 表无营收数据,跳过季度连续性)")
     else:
-        # 标注 >20% 与 <0% 的区段
+        dates = [s for s, _ in qc.series]
+        yoys = [y for _, y in qc.series]
+        ymax = max(yoys) if yoys else 0
+        ymin = min(yoys) if yoys else 0
+
         fig = go.Figure()
-        fig.add_hrect(y0=0.20, y1=qdf["yoy"].max() + 0.10 if qdf["yoy"].max() > 0.2 else 0.5,
+        fig.add_hrect(y0=threshold_yoy, y1=ymax + 0.10 if ymax > threshold_yoy else 0.5,
                       fillcolor="#1b8a3a", opacity=0.08, line_width=0,
-                      annotation_text="林奇阈值 >20%", annotation_position="top right",
-                      annotation_font_size=10)
-        fig.add_hrect(y0=qdf["yoy"].min() - 0.05 if qdf["yoy"].min() < 0 else -0.1, y1=0,
+                      annotation_text=f"林奇阈值 {threshold_label}",
+                      annotation_position="top right", annotation_font_size=10)
+        fig.add_hrect(y0=ymin - 0.05 if ymin < 0 else -0.1, y1=0,
                       fillcolor="#d9534f", opacity=0.06, line_width=0)
         fig.add_trace(go.Scatter(
-            x=qdf["date"], y=qdf["yoy"], mode="lines+markers",
+            x=dates, y=yoys, mode="lines+markers",
             line=dict(color="#0d6efd", width=2),
             marker=dict(size=8),
             name="单季营收 YoY",
+            hovertemplate="<b>%{x}</b><br>YoY %{y:.1%}<extra></extra>",
         ))
         fig.update_layout(
             height=240, margin=dict(t=20, b=20, l=10, r=10),
@@ -1151,14 +1194,56 @@ def _step_2_growth_check(ticker: str, m: dict, cls_id_used: str) -> None:
         )
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
-        # 统计 >20% 命中
-        hits = (qdf["yoy"] > 0.20).sum()
-        total = len(qdf)
+        # 命中数 + 类型铁律达标判断 + 退化提示
+        n, h20, h10 = qc.n_quarters, qc.hits_20pct, qc.hits_10pct
+        c_a, c_b, c_c, c_d = st.columns(4)
+        c_a.metric("8 季中 >20% 命中", f"{h20}/{n}")
+        c_b.metric("8 季中 >10% 命中", f"{h10}/{n}")
+        if qc.median_yoy is not None:
+            c_c.metric("中位 YoY", f"{qc.median_yoy*100:+.1f}%")
+        if qc.latest_yoy is not None:
+            delta_color = "normal" if qc.latest_yoy > 0 else "inverse"
+            c_d.metric("最新季 YoY", f"{qc.latest_yoy*100:+.1f}%",
+                       delta_color=delta_color)
+
         if cls_id_used == "fast_grower":
-            verdict = "✅" if hits >= 6 else "⚠️" if hits >= 4 else "❌"
-            st.caption(f"{verdict} 近 {total} 季中 {hits} 季 >20%(快速增长铁律 ≥6/8)")
+            if qc.fast_grower_pass():
+                st.success(f"✅ 快速增长铁律达标 — 近 {n} 季 {h20}/{n} >20%(≥6/8)", icon="✅")
+            elif h10 >= 6:
+                st.warning(
+                    f"⚠️ 已退化为稳健 — 快速铁律未达(仅 {h20}/{n} >20%)但 {h10}/{n} >10% "
+                    f"满足稳健铁律;建议把分类改为 stalwart 重评",
+                    icon="⚠️",
+                )
+            elif h20 >= 4:
+                st.warning(f"⚠️ 快速增长边缘 — 近 {n} 季 {h20}/{n} >20%(铁律要求 ≥6/8)",
+                           icon="⚠️")
+            else:
+                st.error(
+                    f"🔴 快速增长属性丧失 — 近 {n} 季仅 {h20}/{n} >20% / {h10}/{n} >10%;"
+                    f"建议重新分类为 缓慢增长型 / 周期型 / 困境反转型",
+                    icon="🚨",
+                )
+        elif cls_id_used == "stalwart":
+            if qc.stalwart_pass():
+                st.success(f"✅ 稳健增长铁律达标 — 近 {n} 季 {h10}/{n} >10%(≥6/8)", icon="✅")
+            elif h10 >= 4:
+                st.warning(f"⚠️ 稳健增长边缘 — 近 {n} 季 {h10}/{n} >10%(铁律要求 ≥6/8)",
+                           icon="⚠️")
+            elif qc.hits_0 >= 6:
+                st.info(f"ℹ️ 增长缓慢但未断档 — 近 {n} 季 {qc.hits_0}/{n} 季正增长",
+                        icon="ℹ️")
+            else:
+                st.error(
+                    f"🔴 稳健属性丧失 — 近 {n} 季仅 {h10}/{n} >10%;建议重新分类",
+                    icon="🚨",
+                )
         else:
-            st.caption(f"近 {total} 季中 {hits} 季 >20%")
+            st.caption(f"近 {n} 季中:{h20} 季 >20% / {h10} 季 >10% / {qc.hits_0} 季 ≥0%")
+
+        if qc.source == "derived":
+            st.caption("📐 数据派生口径:营业收入累计 → 单季还原(Q1=累计;Q2/Q3/Q4=当期-上期);"
+                       "YoY = 单季今年 / 单季去年同期 - 1")
 
     # 层 3:增长来源(简化版,行业适配)
     st.markdown("**层 3:增长来源(质量)**")

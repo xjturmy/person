@@ -924,6 +924,143 @@ def _rev_cagr(con, ticker: str, years: int) -> float | None:
     return float(factors.prod() ** (1.0 / len(factors)) - 1)
 
 
+# ─── 单季 YoY 连续性(跨模块共享)─────────────────────────────────────────
+#
+# 用法:lynch_analysis.py 第 2 步层 2 + lynch_abcd_scorer.py "增长连续性 15 分项"
+# 共用同一份 8 季 YoY 数据,避免"评分用最新一期 / 图表用 8 季"口径分裂。
+#
+# 数据源策略:
+#   1. 优先取 growth 表 '同比'(理杏仁后续若补回)
+#   2. 否则从 '营业收入' 累计值派生:
+#      单季 = 累计本季 - 累计上季(同年内);Q1 直接用累计
+#      YoY = 单季今年 / 单季去年同期 - 1
+
+
+@dataclass
+class QuarterlyContinuity:
+    """8 季单季 YoY 连续性统计。"""
+    series: list[tuple[str, float]]  # [(date_iso, yoy), ...] 按时间升序
+    n_quarters: int                  # 实际拿到的季度数
+    hits_20pct: int                  # >20% 命中数
+    hits_10pct: int                  # >10% 命中数
+    hits_0: int                      # ≥0 命中数(防"连续负增长")
+    latest_yoy: float | None         # 最新单季 YoY
+    median_yoy: float | None         # 中位数(避免极端值主导)
+    source: str                      # 'direct' / 'derived' / 'empty'
+
+    def fast_grower_pass(self) -> bool:
+        """快速增长铁律:8 季中 ≥6 季 >20%。"""
+        return self.n_quarters >= 6 and self.hits_20pct >= 6
+
+    def stalwart_pass(self) -> bool:
+        """稳健增长铁律:8 季中 ≥6 季 >10%。"""
+        return self.n_quarters >= 6 and self.hits_10pct >= 6
+
+    def to_dict(self) -> dict:
+        return {
+            "series": [(d, float(y)) for d, y in self.series],
+            "n_quarters": self.n_quarters,
+            "hits_20pct": self.hits_20pct,
+            "hits_10pct": self.hits_10pct,
+            "hits_0": self.hits_0,
+            "latest_yoy": self.latest_yoy,
+            "median_yoy": self.median_yoy,
+            "source": self.source,
+        }
+
+
+def quarterly_continuity(con, ticker: str, n_quarters: int = 8) -> QuarterlyContinuity:
+    """计算近 N 季单季营收 YoY 连续性 — 纯计算,无 streamlit 依赖。
+
+    con: 已打开的 duckdb 只读连接(由调用方管理生命周期)
+    """
+    empty = QuarterlyContinuity([], 0, 0, 0, 0, None, None, "empty")
+    if not ticker:
+        return empty
+
+    # 多取 2 年作 yoy 锚:N 季 + 4 季去年同期 = N+4 季,保险起见取 (N/4 + 2) 年
+    years_back = max(3, n_quarters // 4 + 2)
+    cutoff = (date.today() - timedelta(days=365 * years_back)).isoformat()
+
+    # ---- 路径 1:直接取 '同比' ----
+    try:
+        rows = con.execute(
+            """
+            SELECT date, value FROM growth
+            WHERE ticker = ? AND metric = '同比' AND value IS NOT NULL
+                  AND date >= ?
+            ORDER BY date DESC LIMIT ?
+            """,
+            [ticker, cutoff, n_quarters],
+        ).fetchall()
+    except Exception:
+        rows = []
+
+    if rows:
+        df = pd.DataFrame(rows, columns=["date_str", "yoy"]).sort_values("date_str")
+        return _build_continuity(df, source="direct")
+
+    # ---- 路径 2:从累计营收派生单季 YoY ----
+    try:
+        rev_rows = con.execute(
+            """
+            SELECT date, value FROM growth
+            WHERE ticker = ? AND metric = '营业收入' AND value IS NOT NULL
+                  AND date >= ?
+            ORDER BY date ASC
+            """,
+            [ticker, cutoff],
+        ).fetchall()
+    except Exception:
+        rev_rows = []
+
+    if not rev_rows:
+        return empty
+
+    rev = pd.DataFrame(rev_rows, columns=["date_str", "cum_revenue"])
+    rev["date"] = pd.to_datetime(rev["date_str"])
+    rev["year"] = rev["date"].dt.year
+    rev["quarter"] = rev["date"].dt.month // 3  # 3→1 / 6→2 / 9→3 / 12→4
+    rev = rev.sort_values(["year", "quarter"]).reset_index(drop=True)
+
+    # 单季还原:Q1 用累计;Q2/Q3/Q4 = 当期累计 - 上一季累计(同年内)
+    rev["prev_cum"] = rev.groupby("year")["cum_revenue"].shift(1)
+    rev["single_q"] = rev["cum_revenue"] - rev["prev_cum"].fillna(0)
+
+    # YoY:同一 quarter 上一年单季对齐
+    rev["prev_year_single"] = rev.groupby("quarter")["single_q"].shift(1)
+    rev["yoy"] = (rev["single_q"] / rev["prev_year_single"] - 1).where(
+        rev["prev_year_single"].abs() > 1e-6
+    )
+
+    out = (
+        rev.dropna(subset=["yoy"])
+        .sort_values("date")
+        .tail(n_quarters)[["date_str", "yoy"]]
+        .reset_index(drop=True)
+    )
+    if out.empty:
+        return empty
+    return _build_continuity(out, source="derived")
+
+
+def _build_continuity(df: "pd.DataFrame", source: str) -> QuarterlyContinuity:
+    """把 (date_str, yoy) 表转成 QuarterlyContinuity。"""
+    series = [(str(r["date_str"])[:10], float(r["yoy"])) for _, r in df.iterrows()]
+    yoys = [y for _, y in series]
+    n = len(series)
+    hits_20 = sum(1 for y in yoys if y > 0.20)
+    hits_10 = sum(1 for y in yoys if y > 0.10)
+    hits_0 = sum(1 for y in yoys if y >= 0)
+    latest = yoys[-1] if yoys else None
+    median = float(pd.Series(yoys).median()) if yoys else None
+    return QuarterlyContinuity(
+        series=series, n_quarters=n,
+        hits_20pct=hits_20, hits_10pct=hits_10, hits_0=hits_0,
+        latest_yoy=latest, median_yoy=median, source=source,
+    )
+
+
 # ─── ABCD 评分辅助:从原始时序自动派生稳定性 / 行业对比 / 股息连续 ─────
 
 
@@ -969,39 +1106,56 @@ def _net_margin_5y_cv(con, ticker: str) -> tuple[float | None, float | None]:
 
 
 def _gross_margin_vs_industry(con, ticker: str,
-                                industry_l2: str) -> tuple[float | None, float | None, float | None]:
-    """毛利率 vs 行业:返回 (公司当前 GM, 行业中位 GM, 差距 pp)。
+                                industry_l2: str) -> tuple[float | None, float | None, float | None, str | None]:
+    """毛利率 vs 行业:返回 (公司当前 GM, 行业中位 GM, 差距 pp, source)。
 
-    行业 key 形如 `{industry_l2}(申万) - 毛利率(GM)`,记录在 profitability 表。
+    source ∈ {"db", "static", None}:
+      - "db"     = profitability 表里有 `{industry_l2}(申万) - 毛利率(GM)` 聚合 metric
+      - "static" = 走 industry_gm_static.py 静态字典(verified=False)
+      - None     = 行业不适用毛利率(银行/保险)或公司无毛利率数据
     """
-    if not industry_l2:
-        return None, None, None
+    # 公司毛利率(最新)— 静态回退也需要拿到自身 GM 才能算 diff
     try:
-        # 公司毛利率(最新)
         co_row = con.execute(
             "SELECT value FROM profitability WHERE ticker = ? AND metric = '毛利率(GM)' "
             "AND value IS NOT NULL ORDER BY date DESC LIMIT 1",
             [ticker],
         ).fetchone()
-        if not co_row:
-            return None, None, None
-        co_gm = float(co_row[0])
-
-        # 行业毛利率(最新)— 同 metric 模式 "{industry_l2}(申万) - 毛利率(GM)"
-        ind_row = con.execute(
-            "SELECT value FROM profitability "
-            "WHERE metric = ? AND value IS NOT NULL "
-            "ORDER BY date DESC LIMIT 1",
-            [f"{industry_l2}(申万) - 毛利率(GM)"],
-        ).fetchone()
-        if not ind_row:
-            return co_gm, None, None
-        ind_gm = float(ind_row[0])
-        # 差距(pp,百分点)— 比例值差 *100
-        diff_pp = (co_gm - ind_gm) * 100 if co_gm < 1 else (co_gm - ind_gm)
-        return co_gm, ind_gm, diff_pp
     except Exception:
-        return None, None, None
+        return None, None, None, None
+    if not co_row:
+        return None, None, None, None
+    co_gm = float(co_row[0])
+
+    # 1) 优先查 profitability 表里的行业聚合 metric
+    if industry_l2:
+        try:
+            ind_row = con.execute(
+                "SELECT value FROM profitability "
+                "WHERE metric = ? AND value IS NOT NULL "
+                "ORDER BY date DESC LIMIT 1",
+                [f"{industry_l2}(申万) - 毛利率(GM)"],
+            ).fetchone()
+        except Exception:
+            ind_row = None
+        if ind_row:
+            ind_gm = float(ind_row[0])
+            diff_pp = (co_gm - ind_gm) * 100 if co_gm < 1 else (co_gm - ind_gm)
+            return co_gm, ind_gm, diff_pp, "db"
+
+    # 2) 回退到静态字典
+    try:
+        from industry_gm_static import get_static_industry_gm
+    except ImportError:
+        return co_gm, None, None, None
+    _label, ind_gm_pct = get_static_industry_gm(ticker)
+    if ind_gm_pct is None:
+        return co_gm, None, None, None
+    co_pct = co_gm * 100 if co_gm < 1 else co_gm
+    diff_pp = co_pct - ind_gm_pct
+    # 把静态值也按比例(0-1)归一,跟 db 路径返回口径一致
+    ind_gm_norm = ind_gm_pct / 100 if co_gm < 1 else ind_gm_pct
+    return co_gm, ind_gm_norm, diff_pp, "static"
 
 
 def _cyclical_safety_metrics(con, ticker: str) -> tuple[float | None, float | None]:
@@ -1209,10 +1363,11 @@ def load_metrics_from_db(ticker: str, db_path: Path | str = DB_PATH,
             m["net_margin_5y_mean"] = mean
 
             ind_l2 = m.get("industry_sw_l2") or m.get("industry_sw_l1") or ""
-            co_gm, ind_gm, diff_pp = _gross_margin_vs_industry(con2, ticker, ind_l2)
+            co_gm, ind_gm, diff_pp, gm_source = _gross_margin_vs_industry(con2, ticker, ind_l2)
             m["gross_margin_self"] = co_gm
             m["gross_margin_industry_median"] = ind_gm
             m["gross_margin_vs_industry_pp"] = diff_pp
+            m["gross_margin_industry_source"] = gm_source
 
             m["dividend_years_continuous"] = _dividend_continuous_years(con2, ticker)
             m["dividend_yield_5y_pct"] = _dividend_yield_5y_pct(con2, ticker)
