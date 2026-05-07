@@ -524,6 +524,26 @@ def main() -> int:
             except Exception as e:
                 print(f"  ⚠️  spot 拉取失败,PEG 仅依赖 csv 内 PE:{str(e)[:60]}",
                       file=sys.stderr)
+        # valuation 表兜底:为 self 公司补 PE-TTM(spot 拉不到时)
+        try:
+            _vcon = duckdb.connect(str(DB_PATH), read_only=True)
+            try:
+                _vdf = _vcon.execute("""
+                    SELECT v.ticker, v.value
+                    FROM valuation v
+                    INNER JOIN (
+                        SELECT ticker, MAX(date) AS mdate FROM valuation
+                        WHERE metric = 'PE-TTM' GROUP BY ticker
+                    ) m ON v.ticker = m.ticker AND v.metric = 'PE-TTM' AND v.date = m.mdate
+                """).df()
+            finally:
+                _vcon.close()
+            for _, row in _vdf.iterrows():
+                key = str(row["ticker"]).zfill(6)
+                if key not in pe_map:
+                    pe_map[key] = float(row["value"])
+        except Exception as _e:
+            pass
         print(f"  📊 PE map 覆盖 {len(pe_map)}/{len(unique_tickers)} 家(其余 PEG 为空)")
 
         for i, t in enumerate(unique_tickers, 1):
@@ -637,7 +657,10 @@ def main() -> int:
         """)
         # 把 self 信息聚合(从 all_peers 取行业/市值,从 _FUND_CACHE 取基本面)
         self_info_map = {r["ticker"]: r for r in all_peers}
-        # self 的 PE/PB 从 self 在他人 peer_ticker 出现的行 lookup;若没有再走 spot
+        # self 的 PE/PB:三层兜底
+        # 1) 从 self 在他人 peer_ticker 出现的行 lookup(精度最高,实时 spot 来源)
+        # 2) 从 spot 全 A 快照(--use-cached-peers 时跳过)
+        # 3) 从 preson.duckdb / valuation 表最新行 lookup(权威 + 落地数据)
         self_pe_pb: dict[str, dict] = {}
         for r in all_peers:
             pt = str(r.get("peer_ticker") or "").zfill(6)
@@ -650,12 +673,37 @@ def main() -> int:
                          for t, pe, pb in zip(spot_rows.get("ticker", []),
                                                 spot_rows.get("pe", []),
                                                 spot_rows.get("pb", []))}
+        # valuation 表兜底(从 preson.duckdb 读 PE-TTM + PB 最新值)
+        valuation_map: dict[str, dict] = {}
+        try:
+            vcon = duckdb.connect(str(DB_PATH), read_only=True)
+            try:
+                vdf = vcon.execute("""
+                    SELECT v.ticker, v.metric, v.value
+                    FROM valuation v
+                    INNER JOIN (
+                        SELECT ticker, metric, MAX(date) AS mdate
+                        FROM valuation
+                        WHERE metric IN ('PE-TTM', 'PB')
+                        GROUP BY ticker, metric
+                    ) m ON v.ticker = m.ticker AND v.metric = m.metric AND v.date = m.mdate
+                """).df()
+            finally:
+                vcon.close()
+            for _, row in vdf.iterrows():
+                key = str(row["ticker"]).zfill(6)
+                if key not in valuation_map:
+                    valuation_map[key] = {}
+                col = "pe" if row["metric"] == "PE-TTM" else "pb"
+                valuation_map[key][col] = float(row["value"])
+        except Exception as e:
+            print(f"  ⚠️  valuation 兜底加载失败:{str(e)[:60]}", file=sys.stderr)
         rows_self = []
         for t in self_tickers:
             base = self_info_map.get(t, {})
             fund = _FUND_CACHE.get(t, {})
             tk = str(t).zfill(6)
-            pe_pb = self_pe_pb.get(tk) or spot_map.get(tk, {})
+            pe_pb = self_pe_pb.get(tk) or spot_map.get(tk, {}) or valuation_map.get(tk, {})
             rows_self.append((
                 t, base.get("name", ""), base.get("industry_em", ""),
                 base.get("self_market_cap"),
