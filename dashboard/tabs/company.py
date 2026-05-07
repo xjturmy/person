@@ -1186,6 +1186,15 @@ def render(app_globals: dict) -> None:
         if cmp_metrics:
             write_context(selected, compare_targets=targets, compare_metric=f"{cmp_module}/{cmp_metric}")
 
+    # ─── 区块 C-3:🏭 行业横评(Phase B2/B3)─────────────────────────
+    _icv = globals().get("icv")
+    if selected_ticker and _icv is not None:
+        st.divider()
+        try:
+            _icv.render_industry_compare(selected_ticker, score_dict["name"] if score_dict else selected)
+        except Exception as _icv_e:
+            st.caption(f"⚠️ 行业横评渲染失败:{_icv_e}")
+
     # ═══ 区块 D · 决策档案 ═══
     st.markdown(
         _section_banner("D", "📁", "决策档案", "决策时间线 · 投资决策 · 券商研报 · 财报"),
