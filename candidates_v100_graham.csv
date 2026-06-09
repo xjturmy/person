@@ -1,0 +1,45 @@
+stock,name,category,industry,industry_l2,lynch_class,tier,method,note
+601939,建设银行,bank,银行,国有大型银行,bank,D,Graham,"国有大行,股息率 5%+,PB<1"
+601988,中国银行,bank,银行,国有大型银行,bank,D,Graham,"全球化布局,深度价值"
+601288,农业银行,bank,银行,国有大型银行,bank,D,Graham,县域金融护城河
+601658,邮储银行,bank,银行,国有大型银行,bank,D,Graham,邮政体系网点
+601857,中国石油,non_financial,石油石化,油气开采,cyclical,D,Graham,"三桶油龙头,股息率 6%+"
+600028,中国石化,non_financial,石油石化,炼化销售,cyclical,D,Graham,下游加油站护城河
+600938,中国海油,non_financial,石油石化,油气开采,cyclical,D,Graham,低成本油气龙头
+600900,长江电力,non_financial,公用事业,水力发电,slow_grower,D,Graham,"水电之王,股息典范"
+600011,华能国际,non_financial,公用事业,火力发电,slow_grower,D,Graham,火电龙头转新能源
+600886,国投电力,non_financial,公用事业,水电+火电,slow_grower,D,Graham,央企多元发电
+601985,中国核电,non_financial,公用事业,核电,slow_grower,D,Graham,"核电龙头,绿电稀缺"
+600905,三峡能源,non_financial,公用事业,新能源发电,slow_grower,D,Graham,"新能源公用龙头,股息稳健"
+600941,中国移动,non_financial,通信,电信运营,stalwart,D,Graham,"股息率 5%+,算力新增"
+601728,中国电信,non_financial,通信,电信运营,stalwart,D,Graham,宽带+云算双轮
+601668,中国建筑,non_financial,建筑装饰,房建+基建,cyclical,D,Graham,央企巨头股息防御
+601390,中国中铁,non_financial,建筑装饰,基建,cyclical,D,Graham,铁路基建龙头
+601186,中国铁建,non_financial,建筑装饰,基建,cyclical,D,Graham,与中铁双雄
+601800,中国交建,non_financial,建筑装饰,基建+港口,cyclical,D,Graham,一带一路核心
+600377,宁沪高速,non_financial,交通运输,公路,slow_grower,D,Graham,长三角高速稳股息
+600009,上海机场,non_financial,交通运输,机场,cyclical,D,Graham,疫情后恢复+免税重估
+601225,陕西煤业,non_financial,煤炭,煤炭开采,cyclical,D,Graham,高股息煤炭龙头
+601898,中煤能源,non_financial,煤炭,煤炭开采,cyclical,D,Graham,央企煤炭
+600362,江西铜业,non_financial,有色金属,工业金属,cyclical,D,Graham,铜业龙头
+600048,保利发展,non_financial,房地产,房地产开发,cyclical,D,Graham,央企地产龙头
+001979,招商蛇口,non_financial,房地产,房地产开发,cyclical,D,Graham,深圳基因+海运资产
+000002,万科A,non_financial,房地产,房地产开发,cyclical,D,Graham,"地产龙头,深度价值"
+600600,青岛啤酒,non_financial,食品饮料,啤酒,stalwart,D,Graham,"百年品牌,高端化"
+000895,双汇发展,non_financial,食品饮料,肉制品,stalwart,D,Graham,屠宰+肉制品双轮
+002304,洋河股份,non_financial,食品饮料,白酒,stalwart,D,Graham,苏酒龙头
+000538,云南白药,non_financial,医药生物,中药,stalwart,D,Graham,秘方护城河
+600436,片仔癀,non_financial,医药生物,中药,stalwart,D,Graham,麝香国家级保密配方
+000999,华润三九,non_financial,医药生物,中药,stalwart,D,Graham,OTC 龙头
+600018,上港集团,non_financial,交通运输,港口,cyclical,D,Graham,上海港龙头
+600019,宝钢股份,non_financial,钢铁,普钢,cyclical,D,Graham,中国宝武旗舰
+600176,中国巨石,non_financial,建筑材料,玻纤,cyclical,D,Graham,玻纤全球第一
+601319,中国人保,insurance,非银金融,保险,insurance,D,Graham,财险龙头
+002142,宁波银行,bank,银行,城商行,bank,D,Graham,优质城商行
+601998,中信银行,bank,银行,股份制银行,bank,D,Graham,央企股份行
+601169,北京银行,bank,银行,城商行,bank,D,Graham,北京基因城商行
+600188,兖矿能源,non_financial,煤炭,煤炭+化工,cyclical,D,Graham,煤化一体高股息
+600406,国电南瑞,non_financial,电力设备,电网二次设备,stalwart,D,Graham,电网信息化龙头
+600196,复星医药,non_financial,医药生物,医药控股,fast_grower,D,Graham,创新药+医疗服务
+600795,国电电力,non_financial,公用事业,火电,slow_grower,D,Graham,国电系火电
+601872,招商轮船,non_financial,交通运输,航运港口,cyclical,D,Graham,"油运+干散货,高股息"

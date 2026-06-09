@@ -1,0 +1,42 @@
+# focus_industries.yaml — 聚焦行业列表(E4 / 任务包 03)
+# 生成日期: 2026-05-10
+# 任务包: v2.5 行业分析与聚焦 / 03_screener
+#
+# 字段约定(README.md 接口契约 C):
+#   industry  必须与 .config/industry_master.yaml.industries[].name 完全一致(SW L2)
+#   type      与 industry_master 同步;6 类:stalwart / fast_grower / cyclical / slow_grower / bank / insurance
+#   weight    UI 排序加权(暂未启用,默认 1.0)
+#
+# top_n           行业内取前 N 家(默认 7)
+# market_cap_min  市值下限(单位:元;默认 50 亿)— 数据源含 total_market_cap 时启用过滤
+#
+# G2 编辑入口:future Tab UI 提供勾选 + 增减;改完 yaml 即时生效。
+
+focus:
+  - industry: 白酒
+    type: stalwart
+    weight: 1.0
+  - industry: 股份制银行
+    type: bank
+    weight: 1.0
+  - industry: 保险
+    type: insurance
+    weight: 1.0
+  - industry: 化学制药
+    type: fast_grower
+    weight: 1.0
+  - industry: 电池
+    type: fast_grower
+    weight: 1.0
+  - industry: 通信设备
+    type: fast_grower
+    weight: 1.0
+  - industry: 白色家电
+    type: stalwart
+    weight: 1.0
+  - industry: 饮料乳品
+    type: stalwart
+    weight: 1.0
+
+top_n: 7
+market_cap_min: 5000000000  # 50 亿
