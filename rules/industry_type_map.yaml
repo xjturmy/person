@@ -1,0 +1,65 @@
+# industry_type_map.yaml — 林奇 6 类型 → 评分规则映射(E4 / 任务包 03)
+# 生成日期: 2026-05-10
+# 任务包: v2.5 行业分析与聚焦 / 03_screener
+#
+# 引用现有 .tools/rules/*.yaml 14 套大师规则,不写新规则。
+#
+# 字段约定(README.md 接口契约 D):
+#   primary    主评分(必有)
+#       - stalwart/fast_grower/cyclical/slow_grower 用 lynch_classifier(动态 5 维)
+#       - bank/insurance 不能用 lynch_classifier,直接走 graham 行业版
+#   secondary  副评分列表(可空,逐项加权;数据缺失时不计入)
+#   weights    各项权重 dict — primary + secondary 都要列;最终 score 按非缺失项归一化
+#
+# 评分链路:
+#   1. industry_screener.score_company 读 type → 拿 primary/secondary/weights
+#   2. primary 走 lynch_classifier(返回 0-100)或 score_with_master(graham_bank/insurance)
+#   3. secondary 全部用 score_with_master(返回 0-max,需归一化到 0-100)
+#   4. 加权平均 → score(0-100)+ rating
+
+type_to_scoring:
+  stalwart:
+    primary: lynch                     # lynch_classifier 自动判 stalwart 维度
+    secondary: [graham, piotroski]
+    weights:
+      lynch: 0.5
+      graham: 0.3
+      piotroski: 0.2
+
+  fast_grower:
+    primary: lynch                     # lynch_classifier 自动判 fast_grower 维度
+    secondary: [damodaran, piotroski]
+    weights:
+      lynch: 0.5
+      damodaran: 0.3
+      piotroski: 0.2
+
+  cyclical:
+    primary: lynch                     # lynch_classifier 自动判 cyclical 维度
+    secondary: [graham, altman]
+    weights:
+      lynch: 0.4
+      graham: 0.3
+      altman: 0.3
+
+  slow_grower:
+    primary: lynch                     # lynch_classifier 自动判 slow_grower 维度
+    secondary: [graham, piotroski]
+    weights:
+      lynch: 0.4
+      graham: 0.4
+      piotroski: 0.2
+
+  bank:
+    primary: graham_bank               # 银行专版,不能走 lynch_classifier
+    secondary: [piotroski_bank]
+    weights:
+      graham_bank: 0.6
+      piotroski_bank: 0.4
+
+  insurance:
+    primary: graham_insurance          # 保险专版,不能走 lynch_classifier
+    secondary: [piotroski_insurance]
+    weights:
+      graham_insurance: 0.6
+      piotroski_insurance: 0.4

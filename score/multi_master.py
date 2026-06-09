@@ -98,18 +98,15 @@ def run_one(rules_path: Path, ticker: str, year: int) -> tuple[float, int, int] 
     score = 0.0
     valid = 0
     for rule in rules:
-        f = rule["formula"]
+        f = rule.get("formula", "") or rule.get("formula_primary", "") or ""
         # 跳过多行/嵌套公式(damodaran 的 DCF / lynch 的复合表达式)
         if "\n" in f or "==" in f or "Z'" in f or "DCF" in f:
             continue
-        result = evaluator.eval(f)
-        if result is None:
+        rule_score, passed, _ = ENGINE.eval_rule(rule, evaluator)
+        if passed is None:
             continue
         valid += 1
-        if bool(result):
-            score += rule.get("score_if_pass", 1)
-        else:
-            score += rule.get("score_if_fail", 0)
+        score += rule_score
     return score, valid, len(rules)
 
 

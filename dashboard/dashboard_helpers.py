@@ -33,10 +33,10 @@ for _p in (MCP_DIR, SCORE_DIR):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-import score_card as sc
+import ui.score_card as sc
 
 try:
-    import peer_radar as pr
+    import peers.radar as pr
 except Exception:
     pr = None
 
@@ -339,18 +339,15 @@ def master_score(ticker: str, master: str, year: int, mtime: float) -> tuple[int
         score = 0.0
         valid = 0
         for rule in rules:
-            f = rule["formula"]
+            f = rule.get("formula", "") or rule.get("formula_primary", "") or ""
             # 跳过多行 / 复合表达式
             if "\n" in f or "==" in f or "Z'" in f or "DCF" in f:
                 continue
-            result = evaluator.eval(f)
-            if result is None:
+            rule_score, passed, _ = eng.eval_rule(rule, evaluator)
+            if passed is None:
                 continue
             valid += 1
-            if bool(result):
-                score += rule.get("score_if_pass", 1)
-            else:
-                score += rule.get("score_if_fail", 0)
+            score += rule_score
         return int(round(score)), len(rules), valid
     except Exception:
         return None, None, None

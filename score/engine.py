@@ -424,6 +424,61 @@ def classify(score: float, threshold: dict) -> str:
     return "🔴 不合格"
 
 
+_GRADE_TIERS = ("excellent", "good", "fair", "weak", "fail")
+
+
+def eval_rule(rule: dict, evaluator: "FormulaEvaluator") -> tuple[float, bool | None, str]:
+    """统一规则求值。支持三种 schema:
+
+    1) classic:  rule.formula(经典 boolean)
+    2) OR/AND:   rule.formula_primary + rule.formula_alt + rule.pass_logic
+    3) grades:   rule.formula 含 grade_threshold 占位 + rule.grades 多档
+
+    Returns:
+        (score, passed, formula_for_display)
+        passed 为 None 表示数据缺失/不可评估(调用方决定是否计入 valid)。
+    """
+    if "grades" in rule:
+        formula = rule.get("formula", "") or ""
+        for tier in _GRADE_TIERS:
+            tier_def = rule["grades"].get(tier)
+            if not tier_def:
+                continue
+            threshold = tier_def.get("threshold", 0)
+            if isinstance(threshold, str) and threshold.strip() == "-inf":
+                threshold = float("-inf")
+            actual = formula.replace("grade_threshold", repr(threshold))
+            result = evaluator.eval(actual)
+            if result is True:
+                return float(tier_def.get("score", 0)), True, formula
+            if result is None:
+                return 0.0, None, formula
+        return 0.0, False, formula
+
+    if "formula_primary" in rule:
+        primary = evaluator.eval(rule.get("formula_primary", ""))
+        alt = evaluator.eval(rule.get("formula_alt", ""))
+        if primary is None and alt is None:
+            return 0.0, None, rule.get("formula_primary", "")
+        logic = (rule.get("pass_logic") or "OR").upper()
+        if logic == "AND":
+            passed = bool(primary) and bool(alt)
+        else:
+            passed = bool(primary) or bool(alt)
+        score = rule.get("score_if_pass", 1) if passed else rule.get("score_if_fail", 0)
+        return float(score), passed, f"{rule.get('formula_primary','')} {logic} {rule.get('formula_alt','')}"
+
+    formula = rule.get("formula", "") or ""
+    if not formula:
+        return 0.0, None, ""
+    result = evaluator.eval(formula)
+    if result is None:
+        return 0.0, None, formula
+    passed = bool(result)
+    score = rule.get("score_if_pass", 1) if passed else rule.get("score_if_fail", 0)
+    return float(score), passed, formula
+
+
 def run_score(rules_path: Path, data: CompanyData, year: int) -> ScoreResult | None:
     rules_doc = yaml.safe_load(rules_path.read_text(encoding="utf-8"))
 
@@ -446,19 +501,7 @@ def run_score(rules_path: Path, data: CompanyData, year: int) -> ScoreResult | N
     total = 0.0
 
     for rule in rules_doc.get("rules", []):
-        formula = rule["formula"]
-        result = evaluator.eval(formula)
-        passed = bool(result) if result is not None else None
-
-        if passed is True:
-            score = rule.get("score_if_pass", 1)
-        elif passed is False:
-            score = rule.get("score_if_fail", 0)
-        else:
-            score = 0  # 数据缺失按未通过处理
-
-        total += score * rule.get("weight", 1) / max(1, rule.get("weight", 1))  # 兼容已含 weight 的 score
-        # 上面行简化：直接 total += score（因为 score_if_pass 已是绝对分）
+        score, passed, formula = eval_rule(rule, evaluator)
         details.append(RuleResult(
             rule_id=rule["id"],
             name=rule.get("name", rule["id"]),

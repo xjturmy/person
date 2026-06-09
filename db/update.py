@@ -48,6 +48,8 @@ def main() -> int:
                         help="跳过 peers 刷新(同行池 + 基本面 + PEG)")
     parser.add_argument("--skip-gold", action="store_true",
                         help="跳过黄金模块更新(prices + real_rate + ETF + ratios)")
+    parser.add_argument("--skip-market-spot", action="store_true",
+                        help="跳过 v2.4 L1 全市场快照刷新(market.duckdb,~13 分钟)")
     parser.add_argument("--years", type=int, default=10)
     parser.add_argument("--industry-days", type=int, default=10)
     parser.add_argument("--peers-n", type=int, default=6,
@@ -92,13 +94,25 @@ def main() -> int:
         if peers_rc != 0 and not args.quiet:
             print(f"   ⚠️  peers 刷新失败(non-blocking),见 {log_path}")
 
+    # ───── v2.4 候选 ⑨ Phase 1:L1 全市场快照(独立 market.duckdb,~13 分钟,失败不阻塞)─────
+    if not args.skip_market_spot:
+        spot_rc = run(
+            "fetch_market_spot (L1 全 A 快照 + EM 行业映射)",
+            [str(PY), str(ROOT / ".tools/db/fetch_market_spot.py"), "--quiet"],
+            log_path, args.quiet,
+        )
+        if spot_rc != 0 and not args.quiet:
+            print(f"   ⚠️  market_spot 刷新失败(non-blocking),见 {log_path}")
+
     # ───── 黄金模块(独立 gold.duckdb,失败不阻塞主流程)─────
     if not args.skip_gold:
         gold_steps = [
-            ("fetch_gold_prices",  ".tools/db/fetch_gold_prices.py"),
-            ("fetch_real_rate",    ".tools/db/fetch_real_rate.py"),
-            ("fetch_gold_etf",     ".tools/db/fetch_gold_etf.py"),
-            ("fetch_gold_ratios",  ".tools/db/fetch_gold_ratios.py"),
+            ("fetch_gold_prices",     ".tools/db/fetch_gold_prices.py"),
+            ("fetch_real_rate",       ".tools/db/fetch_real_rate.py"),
+            ("fetch_gold_etf",        ".tools/db/fetch_gold_etf.py"),
+            ("fetch_gold_etf_share",  ".tools/db/fetch_gold_etf_share.py"),  # v2.4 step-D
+            ("fetch_gold_stock_etf",  ".tools/db/fetch_gold_stock_etf.py"),  # v2.6 主题 3 板块 F
+            ("fetch_gold_ratios",     ".tools/db/fetch_gold_ratios.py"),
         ]
         for label, script in gold_steps:
             extra = ["--skip-spdr"] if label == "fetch_gold_etf" else []
@@ -116,6 +130,15 @@ def main() -> int:
         )
         if engine_rc != 0 and not args.quiet:
             print(f"   ⚠️  paradigm_engine 失败(non-blocking),见 {log_path}")
+
+        # v2.4 step-D · 短期过热引擎:每周记录一次投票快照
+        overheat_rc = run(
+            "overheat_engine (gold short-term overheat vote)",
+            [str(PY), str(ROOT / ".tools/dashboard/overheat_engine.py"), "--write"],
+            log_path, args.quiet,
+        )
+        if overheat_rc != 0 and not args.quiet:
+            print(f"   ⚠️  overheat_engine 失败(non-blocking),见 {log_path}")
 
     print(f"\nupdate done. log: {log_path}")
     return 1 if validate_rc == 1 else 0

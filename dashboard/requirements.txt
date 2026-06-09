@@ -7,6 +7,10 @@ pandas==3.0.2
 duckdb==1.5.2
 pyarrow==24.0.0
 
+# 候选 ⑩(v2.4 step-B)全局搜索栏 — 拼音首字母 + 模糊兜底
+pypinyin==0.55.0
+rapidfuzz==3.14.5
+
 # Streamlit 间接依赖(锁定避免 itsdangerous/jinja2 漂移)
 altair==6.1.0
 click==8.3.3

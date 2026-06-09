@@ -117,12 +117,14 @@ def fetch_etf_one(etf_code: str, years: int = 3) -> pd.DataFrame:
         "日期": "date", "开盘": "open", "收盘": "close",
         "最高": "high", "最低": "low",
         "成交量": "volume", "成交额": "turnover", "涨跌幅": "pct_change",
+        "换手率": "turnover_rate",  # v2.4 step-D · 过热信号 1
     }
     df = df.rename(columns=rename)
-    keep = ["date", "open", "close", "high", "low", "volume", "turnover", "pct_change"]
+    keep = ["date", "open", "close", "high", "low", "volume", "turnover",
+            "pct_change", "turnover_rate"]
     df = df[[c for c in keep if c in df.columns]].copy()
     df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.date
-    for c in ("open", "close", "high", "low", "turnover", "pct_change"):
+    for c in ("open", "close", "high", "low", "turnover", "pct_change", "turnover_rate"):
         if c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce")
     if "volume" in df.columns:
@@ -134,7 +136,8 @@ def fetch_etf_one(etf_code: str, years: int = 3) -> pd.DataFrame:
 def upsert_prices(con: duckdb.DuckDBPyConnection, df: pd.DataFrame) -> int:
     if df.empty:
         return 0
-    cols = ["etf_code", "date", "open", "close", "high", "low", "volume", "turnover", "pct_change"]
+    cols = ["etf_code", "date", "open", "close", "high", "low",
+            "volume", "turnover", "pct_change", "turnover_rate"]
     df = df[[c for c in cols if c in df.columns]].copy()
     con.register("prices_df", df)
     placeholders = ", ".join(c for c in cols if c in df.columns)
@@ -236,6 +239,7 @@ def smoke_etf_prices(etf_code: str) -> pd.DataFrame:
         "volume": [10000000, 9500000, 11000000, 10500000, 9800000],
         "turnover": [42500000, 39900000, 45980000, 46110000, 41160000],
         "pct_change": [1.19, -1.18, -0.48, 0.96, 1.36],
+        "turnover_rate": [1.85, 1.62, 2.10, 1.78, 1.55],  # %
     })
 
 

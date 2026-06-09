@@ -36,7 +36,7 @@ KNOWLEDGE_BASE = ROOT / "01_knowledge" / "03_投资策略与选股" / "01_格雷
 if str(DASHBOARD_DIR) not in sys.path:
     sys.path.insert(0, str(DASHBOARD_DIR))
 
-from graham_steps import (  # noqa: E402
+from masters.graham.steps import (  # noqa: E402
     CLASS_META, GUARDRAIL_THRESHOLDS,
     classify_graham_type, load_graham_metrics,
     evaluate_earnings_quality, evaluate_three_lines_defense,
@@ -228,17 +228,18 @@ def _render_step3_health(ticker: str, m: dict, cls_id: str) -> None:
     with col_a:
         st.markdown("**🛡️ 第一道:现金缓冲**")
         st.markdown(tl.line1_status)
-        st.caption(f"代理(流动比率):{m.get('current_ratio', 0):.2f}")
+        cr = m.get("current_ratio")
+        st.caption(f"代理(流动比率):{cr:.2f}" if cr is not None else "代理(流动比率):—")
     with col_b:
         st.markdown("**💪 第二道:经营造血**")
         st.markdown(tl.line2_status)
         cfo_to_ni = m.get("cfo_to_ni")
-        st.caption(f"CFO/NI = {cfo_to_ni:.2f}" if cfo_to_ni is not None else "—")
+        st.caption(f"CFO/NI = {cfo_to_ni:.2f}" if cfo_to_ni is not None else "CFO/NI = —")
     with col_c:
         st.markdown("**🏦 第三道:外部融资空间**")
         st.markdown(tl.line3_status)
-        dr = m.get("debt_ratio") or 0
-        st.caption(f"资产负债率:{dr*100:.1f}%")
+        dr = m.get("debt_ratio")
+        st.caption(f"资产负债率:{dr*100:.1f}%" if dr is not None else "资产负债率:—")
 
     # 类型驱动的财务护栏阈值
     st.markdown("#### 类型驱动财务护栏")
@@ -342,7 +343,9 @@ def _render_step4_valuation(ticker: str, m: dict, cls_id: str) -> None:
         with col_b:
             grade = "🟢 便宜" if peg < 1.0 else "🟡 合理" if peg < 1.5 else "🟠 偏贵" if peg < 2.0 else "🔴 泡沫"
             st.metric("评级", grade)
-        st.caption(f"PEG = PE-TTM ÷ (净利 3y CAGR × 100) = {gn.pe:.1f if gn.pe else 0} ÷ {(m.get('np_ttm_yoy') or 0):.1f}")
+        pe_str = f"{gn.pe:.1f}" if gn.pe is not None else "—"
+        np_yoy = m.get('np_ttm_yoy') or 0
+        st.caption(f"PEG = PE-TTM ÷ (净利 3y CAGR × 100) = {pe_str} ÷ {np_yoy:.1f}")
     else:
         st.info("PEG 数据不可用(可能是亏损 / 周期 / 隐蔽资产 — 此时 PEG 失真)")
 
@@ -375,7 +378,7 @@ def _render_step4_valuation(ticker: str, m: dict, cls_id: str) -> None:
             _here = str(Path(__file__).resolve().parent.parent)
             if _here not in _sys.path:
                 _sys.path.insert(0, _here)
-            import graham_peer_radar as _gpr  # noqa: WPS433
+            import masters.graham.peer_radar as _gpr  # noqa: WPS433
             scores = _gpr.graham_peer_scores(ticker, max_peers=4)
             scores_with_data = [s for s in scores if _gpr.has_data(s)]
             if len(scores_with_data) < 1:
@@ -588,19 +591,25 @@ def _build_decision_md(*, ticker: str, company: str, m: dict, cls_dict: dict,
     dy = (m.get("dividend_yield") or 0) * 100
     pe_str = f"{gn.pe:.2f}" if gn.pe else "—"
     pb_str = f"{gn.pb:.2f}" if gn.pb else "—"
+    # 防御 None:safety_margin_pct / confidence / market_cap 可能缺失
+    safety_str = f"{gn.safety_margin_pct:+.1f}%" if gn.safety_margin_pct is not None else "—"
+    confidence_val = cls_dict.get("confidence")
+    confidence_str = f"{confidence_val*100:.0f}%" if confidence_val is not None else "—"
+    market_cap_val = m.get("market_cap")
+    market_cap_str = f"{market_cap_val/1e8:.0f}" if market_cap_val is not None else "—"
 
     md = f"""# 格雷厄姆五步分析 · {company}({ticker})
 
 > **日期**:{today} · **方法论**:格雷厄姆深度价值五步法
 >
-> **判定**:{cls_dict["cls_emoji"]} **{cls_dict["cls_name"]}** · 置信度 {cls_dict["confidence"]*100:.0f}%
+> **判定**:{cls_dict["cls_emoji"]} **{cls_dict["cls_name"]}** · 置信度 {confidence_str}
 
 ---
 
 ## 一、商业模式速览
 
 - **行业**:{m.get("industry_sw_l1") or "—"} / {m.get("industry_sw_l2") or "—"}
-- **市值**:{(m.get("market_cap") or 0)/1e8:.0f} 亿元
+- **市值**:{market_cap_str} 亿元
 - **判定依据**:{cls_dict["reason"]}
 
 ## 二、估值与安全边际
@@ -611,7 +620,7 @@ def _build_decision_md(*, ticker: str, company: str, m: dict, cls_dict: dict,
 | PB | {pb_str} |
 | **格氏数 PE × PB** | **{pe_x_pb:.1f}** |
 | 评级 | {gn.grade_emoji} {gn.grade} |
-| 隐含安全边际 | {gn.safety_margin_pct:+.1f}% |
+| 隐含安全边际 | {safety_str} |
 | 股息率 | {dy:.2f}% |
 
 ## 三、防御 7 准则({ds.pass_count}/{ds.total_count})

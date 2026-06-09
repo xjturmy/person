@@ -1,8 +1,9 @@
 """黄金分析模块 · Phase 2.2-2:抓美国 10Y 名义利率 + CPI → 派生实际利率
 
-数据源(2026-05-07 实测):
+数据源(2026-05-14 更新 · FRED 兜底):
 - US_10Y_NOMINAL  美国 10 年期国债收益率  ak.bond_zh_us_rate(`美国国债收益率10年`)% · D
-- US_CPI_MOM      美国 CPI 月环比          ak.macro_usa_cpi_monthly                % · M
+- US_CPI_MOM      美国 CPI 月环比          首选 ak.macro_usa_cpi_monthly(jin10 易挂)
+                                          兜底 FRED CPIAUCSL(指数水平派生 MoM)% · M
 
 派生:
 - US_CPI_LEVEL    CPI 水平指数(从 MoM 累计) (无单位)
@@ -20,6 +21,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import sys
 import time
 import traceback
@@ -32,6 +34,8 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / ".tools" / "db"))
 from gold_schema import DB_PATH, ensure_db  # noqa: E402
+
+FRED_CPI_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=CPIAUCSL"
 
 
 def _retry(fn, attempts: int = 3, sleep: float = 1.5):
@@ -63,19 +67,86 @@ def fetch_us_10y() -> pd.DataFrame:
     return out
 
 
-def fetch_us_cpi_mom() -> pd.DataFrame:
-    """美国 CPI 月环比(% · 月)。"""
-    import akshare as ak
-    df = _retry(ak.macro_usa_cpi_monthly)
-    out = df[["日期", "今值"]].rename(columns={"日期": "date", "今值": "value"})
-    out["date"] = pd.to_datetime(out["date"], errors="coerce").dt.date
-    out["value"] = pd.to_numeric(out["value"], errors="coerce")
-    out = out.dropna().sort_values("date").reset_index(drop=True)
+def _parse_fred_cpi_csv(text: str) -> pd.DataFrame:
+    """解析 FRED CPIAUCSL CSV → (date, level) 两列 DataFrame。
+
+    FRED 公开 CSV 格式:
+        observation_date,CPIAUCSL
+        1947-01-01,21.48
+        ...
+    历史上也曾用 `DATE` 列名,兼容两者。"""
+    df = pd.read_csv(io.StringIO(text))
+    # 兼容旧列名 DATE / 新列名 observation_date
+    date_col = next((c for c in df.columns if c.lower() in ("date", "observation_date")), None)
+    if date_col is None or "CPIAUCSL" not in df.columns:
+        raise RuntimeError(f"FRED CSV 列异常:{df.columns.tolist()}")
+    df = df.rename(columns={date_col: "date", "CPIAUCSL": "level"})
+    df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.date
+    df["level"] = pd.to_numeric(df["level"], errors="coerce")
+    df = df.dropna().sort_values("date").reset_index(drop=True)
+    return df
+
+
+def fetch_us_cpi_mom_fred() -> pd.DataFrame:
+    """FRED 兜底:拉 CPIAUCSL 指数水平 → 派生月环比 %。
+
+    公式:mom_pct[t] = (level[t] / level[t-1] - 1) * 100
+    与 BLS/jin10 发布的 CPI MoM 同口径(SA · seasonally adjusted)。
+    """
+    import requests
+    def _pull():
+        resp = requests.get(FRED_CPI_URL, timeout=10)
+        resp.raise_for_status()
+        return resp.text
+    text = _retry(_pull, attempts=3, sleep=1.5)
+    raw = _parse_fred_cpi_csv(text)
+    if len(raw) < 2:
+        raise RuntimeError(f"FRED CPIAUCSL 返回 {len(raw)} 行,无法派生 MoM")
+    raw["value"] = (raw["level"] / raw["level"].shift(1) - 1) * 100
+    out = raw[["date", "value"]].dropna().reset_index(drop=True)
     out["indicator"] = "US_CPI_MOM"
     out["unit"] = "%"
     out["frequency"] = "M"
-    out["source"] = "akshare:macro_usa"
+    out["source"] = "FRED:CPIAUCSL"
     return out
+
+
+def fetch_us_cpi_mom() -> pd.DataFrame:
+    """美国 CPI 月环比(% · 月)。
+
+    主路径:akshare.macro_usa_cpi_monthly(底层 jin10.com,SSL 偶发 EOF)
+    兜底:  FRED CPIAUCSL 指数水平派生(St. Louis Fed 公开免费,最稳)
+    """
+    # 1) 主路径:akshare
+    try:
+        import akshare as ak
+        df = _retry(ak.macro_usa_cpi_monthly)
+        out = df[["日期", "今值"]].rename(columns={"日期": "date", "今值": "value"})
+        out["date"] = pd.to_datetime(out["date"], errors="coerce").dt.date
+        out["value"] = pd.to_numeric(out["value"], errors="coerce")
+        out = out.dropna().sort_values("date").reset_index(drop=True)
+        if out.empty:
+            raise RuntimeError("akshare 返回空 DataFrame")
+        # 新鲜度检查:akshare 末日落后今天 > 60 天视为"实质失败",切 FRED
+        # (jin10 经常返回完整历史但缺最近月份,不抛错却数据过期)
+        latest_ak = out["date"].iloc[-1]
+        days_behind = (date.today() - latest_ak).days
+        if days_behind > 60:
+            raise RuntimeError(
+                f"akshare 数据末日 {latest_ak} 落后今天 {days_behind} 天(>60),切 FRED"
+            )
+        out["indicator"] = "US_CPI_MOM"
+        out["unit"] = "%"
+        out["frequency"] = "M"
+        out["source"] = "akshare:macro_usa"
+        return out
+    except Exception as e_ak:
+        print(
+            f"   ⚠️ akshare.macro_usa_cpi_monthly 失败({type(e_ak).__name__}),切 FRED 兜底",
+            file=sys.stderr,
+        )
+        # 2) 兜底:FRED
+        return fetch_us_cpi_mom_fred()
 
 
 def derive_cpi_yoy(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:

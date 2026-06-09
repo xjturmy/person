@@ -100,7 +100,7 @@ def render(app_globals: dict) -> None:
 
     # ─── 状态条:M1 温度计同款 4 列卡片(D5)─────────────────────
     try:
-        from header_thermometer import card_html as _card  # type: ignore
+        from ui.thermometer import card_html as _card  # type: ignore
     except Exception:
         _card = None  # 降级见下方 fallback
 

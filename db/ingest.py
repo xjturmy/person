@@ -115,9 +115,26 @@ CREATE INDEX idx_macro_date ON macro(date);
 """
 
 
+def normalize_ticker(raw, category: str | None = None) -> str:
+    """统一 ticker 为 6 位 zero-padded(A 股)/5 位(港股)字符串。
+
+    - companies.csv 中的 stock 列历史上被 Excel 等工具去掉了前导 0
+      (如 '333'/'1'/'63'),新批次又保留了前导 0(如 '000002')。
+    - 这里统一:A 股 → zfill(6);港股(category='hk') → zfill(5)。
+    - 非纯数字(理论上不会出现) → 原样返回。
+    """
+    s = str(raw).strip()
+    if not s.isdigit():
+        return s
+    if category == "hk":
+        return s.zfill(5)
+    return s.zfill(6)
+
+
 def load_companies() -> pd.DataFrame:
     df = pd.read_csv(COMPANIES_CSV, dtype={"stock": str})
     df = df.rename(columns={"stock": "ticker"})
+    df["ticker"] = df.apply(lambda r: normalize_ticker(r["ticker"], r.get("category")), axis=1)
     return df[["ticker", "folder", "name", "category"]]
 
 

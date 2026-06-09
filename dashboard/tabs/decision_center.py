@@ -638,7 +638,7 @@ def _render_decision_log(
                 _dash = ROOT / ".tools" / "dashboard"
                 if str(_dash) not in _sys.path:
                     _sys.path.insert(0, str(_dash))
-                import peer_advisor as _pa  # noqa: WPS433
+                import peers.advisor as _pa  # noqa: WPS433
                 _adv = _pa.advise(_d_ticker)
                 if _adv is not None and _adv.n_peers > 0:
                     _top3 = sorted(

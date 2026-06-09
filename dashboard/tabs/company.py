@@ -10,6 +10,110 @@ from pathlib import Path
 _THIS = Path(__file__).resolve().parents[0]
 
 
+# ─── v2.7 持仓档案 + 合理价格区间 ────────────────────────────────────
+def _load_fair_price_module():
+    """懒加载 fair_price 模块,与本文件其它模块加载方式保持一致。"""
+    return SourceFileLoader("fair_price", str(_THIS.parent / "fair_price.py")).load_module()
+
+
+def _render_position_card(ticker: str, st) -> None:
+    """渲染「📌 我的持仓」卡(仅持仓股) + 2 个 expander(价格算法 / 选择标准)。
+
+    非持仓 ticker 整个不渲染,Hero 直接接雪花图。
+    """
+    if not ticker:
+        return
+    try:
+        fp = _load_fair_price_module()
+    except Exception:
+        return
+
+    portfolio = fp.load_portfolio()
+    entry = portfolio.get(ticker)
+    if entry is None:
+        return  # 非持仓:零渲染
+
+    rng = fp.compute_fair_range(ticker, entry.name)
+    bg, txt = fp.verdict_color(rng.verdict_code)
+
+    # ── 主卡(紧凑两行)──
+    if rng.verified and rng.graham_number is not None:
+        price_line = (
+            f'💰 {fp.format_price(rng.low)} - {fp.format_price(rng.high)}'
+            f'&nbsp;&nbsp;&nbsp;&nbsp;当前 {fp.format_price(rng.current_price)}'
+            f'&nbsp;&nbsp;&nbsp;&nbsp;'
+            f'<span class="position-badge" style="background:{bg};color:{txt};">'
+            f'{rng.verdict_label} ({rng.deviation_pct:+.1f}%)</span>'
+        )
+    else:
+        price_line = (
+            f'💰 — Graham Number 不适用'
+            f'&nbsp;&nbsp;&nbsp;&nbsp;'
+            f'<span class="position-badge" style="background:{bg};color:{txt};">'
+            f'{rng.verdict_label}</span>'
+        )
+
+    st.markdown(
+        f'<div class="position-card">'
+        f'  <div class="position-card-title">📌 我的持仓 · {entry.name} '
+        f'<span class="position-card-school">[{entry.school}]</span></div>'
+        f'  <div class="position-card-row">💭 {entry.rationale}</div>'
+        f'  <div class="position-card-row">{price_line}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── expander 1:价格计算方法 ──
+    with st.expander("📐 价格计算方法", expanded=False):
+        if rng.verified:
+            st.markdown(
+                f"**方法**:Graham Number(本杰明·格雷厄姆,1973)  \n"
+                f"**公式**:`合理价 = √(22.5 × EPS × BPS)`  \n"
+                f"**22.5 系数** = 15(PE 上限)× 1.5(PB 上限)\n\n"
+                f"**当前数据**(数据日期 {rng.as_of}):\n"
+                f"- PE-TTM = `{rng.pe_ttm:.2f}`\n"
+                f"- PB = `{rng.pb:.2f}`\n"
+                f"- EPS-TTM(反推)= 真实股价 / PE = `{fp.format_price(rng.eps_ttm)}`\n"
+                f"- BPS(反推)= 真实股价 / PB = `{fp.format_price(rng.bps)}`\n"
+                f"- 市值 = `¥{rng.market_cap/1e8:,.0f} 亿`\n"
+                f"- 总股本(净利润/EPS 反推)= `{rng.shares_outstanding/1e8:.2f} 亿股`\n"
+                f"- 真实股价 = 市值 / 总股本 = `{fp.format_price(rng.current_price)}`\n\n"
+                f"**Graham Number** = √(22.5 × {rng.eps_ttm:.2f} × {rng.bps:.2f}) "
+                f"= **{fp.format_price(rng.graham_number)}**\n\n"
+                f"**区间生成**(基于格雷厄姆 ±15% 合理波动):\n"
+                f"- 合理价下沿 = Graham × 0.85 = `{fp.format_price(rng.low)}`\n"
+                f"- 合理价上沿 = Graham × 1.15 = `{fp.format_price(rng.high)}`\n\n"
+                f"**适用范围**:盈利稳定 + 净资产为正的非金融公司  \n"
+                f"**数据源**:preson.duckdb(valuation 表 + growth 表)"
+            )
+        else:
+            st.markdown(
+                f"**Graham Number 不适用**:{rng.skip_reason}\n\n"
+                f"**当前状态**:\n"
+                f"- PE-TTM = `{rng.pe_ttm if rng.pe_ttm is not None else '—'}`\n"
+                f"- PB = `{rng.pb if rng.pb is not None else '—'}`\n"
+                f"- 市值 = "
+                + (f"`¥{rng.market_cap/1e8:,.0f} 亿`" if rng.market_cap else "`—`")
+                + "\n\n"
+                f"**说明**:Graham Number 假设公司盈利稳定 + 净资产为正,"
+                f"对银行/保险/亏损公司不适用。  \n"
+                f"v2.8 将加入 PB-based 估值法(BPS × 行业 PB 中枢)兜底。"
+            )
+
+    # ── expander 2:选择标准 ──
+    with st.expander("🎯 选择标准(为什么选这只)", expanded=False):
+        st.markdown(f"**📌 持仓流派**:{entry.school}")
+        if entry.criteria_met:
+            st.markdown("**✅ 入选硬门槛**(当时满足):")
+            for c in entry.criteria_met:
+                st.markdown(f"- [✓] {c}")
+        st.markdown(f"\n**💭 一句话依据**:{entry.rationale}")
+        if entry.review_triggers:
+            st.markdown("\n**⚠️ 反向风险**(任一成立需重审):")
+            for r in entry.review_triggers:
+                st.markdown(f"- {r}")
+
+
 def _classify_lynch(ticker: str):
     """跑 lynch_classifier。失败返回 None。"""
     if not ticker:
@@ -358,6 +462,9 @@ def render(app_globals: dict) -> None:
             unsafe_allow_html=True,
         )
 
+        # ─── v2.7 持仓档案卡(仅持仓股渲染)─────────────────────────
+        _render_position_card(ticker, st)
+
         # ─── A1+A3:投资视角切换 + 彼得林奇分类卡片 ────────────────
         VIEW_GENERIC = "⚪ 通用"
         VIEW_LYNCH   = "🔍 彼得林奇"
@@ -629,7 +736,7 @@ def render(app_globals: dict) -> None:
             _here = str(Path(__file__).resolve().parent)
             if _here not in _sys.path:
                 _sys.path.insert(0, _here)
-            import peer_advisor as _pa
+            import peers.advisor as _pa
             _adv = _pa.advise(selected_ticker, name=selected)
             if _adv is not None and _adv.n_peers > 0:
                 st.markdown(_pa.render_hero_card_html(_adv), unsafe_allow_html=True)
@@ -719,7 +826,7 @@ def render(app_globals: dict) -> None:
         _dash_dir_b = str((DUCKDB_PATH.parent.parent / ".tools/dashboard").resolve())
         if _dash_dir_b not in _sys_b.path:
             _sys_b.path.insert(0, _dash_dir_b)
-        import master_philosophy as _mp_meta
+        import masters.philosophy as _mp_meta
         _active_n = len(_mp_meta.ACTIVE_MASTERS)
         _active_names = "/".join(_mp_meta.MASTERS[k]["name_cn"] for k in _mp_meta.ACTIVE_MASTERS)
     except Exception:
@@ -748,7 +855,7 @@ def render(app_globals: dict) -> None:
             _dash_dir = str((DUCKDB_PATH.parent.parent / ".tools/dashboard").resolve())
             if _dash_dir not in sys.path:
                 sys.path.insert(0, _dash_dir)
-            import master_philosophy as mp
+            import masters.philosophy as mp
 
             from datetime import date as _d
             _vote_year = _d.today().year - 1

@@ -37,17 +37,17 @@ for _p in (MCP_DIR, SCORE_DIR, DASHBOARD_DIR, TOOLS_DIR):
 
 import importlib
 
-import score_card as sc  # 6 维评分(方向 B)
+import ui.score_card as sc  # 6 维评分(方向 B)
 
 try:
-    import peer_radar as pr  # dash-03 同行雷达
-    import decision_timeline as dt  # dash-03 决策时间线
+    import peers.radar as pr  # dash-03 同行雷达
+    import peers.timeline as dt  # dash-03 决策时间线
 except Exception:
     pr = None
     dt = None
 
 try:
-    import industry_compare_view as icv  # B2/B3 行业横评
+    import industry.compare_view as icv  # B2/B3 行业横评
 except Exception:
     icv = None
 
@@ -95,6 +95,18 @@ from dashboard_helpers import (  # noqa: E402
     _db_mtime, _duckdb_conn, _folder_to_ticker, list_companies,
     load_metric, load_prices, list_industries, load_industry_pe,
 )
+
+# ─── 全局搜索:候选 ⑩ v2.4 step-B ────────────────────────────────────
+from components import search_bar as company_search  # noqa: E402
+
+COMPANIES_CSV = ROOT / ".config" / "companies.csv"
+
+
+@st.cache_data(ttl=300)
+def _company_search_index(csv_mtime: float):
+    if not COMPANIES_CSV.exists():
+        return []
+    return company_search.load_index(COMPANIES_CSV)
 
 # ─── V4/V5/多大师/V8 helper 已抽到 .tools/dashboard/dashboard_helpers.py ──
 from dashboard_helpers import (  # noqa: E402
@@ -162,23 +174,24 @@ RPT_MTIME = report_mtime()
 
 # dash-01:顶部全局市场温度计(所有 Tab 都可见)
 try:
-    import header_thermometer as _hth
+    import ui.thermometer as _hth
     _macro_db = ROOT / "data" / "macro.duckdb"
     _macro_mtime = _macro_db.stat().st_mtime if _macro_db.exists() else 0.0
     _hth.render(_macro_db, _macro_mtime)
 except Exception as _hth_exc:
     st.caption(f"🌡️ 市场温度计加载失败:{_hth_exc}")
 
-# v2.1 布局:左侧 radio 导航 + 公司选择 · 状态/MCP/健康收入 ⚙️ 设置 expander
-PAGE_MARKET   = "📊 市场周期"
-PAGE_SCREENER = "🔍 公司筛选"
-PAGE_COMPANY  = "🏢 单公司详情"
-PAGE_LYNCH    = "🌱 林奇分析法"
-PAGE_GRAHAM   = "💎 格雷厄姆分析法"
-PAGE_GOLD     = "🥇 黄金分析法"
-PAGE_DC       = "💼 决策中心"
-PAGE_CLAUDE   = "🤖 Claude 终端"
-PAGES = [PAGE_MARKET, PAGE_SCREENER, PAGE_COMPANY, PAGE_LYNCH, PAGE_GRAHAM, PAGE_GOLD, PAGE_DC, PAGE_CLAUDE]
+# v2.7 简化导航:11 → 5 顶级页面
+# - 市场&行业 = 市场周期 + 行业分析 (2合1, sub-tab)
+# - 公司研究  = 单公司详情 + 林奇 + 格雷厄姆 + 芒格 (4合1, sub-tab),公司只选一次
+# - 选股 / 黄金 / 决策中心 保留独立
+# - 删 Claude 终端(ttyd 早转方案 B,VS Code 旁挂)
+PAGE_MARKET_HUB = "🌡️ 市场 & 行业"
+PAGE_SCREENER   = "🔍 选股"
+PAGE_COMPANY    = "🏢 公司研究"
+PAGE_GOLD       = "🥇 黄金"
+PAGE_DC         = "💼 决策中心"
+PAGES = [PAGE_MARKET_HUB, PAGE_SCREENER, PAGE_COMPANY, PAGE_GOLD, PAGE_DC]
 
 with st.sidebar:
     # M0 #1:字体 + 行距 CSS(sidebar 视觉减负)
@@ -212,7 +225,59 @@ with st.sidebar:
     if not companies:
         st.error(f"未在 {COMPANIES_DIR} 找到公司目录")
         st.stop()
-    selected = st.selectbox("公司", companies, key="company", label_visibility="collapsed")
+
+    # 候选 ⑩(v2.4 step-B):全局搜索栏 — 代码/中文名/拼音首字母/行业关键词
+    csv_mtime = COMPANIES_CSV.stat().st_mtime if COMPANIES_CSV.exists() else 0.0
+    search_index = _company_search_index(csv_mtime)
+    query = st.text_input(
+        "🔍 搜索",
+        placeholder="代码 / 名称 / 拼音 / 行业,如 gzmt · 茅台 · 白酒",
+        key="company_search_query",
+        label_visibility="collapsed",
+    )
+    show_all_label = "── 📋 显示全部 ──"
+    if query and search_index:
+        matched_folders = company_search.search_folders(query, search_index, limit=20)
+        if matched_folders:
+            options = matched_folders + [show_all_label]
+            st.caption(f"🎯 命中 {len(matched_folders)} 家")
+        else:
+            options = list(companies)
+            st.caption("⚠️ 无匹配 — 显示全部")
+    else:
+        options = list(companies)
+
+    # selectbox options 变化时,清掉旧 session_state 避免值不在列表内的报错
+    options_signature = tuple(options)
+    if st.session_state.get("_company_options_sig") != options_signature:
+        st.session_state["_company_options_sig"] = options_signature
+        if "company" in st.session_state and st.session_state["company"] not in options:
+            del st.session_state["company"]
+
+    selected = st.selectbox(
+        "公司",
+        options,
+        key="company",
+        label_visibility="collapsed",
+    )
+    if selected == show_all_label:
+        # 用户点"显示全部":清搜索词,下次 rerun 走全量列表
+        st.session_state["company_search_query"] = ""
+        st.rerun()
+
+    # 候选 ⑩ 修复:sidebar selected 变化时,同步覆盖各 Tab 内部的公司 selectbox。
+    # streamlit selectbox 一旦 key 在 session_state,index 参数失效 — 不同步则
+    # sidebar 切公司后林奇/格雷厄姆/芒格/决策中心仍显示旧公司。
+    #
+    # 注意:这里用 **无条件写入**(而非"仅 key 存在时写入")。
+    # 因为林奇等 sub-tab 在未激活时并不渲染 selectbox,key 不会被预先注册;
+    # 若仅条件写入,首次切公司时 key 不存在→不写入→sub-tab 激活后又用错误的 index。
+    # 直接 setdefault 写入,sub-tab 内 selectbox 读到的就是 sidebar 当前公司。
+    _SUB_COMPANY_KEYS = ("lynch_company", "graham_company", "munger_company", "dc_company")
+    if st.session_state.get("_last_sidebar_company") != selected:
+        st.session_state["_last_sidebar_company"] = selected
+        for _k in _SUB_COMPANY_KEYS:
+            st.session_state[_k] = selected
 
     # M0 #6:收件箱并入设置(顶部独立段删除,有信时设置内徽章提示)
     inbox = read_inbox()
@@ -237,31 +302,7 @@ with st.sidebar:
                 read_inbox.clear()
                 st.rerun()
 
-        # 3. MCP / 缺口 二级折叠(日常不看,M0 #5)
-        report = parse_validate_report(RPT_MTIME)
-        crit = report.get(selected, [])
-        gap_badge = f" ({len(crit)})" if crit else ""
-        with st.expander(f"🔌 MCP / 🩺 缺口{gap_badge}", expanded=False):
-            st.markdown("**🔌 MCP 工具**")
-            servers = mcp_status()
-            if not servers:
-                st.caption("(settings.json 未配置 mcpServers)")
-            else:
-                for s in servers:
-                    icon = "✅" if s["script_exists"] else "⚠️"
-                    st.caption(f"{icon} `{s['name']}`" + ("" if s["script_exists"] else " · 脚本缺失"))
-                st.caption("注册情况(实际调通需 Claude 会话挂载)")
-
-            st.markdown(f"**🩺 数据缺口 — {selected}**")
-            if crit:
-                for line in crit:
-                    st.warning(line, icon="⚠️")
-            elif RPT_MTIME > 0:
-                st.success("无 critical 缺口", icon="✅")
-            else:
-                st.caption("(尚未运行 validate)")
-
-        # 4. 快捷入口(M0 #5)
+        # 快捷入口(v2.7 简化:MCP/缺口移除 — 日常不看,需要时跑 validate 脚本即可)
         col_a, col_b = st.columns(2)
         with col_a:
             if st.button("🔄 刷新数据", use_container_width=True, key="refresh_cache"):
@@ -276,18 +317,28 @@ with st.sidebar:
 tab_market = tab_screener = tab_company = tab_dc = tab_decisions = tab_claude = st.container()
 tab_home = tab_overview = tab_compare = st.container()
 
-# ─── Tab 0 市场周期(dash-01 · L1 — "现在是好时机吗?")— 占位 ─────────
-if page == PAGE_MARKET:
-    try:
-        from tabs.market import render as _render_market
-        _render_market(companies, selected, DB_MTIME)
-    except Exception as _exc:
-        st.error(f"⚠️ 市场周期 Tab 加载失败:{_exc}")
-        import traceback as _tb
-        st.code(_tb.format_exc(), language="python")
+# ─── 🌡️ 市场 & 行业(2 合 1 — 市场周期 / 行业分析)──────────────────
+if page == PAGE_MARKET_HUB:
+    sub_market, sub_industry = st.tabs(["📊 市场周期", "🏭 行业分析"])
+    with sub_market:
+        try:
+            from tabs.market import render as _render_market
+            _render_market(companies, selected, DB_MTIME)
+        except Exception as _exc:
+            st.error(f"⚠️ 市场周期加载失败:{_exc}")
+            import traceback as _tb
+            st.code(_tb.format_exc(), language="python")
+    with sub_industry:
+        try:
+            from tabs.industry_focus import render as _render_industry
+            _render_industry()
+        except Exception as _exc:
+            st.error(f"⚠️ 行业分析加载失败:{_exc}")
+            import traceback as _tb
+            st.code(_tb.format_exc(), language="python")
 
 
-# ─── Tab 2 公司筛选(dash-02 · L2 — "15 家里哪些值得看?")────────────────
+# ─── 🔍 选股(原"公司筛选")─────────────────────────────────────────
 if page == PAGE_SCREENER:
     try:
         from tabs.screener import render as _render_screener
@@ -333,7 +384,7 @@ def _fscore_for(ticker: str, year: int, mtime: float) -> tuple[int | None, list[
 
 
 # ─── SWS 视觉语言已抽到 .tools/dashboard/sws_styles.py ──────────────────
-from sws_styles import (  # noqa: E402
+from ui.sws_styles import (  # noqa: E402
     SWS_DIM_KEYS, SWS_COLORS, SWS_ICONS,
     SWS_PRIMARY, SWS_PRIMARY_2, SWS_TEXT, SWS_MUTED, SWS_BORDER, SWS_BG_SOFT,
     _sws_score_pill, _radar_chart, _sws_dim_card_html, _SWS_CSS,
@@ -341,16 +392,56 @@ from sws_styles import (  # noqa: E402
 
 
 
+# ─── 🏢 公司研究(v2.7:4 合 1 — 概览 / 林奇 / 格雷厄姆 / 芒格,公司只选一次)─
 if page == PAGE_COMPANY:
-    try:
-        from tabs import company as _company_mod
-        _company_mod.render(globals())
-    except Exception as _e:
-        st.error(f"公司详情加载失败:{_e}")
-        import traceback as _tb
-        st.caption(_tb.format_exc())
+    sub_overview, sub_lynch, sub_graham, sub_munger = st.tabs(
+        ["📋 概览", "🌱 林奇", "💎 格雷厄姆", "🧠 芒格"]
+    )
+    _f2t = _folder_to_ticker(DB_MTIME)
+    with sub_overview:
+        try:
+            from tabs import company as _company_mod
+            _company_mod.render(globals())
+        except Exception as _e:
+            st.error(f"概览加载失败:{_e}")
+            import traceback as _tb
+            st.caption(_tb.format_exc())
+    with sub_lynch:
+        try:
+            from tabs import lynch_analysis as _lynch_mod
+            _lynch_mod.render(
+                companies=companies, selected=selected, db_mtime=DB_MTIME,
+                decisions_db=decisions_db, folder_to_ticker_fn=_f2t,
+            )
+        except Exception as _e:
+            st.error(f"林奇加载失败:{_e}")
+            import traceback as _tb
+            st.caption(_tb.format_exc())
+    with sub_graham:
+        try:
+            from tabs import graham_analysis as _graham_mod
+            _graham_mod.render(
+                companies=companies, selected=selected, db_mtime=DB_MTIME,
+                decisions_db=decisions_db, folder_to_ticker_fn=_f2t,
+            )
+        except Exception as _e:
+            st.error(f"格雷厄姆加载失败:{_e}")
+            import traceback as _tb
+            st.caption(_tb.format_exc())
+    with sub_munger:
+        try:
+            from tabs import munger_analysis as _munger_mod
+            _munger_mod.render(
+                companies=companies, selected=selected, db_mtime=DB_MTIME,
+                decisions_db=decisions_db, folder_to_ticker_fn=_f2t,
+            )
+        except Exception as _e:
+            st.error(f"芒格加载失败:{_e}")
+            import traceback as _tb
+            st.caption(_tb.format_exc())
 
-# ─── dash-04 决策中心(L0 三段式 Tab)──────────────────────────────────
+
+# ─── 💼 决策中心(L0 三段式 Tab)──────────────────────────────────
 if page == PAGE_DC:
     try:
         from tabs import decision_center as _dc_mod
@@ -367,39 +458,8 @@ if page == PAGE_DC:
         import traceback as _tb
         st.caption(_tb.format_exc())
 
-# ─── M6 林奇分析法(成长投资五步框架)──────────────────────────────────
-if page == PAGE_LYNCH:
-    try:
-        from tabs import lynch_analysis as _lynch_mod
-        _lynch_mod.render(
-            companies=companies,
-            selected=selected,
-            db_mtime=DB_MTIME,
-            decisions_db=decisions_db,
-            folder_to_ticker_fn=_folder_to_ticker(DB_MTIME),
-        )
-    except Exception as _e:
-        st.error(f"林奇分析法加载失败:{_e}")
-        import traceback as _tb
-        st.caption(_tb.format_exc())
 
-# ─── D3 格雷厄姆分析法(深度价值五步框架)─────────────────────────────
-if page == PAGE_GRAHAM:
-    try:
-        from tabs import graham_analysis as _graham_mod
-        _graham_mod.render(
-            companies=companies,
-            selected=selected,
-            db_mtime=DB_MTIME,
-            decisions_db=decisions_db,
-            folder_to_ticker_fn=_folder_to_ticker(DB_MTIME),
-        )
-    except Exception as _e:
-        st.error(f"格雷厄姆分析法加载失败:{_e}")
-        import traceback as _tb
-        st.caption(_tb.format_exc())
-
-# ─── D2 黄金分析法(三身份决策框架)──────────────────────────────────
+# ─── 🥇 黄金分析法(三身份决策框架)──────────────────────────────────
 if page == PAGE_GOLD:
     try:
         from tabs import gold_analysis as _gold_mod
@@ -415,19 +475,4 @@ if page == PAGE_GOLD:
         import traceback as _tb
         st.caption(_tb.format_exc())
 
-# ─── Tab 5 Claude 终端(M3 + S4)──────────────────────────────────────
-if page == PAGE_CLAUDE:
-    try:
-        from tabs import claude as _claude_mod
-        _claude_mod.render(globals())
-    except Exception as _e:
-        st.error(f"Claude 终端加载失败:{_e}")
-        import traceback as _tb
-        st.caption(_tb.format_exc())
-
-# ─── dash-04 横切组件:右下浮窗(显示在所有 tab)──────────────────────
-try:
-    import floating_widget as _fab
-    _fab.render()
-except Exception as _e:
-    st.sidebar.caption(f"(右下浮窗加载失败:{_e})")
+# v2.7: Claude 终端 Tab + 右下浮窗已移除(终端转 VS Code 旁挂;浮窗低频)

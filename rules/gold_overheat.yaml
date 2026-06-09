@@ -1,0 +1,278 @@
+# 黄金短期过热信号引擎 · 阈值规约(v2.4 step-D)
+#
+# 目标:在 D2 三大范式("长期主导身份")之上,补一层周/日级"短期热度",
+#       回答"今天该不该追?是建仓窗口还是暂停?"
+#
+# 用法:
+#   from overheat_engine import vote
+#   vote() -> OverheatVote(red=N, yellow=N, green=N, verdict='pause'|'hold'|'add')
+#
+# 6 信号 source 类型(参照 paradigm_engine.py):
+#   - duckdb_query     → 自定义 SQL,返回单值(灵活兜底,不带 as_of)
+#   - duckdb_indicator → gold_metrics 表 indicator 截至 as_of 最新值(支持 abs / window_mean)
+#   - etf_turnover     → gold_etf_prices 最新 turnover_rate 平均(4 ETF 加权)
+#   - etf_volume_ratio → gold_etf_prices 5 日均 volume / 60 日均 volume
+#   - rsi              → gold_metrics GOLD_USD_DERIVED 算 RSI-14
+#   - ma_deviation     → 收盘价 vs MA60 偏离 %
+#   - etf_share_change → gold_etf_share 最新 share_change_5d 平均
+#   - futures_basis    → 走 duckdb_indicator + GOLD_FUTURES_BASIS_PCT + abs(基差绝对值)
+#
+# 阈值方向(都用 active_when_red / active_when_yellow,3 档红绿灯):
+#   - 红灯 = 过热警示(暂停建仓)
+#   - 黄灯 = 局部偏热(持有观望)
+#   - 绿灯 = 健康(可加仓)
+
+version: 1
+as_of_assumption: "2026-05"  # manual_const 信号的快照时点;过期需复审
+
+signals:
+
+  # ────────────────────────────────────────────────────────────────────
+  # 信号 1 · ETF 换手率激增(主仓 518880 单 ETF turnover_rate %)
+  #
+  # ⚠️ 2026-05-14 数据稽核发现:4 只黄金 ETF 中只有 518880(华安)的 turnover_rate
+  #    有数据(缺失率 40%);159934/159937/518800 字段全为 NULL —— akshare
+  #    eastmoney 端点对这 3 只不返回「换手率」列。
+  # 实际行为:_read_etf_turnover_avg() 取"截至 as_of 各 ETF 最新一日 turnover_rate
+  #          的均值",其他 3 只 NULL 不入 AVG,结果等价于 518880 单 ETF 当日值。
+  # 信号名保留"主仓"字样,代表性虽弱于设计(本应 4 ETF 加权),但 518880 流动性最好,
+  # 作为黄金 ETF 整体热度代理仍可用。如未来 fetcher 切新浪源或补齐 3 只 ETF
+  # 换手率,可恢复 4 ETF 加权口径。
+  # ────────────────────────────────────────────────────────────────────
+  - id: etf_turnover_rate
+    name: 518880 换手率(主仓单 ETF)
+    type: numeric
+    unit: "%"
+    source: etf_turnover
+    note: "fund_etf_hist_em 字段「换手率」;仅 518880 有数据,其他 3 ETF 端点不返回该字段"
+    red_when_gt: 5.0      # > 5% 红
+    yellow_when_gte: 2.0  # 2-5% 黄
+
+  # ────────────────────────────────────────────────────────────────────
+  # 信号 2 · 成交量爆量(5 日均 volume / 60 日均 volume)
+  # ────────────────────────────────────────────────────────────────────
+  - id: etf_volume_ratio
+    name: 成交量比(5d / 60d 均值)
+    type: numeric
+    unit: "x"
+    source: etf_volume_ratio
+    note: "5 日均成交量 ÷ 60 日均成交量,>3.0 = 爆量过热"
+    red_when_gt: 3.0
+    yellow_when_gte: 2.0
+
+  # ────────────────────────────────────────────────────────────────────
+  # 信号 3 · RSI-14 过买(GOLD_USD_DERIVED)
+  # ────────────────────────────────────────────────────────────────────
+  - id: gold_rsi_14
+    name: 金价 RSI-14
+    type: numeric
+    unit: ""
+    source: rsi
+    indicator: GOLD_USD_DERIVED
+    window: 14
+    note: "技术面经典超买线 70/75;黄金特性偏短"
+    red_when_gt: 75
+    yellow_when_gte: 65
+
+  # ────────────────────────────────────────────────────────────────────
+  # 信号 4 · 价格偏离 MA60(GOLD_USD_DERIVED 收盘 vs 60 日均)
+  # ────────────────────────────────────────────────────────────────────
+  - id: gold_ma60_deviation
+    name: 金价偏离 MA60
+    type: numeric
+    unit: "%"
+    source: ma_deviation
+    indicator: GOLD_USD_DERIVED
+    window: 60
+    note: "(close - ma60) / ma60 × 100;> +10% 极度偏离均值"
+    red_when_gt: 10.0
+    yellow_when_gte: 5.0
+
+  # ────────────────────────────────────────────────────────────────────
+  # 信号 5 · ETF 份额激增(5 日变化 %)
+  # ────────────────────────────────────────────────────────────────────
+  - id: etf_share_change_5d
+    name: ETF 份额 5 日变化(均值)
+    type: numeric
+    unit: "%"
+    source: etf_share_change
+    note: "份额激增 = 资金涌入 = 散户追高;无份额数据时走 default_green"
+    red_when_gt: 5.0
+    yellow_when_gte: 2.0
+    default_state: green   # 数据缺失走绿(无信号 ≠ 过热)
+
+  # ────────────────────────────────────────────────────────────────────
+  # 信号 6 · 期货基差异常(沪金主力 AU0 vs Au99.99 现货)
+  #
+  # 数据源:fetch_gold_futures_basis.py → gold_metrics.GOLD_FUTURES_BASIS_PCT
+  # 基差 = (期货 - 现货) / 现货 × 100,正负都有信号意义:
+  #   - 正基差大 = 期货升水 = 市场追多过度 → 红
+  #   - 负基差大 = 现货溢价 = 实物紧缺 → 同样高位
+  # 所以用 abs:true,阈值是"基差绝对值"。
+  # ────────────────────────────────────────────────────────────────────
+  - id: gold_futures_basis
+    name: 期货基差(沪金主力 vs 现货 abs%)
+    type: numeric
+    unit: "%"
+    source: duckdb_indicator
+    indicator: GOLD_FUTURES_BASIS_PCT
+    abs: true                    # 取绝对值参与阈值判定
+    window_mean: 5               # 用最近 5 个交易日均值平滑(避免单日噪声)
+    note: "|基差| > 5% 异常,2-5% 偏离正常;窗口 5 日均"
+    red_when_gt: 5.0
+    yellow_when_gte: 2.0
+    default_state: green         # gold_metrics 无数据时走绿(无信号 ≠ 过热)
+
+
+# ────────────────────────────────────────────────────────────────────
+# 综合判定规则(红 ≥ 3 / 红 ≥ 1 + 黄 ≥ 3 / 全绿)
+# ────────────────────────────────────────────────────────────────────
+verdict_rules:
+
+  - id: pause
+    when_red_gte: 3
+    label: "🔴 暂停建仓(过热警示)"
+    action: "短期等待过热释放,大趋势看好也不应追高"
+
+  - id: pause_partial
+    when_red_gte: 1
+    when_yellow_gte: 3
+    label: "🔴 局部过热(暂停建仓)"
+    action: "1-2 个红灯 + 多个黄灯,谨慎持有,不加仓"
+
+  - id: hold
+    when_yellow_gte: 3
+    label: "🟡 持有观望(局部偏热)"
+    action: "整体偏热但未到红线,持有不动,不追加"
+
+  - id: add_caution
+    when_yellow_gte: 1
+    label: "🟢 可小幅加仓(局部温和)"
+    action: "偶有黄灯属正常,可在大趋势看好下小幅加仓"
+
+  - id: add
+    label: "🟢 加仓窗口(全绿)"
+    action: "全部信号绿色,大趋势看好下是建仓窗口"
+
+
+# ────────────────────────────────────────────────────────────────────
+# 大趋势联动建议(verdict × 范式投票 → 操作)
+# 用于 UI 展示,不参与判定运算
+# ────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────
+# 仓位走廊:短期热度对仓位上限的动态折扣
+# 给定战略目标 X%(由范式投票 + 康波决定 — 看好默认 20%,看空默认 5%),
+# 当前 verdict 档位决定"当前合理仓位上限" = X × discount。
+# 当前持仓 Y%:
+#   - Y < 走廊下界(discount × X − tolerance)→ 加仓(每周匀速)
+#   - Y > 走廊上界(discount × X + tolerance)→ 减仓(每周匀速)
+#   - 区间内 → 持有
+# ────────────────────────────────────────────────────────────────────
+position_corridor:
+  tolerance_pct: 2.0            # ±2% 容忍带
+  default_strategic_pct: 20.0   # 大趋势看好时默认战略目标
+  default_period_weeks: 26      # 半年匀速建仓 / 减仓
+  tiers:
+    - verdict_id: add
+      discount: 1.00            # 全绿,可建满 X
+      label: "可建满战略目标"
+    - verdict_id: add_caution
+      discount: 0.95            # 留 5% 余量
+      label: "留 5% 余量"
+    - verdict_id: hold
+      discount: 0.85            # 让出 15% 等过热释放
+      label: "让出 15% 等冷却"
+    - verdict_id: pause_partial
+      discount: 0.70            # 局部过热,70% 上限
+      label: "局部过热,70% 上限"
+    - verdict_id: pause
+      discount: 0.60            # 过热警示,强制减仓
+      label: "过热警示,强制减仓上限"
+
+
+# ────────────────────────────────────────────────────────────────────
+# 金股 ETF 杠杆建议矩阵(v2.6 主题 3 板块 H)
+#
+# 输入:金价 verdict(add / add_caution / hold / pause_partial / pause)+ 金股 β
+# 输出:每只金股 ETF 的"加/持/减"建议 + 仓位 multiplier
+#
+# ⚠️ 双向性提醒:β = 2 意味着"金价涨 10% 时金股涨 20%,跌 10% 时跌 20%"
+#    高 β 不是单向利好;红灯时高 β 应优先减
+#
+# 匹配规则:matrix 自上而下顺序匹配,先匹配先返回
+#   - when_verdict: [list]  多 verdict 共用一条规则
+#   - when_beta_lt / when_beta_gte 可独立或组合;不写则视为"任意 β"
+#   - β=None(数据缺) → 走特殊路径 beta_missing(由 engine 层兜底,不在此 matrix)
+# ────────────────────────────────────────────────────────────────────
+stock_etf_position:
+  # 高/低 β 分界线
+  #
+  # 阈值由来(2026-05 实测 4 只金股 ETF · 60d 窗口):
+  #   159562  β=1.09   R²=0.660
+  #   159830  β=0.99   R²=0.997  ✓ 拟合优秀
+  #   517400  β=1.11   R²=0.663
+  #   588120  β=0.43   R²=0.258  ✗ 拟合极差,β 不可信
+  # 实测分布 β180 跨度 0.28~1.20,旧阈值 2.0 / 1.5 永远无法触发高 β 分支。
+  # 现统一以 1.1 划分高/低 β:159830 vs 其他能稳定分开。
+  beta_threshold: 1.1
+  # β 拟合 R² 可信度门槛 — 60d R² 低于此值,视为不可信,走 beta_low_r2 兜底
+  # 阈值由来:588120 R²=0.258(显著低于 0.5),线性关系几乎不存在;0.5 是
+  # 计量经济学常用"勉强解释一半方差"的下限
+  min_r_squared: 0.5
+  # 默认占比口径(黄金大类中,金股 / 实物 的默认比例 — 给 UI 参考)
+  default_stock_share_in_gold: 0.30   # 黄金 20% 中,金股占 30% × 20% = 6%
+
+  matrix:
+    - id: add_low_beta
+      when_verdict: [add, add_caution]
+      when_beta_lt: 1.1
+      advice: "🟢 可加金股放大收益(β 适中)"
+      position_multiplier: 1.2
+      rationale: "金价向上 + β 适中,金股放大幅度可控"
+    - id: add_high_beta
+      when_verdict: [add, add_caution]
+      when_beta_gte: 1.1
+      advice: "🟡 谨慎加金股(β 偏高,波动放大)"
+      position_multiplier: 1.0
+      rationale: "金价向上但 β ≥ 1.1,涨跌幅度都被放大;留余量"
+    - id: hold_any
+      when_verdict: [hold]
+      advice: "🟡 持金股观望(等金价走向明朗)"
+      position_multiplier: 1.0
+      rationale: "金价偏热未到红线,持有不加不减"
+    - id: reduce_high_beta
+      when_verdict: [pause, pause_partial]
+      when_beta_gte: 1.1
+      advice: "🔴 优先减金股(高 β 放大下跌)"
+      position_multiplier: 0.6
+      rationale: "金价过热 + 高 β,下跌时损失放大;优先减"
+    - id: reduce_low_beta
+      when_verdict: [pause, pause_partial]
+      when_beta_lt: 1.1
+      advice: "🔴 减金股(低 β 同步下跌)"
+      position_multiplier: 0.8
+      rationale: "金价过热,即使低 β 也同步跟跌;减幅可缓"
+
+
+trend_combo:
+  - trend: "看好"   # 范式 ≥ 2/3 激活
+    short: "add"
+    advice: "✅ 加仓窗口(大趋势 + 短期热度都站在你这边)"
+  - trend: "看好"
+    short: "add_caution"
+    advice: "✅ 可小幅加仓(温和买入,不要 all-in)"
+  - trend: "看好"
+    short: "hold"
+    advice: "🟡 持有观望(大趋势好但短期偏热,等过热释放再加)"
+  - trend: "看好"
+    short: "pause_partial"
+    advice: "⚠️ 暂停建仓(局部过热,等冷却)"
+  - trend: "看好"
+    short: "pause"
+    advice: "⚠️ 暂停建仓(过热警示,大趋势好也不追高)"
+  - trend: "看空"   # 范式 ≤ 1/3 激活
+    short: "pause"
+    advice: "🔻 减仓信号(大趋势空 + 短期红 = 高位)"
+  - trend: "看空"
+    short: "add"
+    advice: "🟢 反弹机会(高风险,大趋势空但已超卖)"

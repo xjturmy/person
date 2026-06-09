@@ -1,8 +1,17 @@
+# === yaml 评分 vs graham_steps.py 五步法对照(v2.5 G5 文档化) ===
+# Step 1 (类别)   → 不进 yaml 评分(由 graham_steps.py ABCD 分类输出)
+# Step 2 (基本面) → g1_size + g2_financial_strength + g3_earnings_stability
+# Step 3 (估值)   → g6_pe_moderate + g7_pb_moderate + graham_number_check
+# Step 4 (派息)   → g4_dividend_record + g5_earnings_growth
+# Step 5 (NCAV)   → ncav_critical_bonus(v2.5 新增,深度价值信号)
+# 详见 .tools/dashboard/graham_extras.py 的 STEPS_TO_YAML_RULES_MAP
+# ====================================================================
+
 master: graham
 master_cn: 本杰明·格雷厄姆
 method: 防御型投资者 7 项标准 + Graham Number
 score_type: composite
-max_score: 10
+max_score: 13   # v2.5 G4 加 ncav bonus(原 10 + 3)
 description: |
   深度价值投资法 — 用安全边际买便宜资产。
   组合：防御型投资者 7 项硬指标（《聪明的投资者》第 14 章）
@@ -10,6 +19,15 @@ description: |
        + 净流动资产估值（Net-Net）
 
   核心思想：5 毛钱买 1 块钱的资产 → 安全边际为王
+
+# v2.5 G1:行业自动路由 — screener 入口按 industry_l2 分流到银行/保险变体
+industry_router:
+  mode: auto
+  fallback: graham.yaml
+  routes:
+    bank: graham_bank.yaml          # industry_l2 含 "银行"(股份制/城商/农商/国有大行)
+    insurance: graham_insurance.yaml # industry_l2 含 "保险/寿险/财险"
+  router_module: .tools.dashboard.graham_router
 
 threshold:
   excellent: 8
@@ -68,7 +86,8 @@ rules:
     score_if_pass: 1
     score_if_fail: 0
     data_source: valuation.dividend_yield
-    notes: A 股放宽（公司历史短）
+    derived: years_continuous_dividend              # v2.5 G3:派生指标实现
+    notes: A 股放宽（公司历史短）；连续派息年数从 valuation 时序计算
 
   - id: g5_earnings_growth
     name: 盈利增长（10 年 ≥ 33%）
@@ -86,16 +105,32 @@ rules:
     score_if_fail: 0
     data_source: valuation.pe_ttm
 
+  # v2.5 G2:PE×PB OR 条件 — 高 ROE 公司允许更高 PB(茅台救活)
   - id: g7_pb_moderate
-    name: 市净率温和（≤ 1.5）
-    formula: pb <= 1.5
+    name: 市净率温和（≤ 1.5,或 PE×PB ≤ 22.5）
+    formula_primary: pb <= 1.5
+    formula_alt: pe_ttm * pb <= 22.5
+    pass_logic: OR
     weight: 2
     score_if_pass: 2
     score_if_fail: 0
     data_source: valuation.pb
     notes: |
-      可放宽：PE × PB ≤ 22.5 也通过
-      （高 ROE 公司允许更高 PB）
+      v2.5 实现 OR 条件:PB ≤ 1.5 主条件,PE×PB ≤ 22.5 替代条件
+      高 ROE 公司允许更高 PB(茅台 PE 25 × PB 8 = 200 不通过;
+      但若 PE 18 × PB 1.2 = 21.6 通过)
+
+  # v2.5 G4:Net-Net 深度低估 critical bonus
+  - id: ncav_critical_bonus
+    name: 极度低估(市值 < NCAV × 2/3)
+    formula: market_cap < ncav * 0.67
+    weight: 3
+    score_if_pass: 3       # critical bonus
+    score_if_fail: 0
+    derived: compute_ncav  # v2.5 G4:graham_extras.py 实现
+    notes: |
+      A 股几乎跑不出,但触发即极端低估信号
+      NCAV = current_assets - total_liabilities(从 safety + balance sheet)
 
 # Graham Number 与市价对比
 graham_number_check:
@@ -112,7 +147,7 @@ expected_a_share_fit:
   - 13_伊利股份:    7-9
   - 07_美的集团:    6-8
   - 11_五粮液:      4-6   # PE 偏高
-  - 06_贵州茅台:    2-4   # PE PB 都过高（不符合防御型）
+  - 06_贵州茅台:    2-4   # PE PB 都过高（不符合防御型,v2.5 G2 后 PE×PB 救助有限）
   - 16_宁德时代:    2-4   # 成长型，不适用
   - 10_比亚迪:      2-4   # 同上
 
@@ -127,3 +162,17 @@ knowledge_reference:
   - ../../01_knowledge/03_投资策略与选股/01_价值投资法/03_财务健康分析.md
   - ../../01_knowledge/03_投资策略与选股/01_价值投资法/04_估值分析.md
   - ../../01_knowledge/03_投资策略与选股/01_价值投资法/05_深度审视.md
+
+changelog:
+  - date: "2026-05-10"
+    version: v2.5
+    note: |
+      v2.5 TODO #1 优化包(G1-G6):
+      - G1: industry_router 元数据接入(graham_router.py)
+      - G2: g7 PE×PB OR 条件实现
+      - G4: ncav_critical_bonus 规则上线(graham_extras.compute_ncav)
+      - G5: 顶部 comment 加 5 步对照表
+      其他详见 .tools/dashboard/graham_extras.py 的 STEPS_TO_YAML_RULES_MAP
+  - date: "2026-05-07"
+    version: v2.3
+    note: D3 阶段 A — 银行/保险变体上线(graham_bank.yaml / graham_insurance.yaml)

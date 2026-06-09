@@ -1,11 +1,10 @@
 """dash-02 公司筛选 Tab(L2 — 回答"15 家里哪些值得看?")。
 
 M2 优化版(2026-05-05):
-  - 顶部:5 预设(巴菲特护城河 / 格雷厄姆 / 林奇成长 / 格林布拉特 / 自定义)
+  - 顶部:4 大师预设(巴菲特护城河 / 格雷厄姆 / 林奇成长 / 格林布拉特)
   - 方法论说明卡(expander):tagline + 来源 + 阈值 + 7-9 项规则 + 适用/不适用
   - 候选清单按大师评分降序 + rating emoji + 加入观察池 checkbox(替代底部 multiselect)
   - 散点矩阵 X = 大师评分 / Y = ROE / 颜色 = rating
-  - 自定义模式:8 滑块硬过滤(无评分)
   - 命中数 / 通过率 实时显示
 """
 from __future__ import annotations
@@ -19,7 +18,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-import screener  # 同 .tools/dashboard 目录,app.py 已 sys.path.insert
+from screening import screener  # 同 .tools/dashboard 目录,app.py 已 sys.path.insert
 
 ROOT = Path(__file__).resolve().parents[3]
 WATCHLIST = ROOT / ".temp" / "watchlist.md"
@@ -80,31 +79,6 @@ def _format_value(v, fmt: str, scale: float = 1.0) -> str:
         return str(v)
 
 
-def _slider_for_metric(key: str, meta: dict, default_op: str, default_value: float) -> dict | None:
-    label = meta.get("label", key)
-    rng = meta.get("range", [0.0, 1.0])
-    step = meta.get("step", 0.01)
-
-    enabled = st.checkbox(f"启用 {label}", value=True, key=f"sc_en_{key}")
-    if not enabled:
-        return None
-
-    cols = st.columns([1, 4])
-    with cols[0]:
-        op = st.selectbox(
-            "比较", [">=", "<=", ">", "<"], index=[">=","<=",">","<"].index(default_op),
-            key=f"sc_op_{key}", label_visibility="collapsed",
-        )
-    with cols[1]:
-        v = st.slider(
-            f"{label} ({meta.get('unit', '')})",
-            min_value=float(rng[0]), max_value=float(rng[1]),
-            value=float(default_value), step=float(step),
-            key=f"sc_val_{key}",
-        )
-    return {"metric": key, "op": op, "value": v}
-
-
 def _write_watchlist(selected_rows: pd.DataFrame, preset_label: str) -> None:
     WATCHLIST.parent.mkdir(parents=True, exist_ok=True)
     existing = WATCHLIST.read_text(encoding="utf-8") if WATCHLIST.exists() else ""
@@ -153,7 +127,7 @@ def _render_lynch_classifier_methodology(preset: dict) -> None:
         sys_path_dash = str(ROOT / ".tools" / "dashboard")
         if sys_path_dash not in sys.path:
             sys.path.insert(0, sys_path_dash)
-        from lynch_classifier import CLASS_META, LYNCH_DIM_SCHEMA  # noqa: E402
+        from masters.lynch.classifier import CLASS_META, LYNCH_DIM_SCHEMA  # noqa: E402
     except Exception as e:
         st.caption(f"⚠️ 林奇分类器加载失败:{e}")
         return
@@ -218,7 +192,7 @@ def _render_methodology_card(preset: dict) -> None:
             return
 
         if not rules_yaml_id:
-            st.caption("(自定义/纯过滤模式 — 无评分体系)")
+            st.caption("(纯过滤模式 — 无评分体系)")
             return
 
         try:
@@ -279,9 +253,9 @@ def render(companies: list[str], db_mtime: float) -> None:
     st.subheader("🔍 L2 公司筛选 — 哪些值得深看?")
 
     presets_cfg = _load_presets_cached(db_mtime)
-    preset_options = [(p["id"], p) for p in presets_cfg.get("presets", [])] + [("custom", None)]
+    preset_options = [(p["id"], p) for p in presets_cfg.get("presets", [])]
 
-    label_for: dict[str, str] = {"custom": "⚙️ 自定义"}
+    label_for: dict[str, str] = {}
     for pid, p in preset_options:
         if p:
             label_for[pid] = f"{p.get('icon','')} {p.get('name', pid)}"
@@ -297,8 +271,6 @@ def render(companies: list[str], db_mtime: float) -> None:
     # 方法论说明卡(M2 #2)
     if preset_meta:
         _render_methodology_card(preset_meta)
-    else:
-        st.caption("⚙️ 自定义模式 — 调整下方滑块,任一指标可禁用(无评分,纯硬过滤)")
 
     # ─── 装载数据 ──────────────────────────────────────────────────
     fscore_year = pd.Timestamp.now().year - 1
@@ -308,64 +280,40 @@ def render(companies: list[str], db_mtime: float) -> None:
     weights = _portfolio_weights()
     df["weight"] = df["ticker"].map(weights).fillna(0.0)
 
-    # ─── 自定义模式:展开滑块 ───────────────────────────────────────
-    active_filters: list[dict] = []
-    if preset_id == "custom":
-        with st.expander("🎛️ 自定义滑块(可逐项启用/禁用)", expanded=True):
-            metrics_meta = presets_cfg.get("metrics", {})
-            defaults = {
-                "pe":             (">=", 0.0),  "pb":             ("<=", 30.0),
-                "dividend_yield": (">=", 0.0),  "pe_pct_10y":     ("<=", 1.0),
-                "roe":            (">=", 0.0),  "rev_yoy":        (">=", -0.5),
-                "cfo_to_ni":      (">=", 0.0),  "debt_ratio":     ("<=", 1.0),
-            }
-            cols = st.columns(2)
-            for i, (key, meta) in enumerate(metrics_meta.items()):
-                if key not in defaults:
-                    continue
-                with cols[i % 2]:
-                    op_def, val_def = defaults[key]
-                    f = _slider_for_metric(key, meta, op_def, val_def)
-                    if f:
-                        active_filters.append(f)
-        filtered = screener.apply_filters(df, active_filters)
+    # ─── 大师预设:硬过滤 + 评分 ───────────────────────────────────
+    filtered = screener.apply_filters(df, preset_meta.get("filters") or [])
+    active_filters = preset_meta.get("filters") or []
+
+    rules_yaml_id = preset_meta.get("rules_yaml")
+    use_classifier = bool(preset_meta.get("use_classifier"))
+    tickers_key = ",".join(sorted(df["ticker"].astype(str).tolist()))
+
+    if use_classifier and preset_id == "lynch":
+        # ★ 最新方法:六类分类器 + per-class 5 维评分(M6 链路)
+        with st.spinner(f"运行 {preset_meta['name']}(六类分类器)..."):
+            full_scored = _score_lynch_classifier_cached(
+                db_mtime, fscore_year, tickers_key
+            )
+        scored = full_scored[full_scored["ticker"].isin(filtered["ticker"])].copy()
+        scored["weight"] = scored["ticker"].map(
+            df.set_index("ticker")["weight"]
+        ).fillna(0.0)
+        scored = scored.sort_values("score", ascending=False, na_position="last")
+    elif rules_yaml_id:
+        # 旧:GARP / 各大师 yaml 硬规则评分(score_with_master)
+        with st.spinner(f"运行 {preset_meta['name']} 评分..."):
+            full_scored = _score_with_master_cached(
+                db_mtime, rules_yaml_id, fscore_year, tickers_key
+            )
+        scored = full_scored[full_scored["ticker"].isin(filtered["ticker"])].copy()
+        scored["weight"] = scored["ticker"].map(
+            df.set_index("ticker")["weight"]
+        ).fillna(0.0)
+        scored = scored.sort_values("score", ascending=False, na_position="last")
+    else:
         scored = filtered.copy()
         for col in ("score", "max_score", "rating", "valid_rules", "total_rules"):
             scored[col] = float("nan") if col in ("score", "max_score") else None
-    else:
-        filtered = screener.apply_filters(df, preset_meta.get("filters") or [])
-        active_filters = preset_meta.get("filters") or []
-
-        rules_yaml_id = preset_meta.get("rules_yaml")
-        use_classifier = bool(preset_meta.get("use_classifier"))
-        tickers_key = ",".join(sorted(df["ticker"].astype(str).tolist()))
-
-        if use_classifier and preset_id == "lynch":
-            # ★ 最新方法:六类分类器 + per-class 5 维评分(M6 链路)
-            with st.spinner(f"运行 {preset_meta['name']}(六类分类器)..."):
-                full_scored = _score_lynch_classifier_cached(
-                    db_mtime, fscore_year, tickers_key
-                )
-            scored = full_scored[full_scored["ticker"].isin(filtered["ticker"])].copy()
-            scored["weight"] = scored["ticker"].map(
-                df.set_index("ticker")["weight"]
-            ).fillna(0.0)
-            scored = scored.sort_values("score", ascending=False, na_position="last")
-        elif rules_yaml_id:
-            # 旧:GARP / 各大师 yaml 硬规则评分(score_with_master)
-            with st.spinner(f"运行 {preset_meta['name']} 评分..."):
-                full_scored = _score_with_master_cached(
-                    db_mtime, rules_yaml_id, fscore_year, tickers_key
-                )
-            scored = full_scored[full_scored["ticker"].isin(filtered["ticker"])].copy()
-            scored["weight"] = scored["ticker"].map(
-                df.set_index("ticker")["weight"]
-            ).fillna(0.0)
-            scored = scored.sort_values("score", ascending=False, na_position="last")
-        else:
-            scored = filtered.copy()
-            for col in ("score", "max_score", "rating", "valid_rules", "total_rules"):
-                scored[col] = float("nan") if col in ("score", "max_score") else None
 
     # ─── 命中统计 ──────────────────────────────────────────────────
     hit_pct = len(filtered) / len(df) if len(df) else 0
@@ -409,9 +357,6 @@ def render(companies: list[str], db_mtime: float) -> None:
                 "「两个视角对照」说明。"
             )
 
-    if preset_id == "custom" and not active_filters:
-        st.info("当前没有启用任何条件,展示全 15 家原始数据。")
-
     # ─── 散点矩阵(M2 #5)─────────────────────────────────────────
     has_score = preset_meta and preset_meta.get("rules_yaml") and "score" in scored.columns and scored["score"].notna().any()
     if has_score:
@@ -426,7 +371,7 @@ def render(companies: list[str], db_mtime: float) -> None:
     plot_df["weight_disp"] = plot_df["weight"].clip(lower=0.001) * 100
 
     if plot_df.empty:
-        st.warning("当前筛选无任何公司命中,试试切换预设或放宽自定义条件。")
+        st.warning("当前筛选无任何公司命中,试试切换其他大师预设。")
     elif has_score:
         # 评分模式:X = score / 颜色 = rating(category)
         rating_order = ["🟢 优秀", "🟡 合格", "🟠 警戒", "🔴 不及格", "🚫 不适用", "⚪ 数据不足"]
