@@ -256,6 +256,7 @@ def _eval_items(con, ticker: str) -> dict[str, bool | None]:
         results["s13_market_cap"] = None
 
     # s14: 股价低于 52 周高点 20%(用 PE 分位近似:PE < 50% 分位视为有折扣)
+    # 口径:理杏仁内置 PE-TTM_分位点(10y 全周期),与全局自算 10y 差异 < 1pp,可互换。
     pe_pct = _latest(con, "valuation", ticker, "PE-TTM_分位点")
     if pe_pct is not None:
         results["s14_price_below_52w_high"] = pe_pct < 0.5

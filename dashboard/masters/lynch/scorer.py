@@ -436,7 +436,7 @@ def _stalwart_price(m: dict, manual: dict) -> tuple[list[ScoreItem], list[Adjust
     # 1.2 PE 历史分位(15)
     pct10y = m.get("pe_pct_10y")
     if pct10y is None:
-        items.append(_missing("pe_pct", "PE 5y 分位", 15, "pe_pct_10y"))
+        items.append(_missing("pe_pct", "PE 10y 分位", 15, "pe_pct_10y"))
     else:
         p = pct10y * 100 if pct10y < 1 else pct10y
         if p < 30:
@@ -1167,10 +1167,10 @@ def _cyclical_price(m: dict, manual: dict) -> tuple[list[ScoreItem], list[Adjust
                                 raw_value=5))
 
     # 2. 估值与情绪(40)
-    # 2.1 PB 5y 分位(20)— 用 pe_pct_10y 做近似(理想用 PB 自身分位,后续可补)
+    # 2.1 PB 历史分位(20)— 用 pe_pct_10y(10y 全周期)近似(理想用 PB 自身分位,后续可补)
     pct = m.get("pe_pct_10y")
     if pct is None:
-        items.append(_missing("pb_pct", "PB 5y 分位", 20, "pb_pct(暂用 pe_pct 近似)"))
+        items.append(_missing("pb_pct", "PB 历史分位(暂用 PE 10y 近似)", 20, "pb_pct(暂用 pe_pct 近似)"))
     else:
         p = pct * 100 if pct < 1 else pct
         if p < 10:

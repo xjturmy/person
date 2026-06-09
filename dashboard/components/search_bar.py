@@ -69,19 +69,18 @@ def load_index(csv_path: Path) -> list[CompanyEntry]:
 
 
 def _norm_ticker(t: str) -> str:
-    """规范化 ticker:去前导零(港股 '02097' / A 股 '000333' 等价于 '2097' / '333')。
+    """规范化 ticker — 委托给 dashboard/tickers.py 单一可信源。
 
-    与 DuckDB 历史存储口径一致:数字串走 int 去零,非数字保持原样。
+    A 股 6 位 zero-padded,港股 5 位 zero-padded(如 '02097')。
     """
-    if not t:
-        return t
-    s = t.strip()
-    if not s:
-        return s
     try:
-        return s.zfill(6) if len(s) >= 5 else s
-    except (ValueError, TypeError):
-        return s
+        from tickers import normalize_ticker as _norm
+    except ImportError:  # pragma: no cover
+        import sys as _sys
+        from pathlib import Path as _Path
+        _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+        from tickers import normalize_ticker as _norm
+    return _norm(t)
 
 
 def _match_one(q: str, e: CompanyEntry) -> tuple[int, str] | None:

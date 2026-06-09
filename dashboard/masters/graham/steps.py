@@ -174,22 +174,19 @@ def _conn(db_path: Path | str = DB_PATH) -> duckdb.DuckDBPyConnection:
     return duckdb.connect(str(db_path), read_only=True)
 
 
-def _normalize_ticker(raw: str) -> str:
-    """DuckDB 历史一致行为:ticker 存储时去掉前导零(VARCHAR 但 '000333' → '333')。
+def _normalize_ticker(raw: str, market: str | None = None) -> str:
+    """ticker 规范化 — 委托给 dashboard/tickers.py 单一可信源。
 
-    入参可能是 '000333' / '02097' / '600519',统一规范化:
-      - 数字串:str(int(raw))  去前导零
-      - 非数字 / 空串:原样返回
+    A 股 6 位 zero-padded,港股 5 位 zero-padded。
     """
-    if not raw:
-        return raw
-    s = str(raw).strip()
-    if not s:
-        return s
     try:
-        return s.zfill(6) if len(s) >= 5 else s
-    except (ValueError, TypeError):
-        return s
+        from tickers import normalize_ticker as _norm
+    except ImportError:  # pragma: no cover
+        import sys as _sys
+        from pathlib import Path as _Path
+        _sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+        from tickers import normalize_ticker as _norm
+    return _norm(raw, market=market)
 
 
 def _latest_value(con, table: str, ticker: str, metric: str) -> float | None:

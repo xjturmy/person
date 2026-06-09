@@ -35,6 +35,15 @@ from typing import Any
 import duckdb
 import yaml
 
+# 公共 ticker 规范化(单一可信源)
+try:
+    from tickers import normalize_ticker as _shared_normalize_ticker
+except ImportError:  # pragma: no cover — 直接以脚本方式运行时回退
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+    from tickers import normalize_ticker as _shared_normalize_ticker
+
 # ─── 路径常量 ───────────────────────────────────────────────────────
 _HERE = Path(__file__).resolve()
 PROJECT_ROOT = _HERE.parents[3]
@@ -128,23 +137,15 @@ def _conn(db_path: Path | str = DB_PATH) -> duckdb.DuckDBPyConnection:
     return duckdb.connect(str(db_path), read_only=True)
 
 
-def _normalize_ticker(raw: str) -> str:
-    """DuckDB 历史一致行为:ticker 存储时去掉前导零(VARCHAR 但是 '000333' → '333')。
+def _normalize_ticker(raw: str, market: str | None = None) -> str:
+    """ticker 规范化 — 委托给 dashboard/tickers.py 单一可信源。
 
-    入参可能是 '000333' / '02097' / '600519',统一规范化:
-      - 数字串:str(int(raw))  去前导零(000333→333, 02097→2097, 600519→600519)
-      - 非数字(如港股名字):原样返回
-      - 空串:原样返回
+    口径:A 股 6 位 zero-padded(如 '000001' / '600519'),
+         港股 5 位 zero-padded(如 '02097')。
+
+    保留函数名 `_normalize_ticker` 以兼容现有 import / test。
     """
-    if not raw:
-        return raw
-    s = str(raw).strip()
-    if not s:
-        return s
-    try:
-        return s.zfill(6) if len(s) >= 5 else s
-    except (ValueError, TypeError):
-        return s
+    return _shared_normalize_ticker(raw, market=market)
 
 
 def _latest(con, table: str, ticker: str, metric: str) -> tuple[float | None, date | None]:

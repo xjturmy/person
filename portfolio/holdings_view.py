@@ -98,13 +98,16 @@ def _last_price(con, ticker: str) -> float | None:
 
 
 def _pe_and_pct(con, ticker: str) -> tuple[float | None, float | None]:
-    """最新 PE-TTM + 全周期分位。"""
+    """最新 PE-TTM + 10 年窗口分位(全局统一口径,与 score_card/screener/lynch 一致)。"""
+    from datetime import date, timedelta
+    cutoff = (date.today() - timedelta(days=365 * 10)).isoformat()
     try:
         row = con.execute(
             """
             WITH series AS (
                 SELECT value FROM valuation
                 WHERE ticker = ? AND metric = 'PE-TTM' AND value IS NOT NULL
+                  AND date >= ?
             ),
             latest AS (
                 SELECT value FROM valuation
@@ -116,7 +119,7 @@ def _pe_and_pct(con, ticker: str) -> tuple[float | None, float | None]:
                 (SELECT COUNT(*) FROM series WHERE value <= (SELECT value FROM latest))
                     * 1.0 / NULLIF((SELECT COUNT(*) FROM series), 0)
             """,
-            [ticker, ticker],
+            [ticker, cutoff, ticker],
         ).fetchone()
         return ((float(row[0]) if row[0] is not None else None),
                 (float(row[1]) if row[1] is not None else None))

@@ -195,19 +195,33 @@ def build_peg_series(
     con = duckdb.connect(str(db), read_only=True)
     try:
         # 扣非主,GAAP 备(.config/数据更新规则.md)
-        pe_df = con.execute(
+        # fallback 触发条件:扣非 empty,或扣非 max(date) 比 GAAP max(date) 落后 > 540 天
+        # (例:000333 美的 扣非锁在 2025-04-30,GAAP 到 2026-05-06,落后 1 年 → 切 GAAP)
+        pe_primary = con.execute(
             "SELECT date, value AS pe_ttm FROM valuation "
             "WHERE ticker = ? AND metric = ? AND value IS NOT NULL "
             "ORDER BY date",
             [ticker, PE_METRIC_PRIMARY],
         ).fetchdf()
-        if pe_df.empty:
-            pe_df = con.execute(
-                "SELECT date, value AS pe_ttm FROM valuation "
-                "WHERE ticker = ? AND metric = ? AND value IS NOT NULL "
-                "ORDER BY date",
-                [ticker, PE_METRIC_FALLBACK],
-            ).fetchdf()
+        pe_fallback = con.execute(
+            "SELECT date, value AS pe_ttm FROM valuation "
+            "WHERE ticker = ? AND metric = ? AND value IS NOT NULL "
+            "ORDER BY date",
+            [ticker, PE_METRIC_FALLBACK],
+        ).fetchdf()
+        if pe_primary.empty:
+            pe_df = pe_fallback
+        elif not pe_fallback.empty:
+            primary_max = pd.to_datetime(pe_primary["date"]).max()
+            fallback_max = pd.to_datetime(pe_fallback["date"]).max()
+            # 扣非数据停更超过 365 天(扣非数据源典型披露周期)且 GAAP 更新,切 GAAP 兜底
+            # 例:000333 美的 扣非锁在 2025-04-30,GAAP 到 2026-05-06,gap=371d → 切 GAAP
+            if (fallback_max - primary_max).days > 365:
+                pe_df = pe_fallback
+            else:
+                pe_df = pe_primary
+        else:
+            pe_df = pe_primary
 
         profit_df = con.execute(
             "SELECT date, value FROM growth "

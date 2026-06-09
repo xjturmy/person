@@ -565,7 +565,7 @@ def _render_holdings_overview(snap: HoldingsSnapshot) -> None:
             "浮盈": r.pnl, "浮盈%": r.pnl_pct,
             "实际权重": r.actual_weight, "目标权重": r.target_weight,
             "偏离": r.deviation,
-            "F-Score": r.fscore, "PE 分位": r.pe_pct,
+            "F-Score": r.fscore, "PE 分位(10y)": r.pe_pct,
         }
         for r in actives
     ])
@@ -585,7 +585,7 @@ def _render_holdings_overview(snap: HoldingsSnapshot) -> None:
             "市值": "¥{:,.0f}", "成本": "¥{:,.0f}", "浮盈": "¥{:+,.0f}",
             "浮盈%": "{:+.2%}",
             "实际权重": "{:.1%}", "目标权重": "{:.0%}", "偏离": "{:+.1%}",
-            "PE 分位": "{:.1%}",
+            "PE 分位(10y)": "{:.1%}",
         }, na_rep="—")
     )
     st.dataframe(styler, use_container_width=True, hide_index=True)
@@ -726,7 +726,7 @@ def _render_decision_log(
                   "snapshot_pe", "snapshot_pe_pct_10y", "snapshot_fscore",
                   "vs_peer", "rationale"]].copy()
     df_view.columns = ["日期", "公司", "代码", "动作", "Δ%", "价格",
-                       "PE", "PE 分位", "F-Score", "vs 同行", "理由"]
+                       "PE", "PE 分位(10y)", "F-Score", "vs 同行", "理由"]
 
     def _action_color(v):
         if not isinstance(v, str): return ""
@@ -738,7 +738,7 @@ def _render_decision_log(
         df_view.style
         .map(_action_color, subset=["动作"])
         .format({
-            "PE": "{:.1f}", "PE 分位": "{:.1%}", "Δ%": "{:+.2f}", "价格": "{:.2f}",
+            "PE": "{:.1f}", "PE 分位(10y)": "{:.1%}", "Δ%": "{:+.2f}", "价格": "{:.2f}",
         }, na_rep="—")
     )
     st.dataframe(styler, use_container_width=True, hide_index=True, height=320)
