@@ -53,6 +53,20 @@ class IndustryPercentile:
     peer_rows: pd.DataFrame         # 含 peer_ticker, peer_name, value
 
 
+def _clip_mad(values: np.ndarray, k: float = 3.0) -> np.ndarray:
+    """MAD 截尾,屏蔽极端异常值;<4 样本或 MAD==0 时不截尾。"""
+    arr = np.asarray(values, dtype=float)
+    arr = arr[~np.isnan(arr)]
+    if arr.size < 4:
+        return arr
+    med = float(np.median(arr))
+    mad = float(np.median(np.abs(arr - med)))
+    if mad == 0:
+        return arr
+    sigma = 1.4826 * mad
+    return arr[(arr >= med - k * sigma) & (arr <= med + k * sigma)]
+
+
 def _percentile_of(value: float, arr: np.ndarray) -> float | None:
     """value 在 arr 中的百分位(0-100,inclusive 含等于)。"""
     if value is None or len(arr) == 0:
@@ -128,7 +142,9 @@ def industry_percentile(
 
     # 把 peer 与 self 一起做分位(常见做法:含 self 计算)
     peer_values = peer_rows["value"].dropna().astype(float).values
-    arr_with_self = peer_values.copy()
+    # 先在 peer 池里 MAD 截尾,屏蔽 PE 705 / -226 之类的真实但极端异常值
+    peer_clipped = _clip_mad(peer_values, k=3.0)
+    arr_with_self = peer_clipped.copy()
     if self_value is not None:
         arr_with_self = np.append(arr_with_self, [float(self_value)])
 

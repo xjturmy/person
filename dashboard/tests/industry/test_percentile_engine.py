@@ -156,3 +156,58 @@ def test_compute_idempotent():
     assert a.industry == b.industry
     assert a.data_source == b.data_source
     assert a.member_count == b.member_count
+
+
+# ─── 10. MAD 截尾 _clip_mad / _safe_median 单元测试 ───────────────────
+
+
+import numpy as np  # noqa: E402
+
+
+def test_clip_mad_drops_extreme_high():
+    """用例 A:[10,11,12,13,14,705] → 705 应被剔除,中位数贴近 12。"""
+    arr = eng._clip_mad([10, 11, 12, 13, 14, 705], k=3.0)
+    assert 705 not in arr
+    assert abs(float(np.median(arr)) - 12.0) < 1.0
+
+
+def test_clip_mad_drops_extreme_negative():
+    """用例 B:含 -226 负离群值时,负值应被截掉(整体集中在正区)。"""
+    arr = eng._clip_mad([18, 20, 22, 25, 28, -226], k=3.0)
+    assert -226 not in arr
+    assert (arr > 0).all()
+
+
+def test_clip_mad_passthrough_when_normal():
+    """用例 C:全正常输入(无异常值)→ 截尾后等价于原输入。"""
+    src = [18.0, 19.5, 20.1, 21.0, 22.3, 23.0]
+    arr = eng._clip_mad(src, k=3.0)
+    assert sorted(arr.tolist()) == sorted(src)
+
+
+def test_clip_mad_small_sample_passthrough():
+    """样本数 < 4 时不截尾,避免误杀(数据不足以判断分布)。"""
+    arr = eng._clip_mad([10, 1000, 12], k=3.0)
+    assert 1000 in arr.tolist()
+
+
+def test_clip_mad_zero_mad_passthrough():
+    """MAD == 0(样本高度集中,含一个离群)时不截尾,避免误杀。"""
+    arr = eng._clip_mad([5, 5, 5, 5, 5, 999], k=3.0)
+    # MAD=0 时函数应原样返回,不剔除 999
+    assert 999 in arr.tolist()
+
+
+def test_safe_median_with_clip_excludes_outlier():
+    """_safe_median 默认 clip=True,705 这种极端值不应进入中位数。"""
+    med = eng._safe_median([10, 11, 12, 13, 14, 705])
+    assert med is not None
+    assert abs(med - 12.0) < 1.0
+
+
+def test_safe_median_clip_disabled_includes_outlier():
+    """clip=False 时回到老行为,705 进入计算 → 中位数会偏高。"""
+    med_clip = eng._safe_median([10, 11, 12, 13, 14, 705], clip=True)
+    med_raw = eng._safe_median([10, 11, 12, 13, 14, 705], clip=False)
+    assert med_raw is not None and med_clip is not None
+    assert med_raw > med_clip  # 不截尾会被 705 拉高

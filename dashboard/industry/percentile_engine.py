@@ -98,11 +98,42 @@ def _self_tickers_for_industry(industry: str) -> list[str]:
     return sub["stock"].dropna().astype(str).tolist()
 
 
-def _safe_median(values: list[float] | pd.Series) -> Optional[float]:
-    arr = np.asarray([v for v in values if v is not None and not pd.isna(v) and v > 0],
+def _clip_mad(values, k: float = 3.0) -> np.ndarray:
+    """MAD(中位数绝对偏差)截尾,屏蔽极端异常值污染中位数/分位数计算。
+
+    输入可为 list / np.ndarray / pd.Series;返回截尾后的 ndarray 副本。
+    规则:
+      · 落在 [median - k·1.4826·MAD, median + k·1.4826·MAD] 之外的点被剔除
+      · 1.4826 是 MAD 到正态分布 sigma 的换算系数
+      · MAD == 0(样本高度集中)或样本数 < 4 时不截尾,避免误杀
+      · 仅过滤输入副本,不修改原数据
+    """
+    arr = np.asarray(list(values) if not isinstance(values, np.ndarray) else values,
                      dtype=float)
+    arr = arr[~np.isnan(arr)]
+    if arr.size < 4:
+        return arr
+    med = float(np.median(arr))
+    mad = float(np.median(np.abs(arr - med)))
+    if mad == 0:
+        return arr
+    sigma = 1.4826 * mad
+    lo, hi = med - k * sigma, med + k * sigma
+    return arr[(arr >= lo) & (arr <= hi)]
+
+
+def _safe_median(values: list[float] | pd.Series, *, clip: bool = True,
+                 positive_only: bool = True) -> Optional[float]:
+    raw = [v for v in values if v is not None and not pd.isna(v)]
+    if positive_only:
+        raw = [v for v in raw if v > 0]
+    arr = np.asarray(raw, dtype=float)
     if arr.size == 0:
         return None
+    if clip:
+        arr = _clip_mad(arr, k=3.0)
+        if arr.size == 0:
+            return None
     return float(np.median(arr))
 
 
@@ -154,7 +185,11 @@ def _valuation_industry_history(tickers: list[str], metric: str) -> pd.Series:
         return pd.Series(dtype=float)
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df = df.dropna(subset=["date"])
-    series = df.groupby("date")["value"].median().sort_index()
+    # 每日先做 MAD 截尾再取中位数,避免单只极端 PE 污染行业基准
+    series = df.groupby("date")["value"].apply(
+        lambda s: float(np.median(_clip_mad(s.to_numpy(dtype=float), k=3.0)))
+        if _clip_mad(s.to_numpy(dtype=float), k=3.0).size > 0 else np.nan
+    ).dropna().sort_index()
     # 限定 10 年窗口
     cutoff = pd.Timestamp(date.today()) - pd.DateOffset(years=10)
     series = series[series.index >= cutoff]
