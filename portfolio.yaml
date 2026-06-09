@@ -20,7 +20,7 @@ positions:
   - ticker: "600519"
     name: "贵州茅台"
     school: "价值"
-    rationale: "高股息高 ROE 长期复利,PE-TTM 10y 10% 分位附近介入"
+    rationale: "PE-TTM 20.8 处于 10y 9% 分位,ROE 31% 行业领跑;fair_price 判定极度高估(PB 6.36 拉高),靠超高 ROE 与 3.78% 股息支撑长期复利。"
     criteria_met:
       - "PE-TTM 10y 分位 ≤ 25%"
       - "ROE 5y 均 ≥ 20%"
@@ -35,7 +35,7 @@ positions:
   - ticker: "000858"
     name: "五粮液"
     school: "价值"
-    rationale: "高端白酒老二 + 高股息,PE 接近 10y 低位介入"
+    rationale: "PE-TTM 166(2026Q1 利润异常拉高,见 reference)位列 99.96 分位,但 PB 2.80 处 2% 分位、股息率 5.59%;fair_price 极度高估按 PE 看失真,以 PB+股息为锚定。"
     criteria_met:
       - "PE-TTM 10y 分位 ≤ 30%"
       - "ROE 5y 均 ≥ 18%"
@@ -49,7 +49,7 @@ positions:
   - ticker: "000333"
     name: "美的集团"
     school: "价值"
-    rationale: "家电龙头 + 高股息,PEG < 1 时按林奇 Stalwart 介入"
+    rationale: "PE-TTM 13.8 处 43 分位、股息率 5.35%、ROE 18%;fair_price 判定高估但偏离仅 27%,Stalwart 区间合理价附近持有。"
     criteria_met:
       - "PE-TTM 10y 分位 ≤ 40%"
       - "ROE 5y 均 ≥ 22%"
@@ -63,7 +63,7 @@ positions:
   - ticker: "600887"
     name: "伊利股份"
     school: "价值"
-    rationale: "乳业双寡头 + 高股息,PE 10y 分位 30% 以下介入"
+    rationale: "PE-TTM 14.4 处 10y 4% 分位低位,股息率 5.03%、ROE 19%;fair_price 极度高估由 PB 拉动,PE 维度仍是历史地板。"
     criteria_met:
       - "PE-TTM 10y 分位 ≤ 30%"
       - "ROE 5y 均 ≥ 18%"
@@ -78,7 +78,7 @@ positions:
   - ticker: "600036"
     name: "招商银行"
     school: "防御"
-    rationale: "银行业 ROE 领跑 + 零售护城河,PB < 1.0 介入"
+    rationale: "PB 0.85<1、PB 10y 2% 分位、ROE 11.9% 行业领跑、股息率 5.31%;fair_price 判定极度低估(偏离 -51%)。"
     criteria_met:
       - "PB ≤ 1.0"
       - "ROE 5y 均 ≥ 15%"
@@ -93,7 +93,7 @@ positions:
   - ticker: "601336"
     name: "新华保险"
     school: "防御"
-    rationale: "寿险周期底部 + EV 折价,PEV < 0.5 介入"
+    rationale: "PE-TTM 5.47 处 1.7 分位极底、股息率 4.22%、ROE 36%(投资收益拉高);fair_price 判定极度低估(偏离 -37%)。"
     criteria_met:
       - "P/EV ≤ 0.5"
       - "新业务价值率 ≥ 10%"
@@ -108,7 +108,7 @@ positions:
   - ticker: "002594"
     name: "比亚迪"
     school: "成长"
-    rationale: "新能源车龙头 + 全球扩张,PEG < 1 时介入"
+    rationale: "PE-TTM 33.3 处 36 分位、ROE 11%、PB 3.96(42 分位);fair_price 判定极度高估,需依赖海外增速兑现 PEG。"
     criteria_met:
       - "营收 3y CAGR ≥ 30%"
       - "净利润 3y CAGR ≥ 40%"
@@ -122,7 +122,7 @@ positions:
   - ticker: "002050"
     name: "三花智控"
     school: "成长"
-    rationale: "热管理隐形冠军 + 人形机器人增量,PEG < 1.5 介入"
+    rationale: "PE-TTM 49.6 处 80 分位、PB 6.21、ROE 15.5%;fair_price 极度高估,溢价由机器人题材撑起,等待 PE 回到 50 分位以下。"
     criteria_met:
       - "营收 3y CAGR ≥ 20%"
       - "ROE 5y 均 ≥ 18%"
@@ -136,7 +136,7 @@ positions:
   - ticker: "002475"
     name: "立讯精密"
     school: "成长"
-    rationale: "果链龙头 + 汽车业务增量,PE 10y 分位 30% 以下介入"
+    rationale: "PE-TTM 28.4 处 37 分位、ROE 19%、PB 5.53;fair_price 极度高估,等待 PE 回到 30 分位以下再加仓。"
     criteria_met:
       - "PE-TTM 10y 分位 ≤ 30%"
       - "营收 3y CAGR ≥ 25%"
@@ -150,7 +150,7 @@ positions:
   - ticker: "300308"
     name: "中际旭创"
     school: "成长"
-    rationale: "光模块龙头 + AI 算力周期,PEG < 1 时介入"
+    rationale: "PE-TTM 63.8 处 62 分位、PB 27.6(99.7 分位极端值)、ROE 54%;fair_price 极度高估(偏离 +784%),纯赛道 β 仓位。"
     criteria_met:
       - "营收 3y CAGR ≥ 40%"
       - "净利润 3y CAGR ≥ 50%"
@@ -164,7 +164,7 @@ positions:
   - ticker: "300750"
     name: "宁德时代"
     school: "成长"
-    rationale: "电池龙头 + 储能爆发,PE 10y 分位 30% 以下介入"
+    rationale: "PE-TTM 26.9 处 35 分位、ROE 24.8%、毛利充裕;fair_price 极度高估由 PB 6.54 拉动,PE 仍在合理区。"
     criteria_met:
       - "PE-TTM 10y 分位 ≤ 30%"
       - "营收 3y CAGR ≥ 30%"
@@ -178,7 +178,7 @@ positions:
   - ticker: "600276"
     name: "恒瑞医药"
     school: "成长"
-    rationale: "创新药龙头 + ADC 管线,PE 10y 分位 40% 以下介入"
+    rationale: "PE-TTM 43.8 处 10y 8% 分位低位、ROE 14.5%;fair_price 极度高估由 PB 5.59 拉动,PE 维度反而是历史地板。"
     criteria_met:
       - "PE-TTM 10y 分位 ≤ 40%"
       - "营收 3y CAGR ≥ 15%"
@@ -192,7 +192,7 @@ positions:
   - ticker: "02097"
     name: "蜜雪集团"
     school: "成长"
-    rationale: "茶饮万店连锁 + 出海,港股估值折价介入"
+    rationale: "PE-TTM 23.7 处 5 分位、PEG 0.74、ROE 29.8%;fair_price 港股数据缺位(不适用),按 PEG+ROE 判低估。"
     criteria_met:
       - "营收 3y CAGR ≥ 30%"
       - "门店数年增 ≥ 20%"
@@ -207,7 +207,7 @@ positions:
   - ticker: "603379"
     name: "三美股份"
     school: "周期"
-    rationale: "氟化工龙头 + 三代制冷剂配额改革,周期底部介入"
+    rationale: "PE-TTM 18.3 处 12 分位、ROE 27.3% 周期高位、但 PB 4.60 已在 90 分位;fair_price 极度高估,景气兑现中,警惕周期顶。"
     criteria_met:
       - "PB 10y 分位 ≤ 30%"
       - "三代制冷剂价格底部反转"
@@ -221,7 +221,7 @@ positions:
   - ticker: "601766"
     name: "中国中车"
     school: "周期"
-    rationale: "高铁装备龙头 + 海外订单回暖,PB 历史低位介入"
+    rationale: "PB 0.97 处 10y 3% 分位、PE-TTM 12.6 处 2 分位、股息率 3.87%;fair_price 判定低估(偏离 -26%)。"
     criteria_met:
       - "PB 10y 分位 ≤ 30%"
       - "ROE 5y 均 ≥ 8%"
