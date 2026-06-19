@@ -1,0 +1,33 @@
+broad_etfs:
+  - name: 沪深300
+    etf_code: "510300"
+    index_code: "000300"
+    layer: defensive
+    target_pct: [5, 10]
+    role: 价值核心底仓 · 格雷厄姆指数基准
+    macro_pe_key: HS300_PE
+    visible: true
+  - name: 创业板
+    etf_code: "159915"
+    index_code: "399006"
+    layer: offensive
+    target_pct: [2, 3]
+    role: A股成长卫星 · 高波动
+    macro_pe_key: null
+    visible: true
+  - name: 中证500
+    etf_code: "510500"
+    index_code: "000905"
+    layer: offensive
+    target_pct: [2, 3]
+    role: 中盘成长补充
+    macro_pe_key: null
+    visible: true
+  - name: 科创50
+    etf_code: "588000"
+    index_code: "000688"
+    layer: offensive
+    target_pct: [1, 2]
+    role: 科创板极高波动卫星
+    macro_pe_key: null
+    visible: true
