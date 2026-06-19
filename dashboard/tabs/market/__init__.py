@@ -23,6 +23,7 @@ import streamlit as st
 from ._helpers import DB_PATH, MACRO_DB
 from .banner import _section_verdict_banner
 from .graham import _section_graham_index
+from .industry import _section_industry_drilldown, _section_industry_heatmap
 from .kondratieff import _section_kondratieff_card
 from .thermometer import _section_thermometer_trends
 from .valuation_band import _section_a_full_band
@@ -81,4 +82,9 @@ def render(*args, **kwargs) -> None:
     st.caption("💡 行业估值矩阵已迁至「🏭 行业分析」sub-tab,点击上方切换查看")
 
 
-__all__ = ["render"]
+__all__ = [
+    "render",
+    "DB_PATH",
+    "_section_industry_heatmap",
+    "_section_industry_drilldown",
+]

@@ -1,8 +1,9 @@
-"""dash-04 L0 决策中心 — 三段式 Tab。
+"""dash-04 L0 决策中心 — 4 个子 Tab。
 
-段 1(上):持仓总览 — 权重饼 + 浮盈 + 行业集中度 + 加权 F-Score
-段 2(中):决策日志 — 沿用原 tab_decisions 的录入 + 列表,加"审计提示"
-段 3(下):月报历史 — 列出 .temp/monthly_review_*.md 和 01_knowledge/05_实战案例与持仓/持仓统计与复盘/月度复盘_*.md
+子 Tab 1:持仓总览 — 待办收件箱 + 持仓表 + 动作面板 + 分布/再平衡
+子 Tab 2:持仓跟踪 — 单股决策卡片视图(holding_tracker)
+子 Tab 3:决策日志 — 快速录入 + 历史列表
+子 Tab 4:月报历史 — .temp 快照 + 知识库复盘
 
 入口:render(companies, selected, db_mtime, decisions_db, decisions_snapshot, _folder_to_ticker)
 """
@@ -25,6 +26,12 @@ from loader import load_yaml_dict, upsert_holdings  # noqa: E402
 from parse_holdings import build_candidates, parse_text  # noqa: E402
 from rebalance_planner import RebalanceProposal, apply_proposals, plan as plan_rebalance  # noqa: E402
 from parse_screenshot import parse_image  # noqa: E402
+
+# v2.8+ 持仓全景重构:新增 3 个独立模块
+sys.path.insert(0, str(ROOT / ".tools" / "dashboard" / "tabs"))
+from decision import action_inbox as _inbox  # noqa: E402
+from decision import holdings_table as _table  # noqa: E402
+from decision import holding_actions as _actions  # noqa: E402
 
 COMPANIES_CSV = ROOT / ".config" / "companies.csv"
 
@@ -491,132 +498,77 @@ def _render_manual_add() -> None:
 
 # ─── 段 1:持仓总览 ─────────────────────────────────────────────────
 def _render_holdings_overview(snap: HoldingsSnapshot) -> None:
-    st.markdown("### 💼 段 1:持仓总览")
-    _render_smart_intake()
+    """v2.8 重构:首屏待办 → 统一持仓表 → 动作面板,概况/再平衡/审计折叠。"""
 
-    # 顶部 KPI 行
-    actives = [r for r in snap.rows if r.status == "active"]
-    total_mv = sum(r.market_value or 0 for r in actives)
-    total_cost = sum(r.cost_total or 0 for r in actives)
-    total_pnl = total_mv - total_cost if total_cost else 0
-    total_pnl_pct = (total_pnl / total_cost) if total_cost else 0
-
-    k1, k2, k3, k4, k5 = st.columns(5)
-    k1.metric("active 持仓", f"{len(actives)} 家")
-    k2.metric("总市值", f"¥{total_mv:,.0f}")
-    k3.metric("浮盈/亏", f"¥{total_pnl:+,.0f}",
-              delta=f"{total_pnl_pct:+.2%}" if total_cost else None)
-    k4.metric("加权 F-Score",
-              f"{snap.weighted_fscore:.1f}/9" if snap.weighted_fscore is not None else "—",
-              help="按目标权重加权的 active 持仓 Piotroski F-Score")
-    k5.metric("现金占比", f"{snap.cash_ratio:.0%}",
-              help=f"目标:{1-snap.target_equity_ratio:.0%},基于 portfolio.yaml.account")
-
-    if not actives:
-        st.info(
-            f"📌 当前 portfolio.yaml `_meta.status: {snap.portfolio_status}`,"
-            f"且无 active 持仓 — 请在 [.tools/portfolio/portfolio.yaml](.tools/portfolio/portfolio.yaml) "
-            "把要持有的公司 `status: watch` 改为 `active`,填上 shares + cost_basis,本段就会显示数据。"
-        )
-        return
-
+    # 段 1:🚨 待办动作(首屏黄金位)
+    _inbox.render(snap)
     st.divider()
-    col_pie, col_industry = st.columns(2)
 
-    with col_pie:
-        st.markdown("**🥧 持仓权重饼图**")
-        df_pie = pd.DataFrame([
-            {"name": r.name, "actual_weight": r.actual_weight,
-             "target_weight": r.target_weight, "deviation": r.deviation}
-            for r in actives
-        ])
-        fig = px.pie(df_pie, names="name", values="actual_weight", hole=0.45,
-                     hover_data=["target_weight", "deviation"])
-        fig.update_traces(textposition="inside", textinfo="percent+label")
-        fig.update_layout(height=320, margin=dict(t=10, b=10, l=10, r=10),
-                          showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
+    # 段 2:📋 持仓 / 观察池 单表(active + watch 同列)
+    _table.render(snap, include_watch=True)
+    st.divider()
 
-    with col_industry:
-        st.markdown("**🏭 行业集中度(按 portfolio.yaml tags[0])**")
-        if snap.industry_agg:
-            df_ind = pd.DataFrame([
-                {"行业": a.tag, "持仓数": a.n_holdings,
-                 "权重": a.weight,
-                 "F-Score 均值": a.avg_fscore}
-                for a in snap.industry_agg
-            ])
-            fig = px.bar(df_ind, x="行业", y="权重", color="F-Score 均值",
-                         color_continuous_scale="RdYlGn", range_color=[3, 9])
-            fig.update_layout(height=320, margin=dict(t=10, b=10, l=10, r=10))
-            fig.update_yaxes(tickformat=".0%")
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.caption("(无 active 持仓或缺 tags)")
+    # 段 3:动作面板(清仓 / 取消 / 硬删)— 常驻可见,watch 也能用
+    _actions.render(snap)
 
-    # 持仓明细表
-    st.markdown("**📋 持仓明细**")
-    df_rows = pd.DataFrame([
-        {
-            "公司": r.name, "代码": r.ticker,
-            "股数": r.shares, "成本价": r.cost_basis,
-            "现价": r.last_price,
-            "市值": r.market_value, "成本": r.cost_total,
-            "浮盈": r.pnl, "浮盈%": r.pnl_pct,
-            "实际权重": r.actual_weight, "目标权重": r.target_weight,
-            "偏离": r.deviation,
-            "F-Score": r.fscore, "PE 分位(10y)": r.pe_pct,
-        }
-        for r in actives
-    ])
+    # 段 4 起:折叠区
+    with st.expander("📥 智能录入持仓(从券商导出文本一键解析)", expanded=False):
+        _render_smart_intake()
 
-    def _pnl_color(v):
-        if not isinstance(v, (int, float)) or pd.isna(v):
-            return ""
-        if v > 0: return "color: #1b8a3a; font-weight:600"
-        if v < 0: return "color: #d9534f; font-weight:600"
-        return ""
+    actives = [r for r in snap.rows if r.status == "active"]
+    if actives:
+        with st.expander("📊 持仓分布 · 权重饼图 + 行业集中度", expanded=False):
+            col_pie, col_industry = st.columns(2)
+            with col_pie:
+                st.markdown("**🥧 持仓权重饼图**")
+                df_pie = pd.DataFrame([
+                    {"name": r.name, "actual_weight": r.actual_weight,
+                     "target_weight": r.target_weight, "deviation": r.deviation}
+                    for r in actives
+                ])
+                fig = px.pie(df_pie, names="name", values="actual_weight", hole=0.45,
+                             hover_data=["target_weight", "deviation"])
+                fig.update_traces(textposition="inside", textinfo="percent+label")
+                fig.update_layout(height=320, margin=dict(t=10, b=10, l=10, r=10),
+                                  showlegend=False)
+                st.plotly_chart(fig, use_container_width=True)
 
-    styler = (
-        df_rows.style
-        .map(_pnl_color, subset=["浮盈", "浮盈%", "偏离"])
-        .format({
-            "成本价": "{:.2f}", "现价": "{:.2f}",
-            "市值": "¥{:,.0f}", "成本": "¥{:,.0f}", "浮盈": "¥{:+,.0f}",
-            "浮盈%": "{:+.2%}",
-            "实际权重": "{:.1%}", "目标权重": "{:.0%}", "偏离": "{:+.1%}",
-            "PE 分位(10y)": "{:.1%}",
-        }, na_rep="—")
-    )
-    st.dataframe(styler, use_container_width=True, hide_index=True)
+            with col_industry:
+                st.markdown("**🏭 行业集中度(按 portfolio.yaml tags[0])**")
+                if snap.industry_agg:
+                    df_ind = pd.DataFrame([
+                        {"行业": a.tag, "持仓数": a.n_holdings,
+                         "权重": a.weight, "F-Score 均值": a.avg_fscore}
+                        for a in snap.industry_agg
+                    ])
+                    fig = px.bar(df_ind, x="行业", y="权重", color="F-Score 均值",
+                                 color_continuous_scale="RdYlGn", range_color=[3, 9])
+                    fig.update_layout(height=320, margin=dict(t=10, b=10, l=10, r=10))
+                    fig.update_yaxes(tickformat=".0%")
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.caption("(无 active 持仓或缺 tags)")
 
-    # 再平衡结构化建议 + 一键执行(M4-#5)
+    # 再平衡建议(active=0 时函数自身会跳过)
     _render_rebalance_panel(snap)
 
-    # 审计提示(独立)
+    # 审计提示
     if snap.audit_alerts:
         with st.expander(f"⏰ 决策审计提示({len(snap.audit_alerts)} 项)", expanded=False):
             for a in snap.audit_alerts:
                 st.markdown(f"- {a.msg}")
 
 
-# ─── 段 2:决策日志(沿用原 tab_decisions,加"审计提示")─────────────
+# ─── 段 3:决策日志(沿用原 tab_decisions)─────────────
 def _render_decision_log(
     snap: HoldingsSnapshot, companies, selected, db_mtime,
     decisions_db, decisions_snapshot, folder_to_ticker,
 ) -> None:
-    st.markdown("### 📝 段 2:决策日志")
-
     if decisions_db is None:
         st.error("`.tools/decisions` 模块导入失败,无法使用决策日志功能。")
         return
 
-    # 决策审计提示置顶(active 持仓 > N 月未复盘)
-    if snap.audit_alerts:
-        with st.container(border=True):
-            st.markdown(f"**🔔 审计提示({len(snap.audit_alerts)} 项 active 持仓需复盘)**")
-            for a in snap.audit_alerts:
-                st.caption(f"- {a.msg}")
+    # 审计提示已迁移至段 1 顶部(_render_section1_holdings)
 
     # ─── 录入区(精简版,完整版仍在原 tab_decisions 中)──────────
     with st.expander("➕ 新增决策(快速录入)", expanded=False):
@@ -746,8 +698,6 @@ def _render_decision_log(
 
 # ─── 段 3:月报历史 ─────────────────────────────────────────────────
 def _render_monthly_reports() -> None:
-    st.markdown("### 📅 段 3:月报历史")
-
     # 聚合两类月报:.temp 自动数据 + 知识库手写复盘
     raw_reports = sorted(REVIEW_DIR_TEMP.glob("monthly_review_*.md"), reverse=True)
     final_reports = (sorted(REVIEW_DIR_KNOWLEDGE.glob("月度复盘_*.md"), reverse=True)
@@ -791,10 +741,70 @@ def _render_monthly_reports() -> None:
         )
 
 
+# ─── 四段式 section 包装 ───────────────────────────────────────────
+def _render_section1_holdings(snap: HoldingsSnapshot) -> None:
+    """段 1:持仓总览 + 审计提示(从原段 2 顶部迁来)。"""
+    # 审计提示置顶(从原 _render_decision_log L572-577 迁来)
+    if snap.audit_alerts:
+        with st.container(border=True):
+            st.markdown(f"**🔔 审计提示({len(snap.audit_alerts)} 项 active 持仓需复盘)**")
+            for a in snap.audit_alerts:
+                st.caption(f"- {a.msg}")
+
+    _render_holdings_overview(snap)
+
+
+def _render_section2_tracker(snap: HoldingsSnapshot) -> None:
+    """段 2:持仓跟踪与决策(Agent-B 交付的 holding_tracker)。"""
+    try:
+        from tabs.decision.holding_tracker import render as _render_tracker
+    except ImportError:
+        st.info("段 2 持仓跟踪与决策模块加载中…")
+        return
+    try:
+        _render_tracker(snap)
+    except Exception as e:
+        st.warning(f"段 2 渲染失败:{e}")
+
+
+def _render_section3_decision_log(
+    snap: HoldingsSnapshot, companies, selected, db_mtime,
+    decisions_db, decisions_snapshot, folder_to_ticker,
+) -> None:
+    """段 3:决策日志(审计提示已迁至段 1)。"""
+    _render_decision_log(snap, companies, selected, db_mtime,
+                         decisions_db, decisions_snapshot, folder_to_ticker)
+
+
+def _render_section4_monthly_reports() -> None:
+    """段 4:月报历史。"""
+    _render_monthly_reports()
+
+
+def apply_nav_prefill(prefill: dict | list | str | None) -> None:
+    """从 nav_prefill 或 nav_intent.prefill 注入决策录入表单默认值。"""
+    if not isinstance(prefill, dict):
+        return
+    _price = prefill.get("price")
+    if _price is not None:
+        try:
+            st.session_state["dc_price"] = float(_price)
+        except (TypeError, ValueError):
+            pass
+    _reason = prefill.get("reason_template")
+    if _reason:
+        st.session_state["dc_rationale_short"] = str(_reason)
+
+
 # ─── 主入口 ────────────────────────────────────────────────────────
 def render(companies, selected, db_mtime, decisions_db, decisions_snapshot,
            folder_to_ticker_fn) -> None:
-    """dash-04 决策中心 = L0 三段式。
+    """dash-04 决策中心 = 4 个子 Tab。
+
+    子 Tab 1:持仓总览(含审计提示)
+    子 Tab 2:持仓跟踪与决策(4 卡片单股决策视图)
+    子 Tab 3:决策日志
+    子 Tab 4:月报历史
 
     参数:
       companies: 全 15 家公司 folder 列表
@@ -809,15 +819,42 @@ def render(companies, selected, db_mtime, decisions_db, decisions_snapshot,
         st.error(f"持仓快照装配失败:{e}")
         return
 
+    # 跨页跳转:prefill(公司研究 → 决策日志) + sub_tab 指引
+    _prefill = st.session_state.pop("nav_prefill", None)
+    _sub_tab_hint = None
+    try:
+        from navigation import consume_intent as _consume_intent
+        _intent = _consume_intent()
+        if _intent:
+            if _intent.get("prefill"):
+                _prefill = _intent["prefill"]
+            _sub_tab_hint = _intent.get("sub_tab")
+    except Exception:
+        pass
+    apply_nav_prefill(_prefill)
+    if _sub_tab_hint:
+        st.info(f"👉 请点击 sub-tab:**{_sub_tab_hint}**")
+
     st.subheader(f"💼 决策中心 · portfolio status={snap.portfolio_status}")
     st.caption(
         f"📌 数据源:portfolio.yaml + DuckDB(prices/valuation/Piotroski) + decisions.duckdb"
         f"  ·  加权 F-Score = Σ(F-Score × 目标权重)"
     )
 
-    _render_holdings_overview(snap)
-    st.divider()
-    _render_decision_log(snap, companies, selected, db_mtime,
-                         decisions_db, decisions_snapshot, folder_to_ticker_fn)
-    st.divider()
-    _render_monthly_reports()
+    tab_holdings, tab_tracker, tab_log, tab_reports = st.tabs([
+        "📋 持仓总览",
+        "📊 持仓跟踪",
+        "📝 决策日志",
+        "📅 月报历史",
+    ])
+    with tab_holdings:
+        _render_section1_holdings(snap)
+    with tab_tracker:
+        _render_section2_tracker(snap)
+    with tab_log:
+        _render_section3_decision_log(
+            snap, companies, selected, db_mtime,
+            decisions_db, decisions_snapshot, folder_to_ticker_fn,
+        )
+    with tab_reports:
+        _render_section4_monthly_reports()

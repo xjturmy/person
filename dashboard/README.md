@@ -85,3 +85,7 @@ bash .tools/dashboard/launch_terminal.sh --stop
 
 - **每周日 21:00**:`com.preson.update.weekly.plist` 自动跑 `update.py` → fetch → ingest → validate
 - **手动**:`bash .tools/db/install_cron.sh` 安装 LaunchAgent
+
+## 📖 优化文档
+
+Dashboard UI/UX 优化方案已迁至 [docs/dashboard/](../../docs/dashboard/README.md)（M0–M6）。

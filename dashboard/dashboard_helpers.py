@@ -80,6 +80,17 @@ def _duckdb_conn(mtime: float):
         return None
 
 
+@st.cache_resource
+def get_conn(db_path: str):
+    """按路径返回 DuckDB 只读连接(单例,调用方勿 close)。"""
+    if duckdb is None:
+        raise ImportError("duckdb 未安装")
+    try:
+        return duckdb.connect(db_path, read_only=True)
+    except Exception:
+        return duckdb.connect(db_path)
+
+
 @st.cache_data(ttl=300)
 def _folder_to_ticker(mtime: float) -> dict[str, str]:
     con = _duckdb_conn(mtime)

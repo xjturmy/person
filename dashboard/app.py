@@ -98,6 +98,7 @@ from dashboard_helpers import (  # noqa: E402
 
 # ─── 全局搜索:候选 ⑩ v2.4 step-B ────────────────────────────────────
 from components import search_bar as company_search  # noqa: E402
+from ui.dataframe_locale import inject_zh_column_menu  # noqa: E402
 
 COMPANIES_CSV = ROOT / ".config" / "companies.csv"
 
@@ -169,17 +170,10 @@ def ttyd_stop() -> tuple[bool, str]:
 st.set_page_config(page_title="投资智能体", page_icon="📊", layout="wide")
 st.title("📊 投资智能体")
 
+inject_zh_column_menu()
+
 DB_MTIME = _db_mtime()
 RPT_MTIME = report_mtime()
-
-# dash-01:顶部全局市场温度计(所有 Tab 都可见)
-try:
-    import ui.thermometer as _hth
-    _macro_db = ROOT / "data" / "macro.duckdb"
-    _macro_mtime = _macro_db.stat().st_mtime if _macro_db.exists() else 0.0
-    _hth.render(_macro_db, _macro_mtime)
-except Exception as _hth_exc:
-    st.caption(f"🌡️ 市场温度计加载失败:{_hth_exc}")
 
 # v2.7 简化导航:11 → 5 顶级页面
 # - 市场&行业 = 市场周期 + 行业分析 (2合1, sub-tab)
@@ -312,39 +306,89 @@ with st.sidebar:
             if st.button("📂 打开目录", use_container_width=True, key="open_root"):
                 subprocess.run(["open", str(ROOT)], check=False)
 
+# dash-01:顶部全局市场温度计(仅「市场 & 行业」页展示)
+if page == PAGE_MARKET_HUB:
+    try:
+        import ui.thermometer as _hth
+        _macro_db = ROOT / "data" / "macro.duckdb"
+        _macro_mtime = _macro_db.stat().st_mtime if _macro_db.exists() else 0.0
+        _hth.render(_macro_db, _macro_mtime)
+    except Exception as _hth_exc:
+        st.caption(f"🌡️ 市场温度计加载失败:{_hth_exc}")
+
 # v2.1:左侧 radio 导航代替 st.tabs() — 各 with tab_xxx: 已替换为 if page == ...:
 # tab_xxx 变量保留为 st.container() 兼容引用(空容器,不会渲染内容到外面)
 tab_market = tab_screener = tab_company = tab_dc = tab_decisions = tab_claude = st.container()
 tab_home = tab_overview = tab_compare = st.container()
 
-# ─── 🌡️ 市场 & 行业(2 合 1 — 市场周期 / 行业分析)──────────────────
+# ─── 🌡️ 市场 & 行业(v2.9 P0b:4 合 1 — 市场研判 / 行业分析 / 行业预选 / 行业确定)──
 if page == PAGE_MARKET_HUB:
-    sub_market, sub_industry = st.tabs(["📊 市场周期", "🏭 行业分析"])
+    # v2.9 P0b:若 nav_intent 指定 sub_tab,在 st.tabs 渲染前提示(streamlit 不支持
+    # 程序化切 active tab,这里靠 caption 指引用户点击)。一旦 intent 被 consume,
+    # 后续 rerun 不再提示。
+    try:
+        from navigation import consume_intent as _consume_intent
+        _intent = _consume_intent()
+        if _intent and _intent.get("sub_tab"):
+            st.info(f"👉 请点击 sub-tab:**{_intent['sub_tab']}**")
+    except Exception:
+        pass
+
+    from navigation import (
+        SUB_MARKET_JUDGE as _SUB_MARKET_JUDGE,
+        SUB_INDUSTRY_ANALYSIS as _SUB_INDUSTRY_ANALYSIS,
+        SUB_INDUSTRY_PRESELECT as _SUB_INDUSTRY_PRESELECT,
+        SUB_INDUSTRY_CONFIRM as _SUB_INDUSTRY_CONFIRM,
+    )
+    sub_market, sub_analysis, sub_preselect, sub_confirm = st.tabs(
+        [
+            f"📊 {_SUB_MARKET_JUDGE}",
+            f"🏭 {_SUB_INDUSTRY_ANALYSIS}",
+            f"🎯 {_SUB_INDUSTRY_PRESELECT}",
+            f"✅ {_SUB_INDUSTRY_CONFIRM}",
+        ]
+    )
     with sub_market:
         try:
             from tabs.market import render as _render_market
             _render_market(companies, selected, DB_MTIME)
         except Exception as _exc:
-            st.error(f"⚠️ 市场周期加载失败:{_exc}")
+            st.error(f"⚠️ 市场研判加载失败:{_exc}")
             import traceback as _tb
             st.code(_tb.format_exc(), language="python")
-    with sub_industry:
+    with sub_analysis:
         try:
-            from tabs.industry_focus import render as _render_industry
-            _render_industry()
+            from tabs.industry import analysis as _industry_analysis
+            _industry_analysis.render()
         except Exception as _exc:
             st.error(f"⚠️ 行业分析加载失败:{_exc}")
             import traceback as _tb
             st.code(_tb.format_exc(), language="python")
+    with sub_preselect:
+        try:
+            from tabs.industry import preselect as _industry_preselect
+            _industry_preselect.render()
+        except Exception as _exc:
+            st.error(f"⚠️ 行业预选加载失败:{_exc}")
+            import traceback as _tb
+            st.code(_tb.format_exc(), language="python")
+    with sub_confirm:
+        try:
+            from tabs.industry import confirm as _industry_confirm
+            _industry_confirm.render()
+        except Exception as _exc:
+            st.error(f"⚠️ 行业确定加载失败:{_exc}")
+            import traceback as _tb
+            st.code(_tb.format_exc(), language="python")
 
 
-# ─── 🔍 选股(原"公司筛选")─────────────────────────────────────────
+# ─── 🔍 选股(v2.9:4 个子 Tab — 初步筛选 / 林奇选股 / 格雷厄姆选股 / 选股确定)─
 if page == PAGE_SCREENER:
     try:
         from tabs.screener import render as _render_screener
         _render_screener(companies, DB_MTIME)
     except Exception as _exc:
-        st.error(f"⚠️ 公司筛选 Tab 加载失败:{_exc}")
+        st.error(f"⚠️ 选股 Tab 加载失败:{_exc}")
         import traceback as _tb
         st.code(_tb.format_exc(), language="python")
 
@@ -441,7 +485,7 @@ if page == PAGE_COMPANY:
             st.caption(_tb.format_exc())
 
 
-# ─── 💼 决策中心(L0 三段式 Tab)──────────────────────────────────
+# ─── 💼 决策中心(4 个子 Tab)──────────────────────────────────────
 if page == PAGE_DC:
     try:
         from tabs import decision_center as _dc_mod

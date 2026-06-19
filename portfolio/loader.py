@@ -19,7 +19,9 @@ from typing import Iterator
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_YAML = ROOT / ".tools" / "portfolio" / "portfolio.yaml"
+# v2.8+ 持仓数据源切到 .config/portfolio.yaml(positions 已 merge 进 holdings).
+# 旧 .tools/portfolio/portfolio.yaml 已 rename 为 .deprecated。
+DEFAULT_YAML = ROOT / ".config" / "portfolio.yaml"
 
 
 @dataclass
@@ -34,6 +36,24 @@ class Holding:
     max_weight: float = 0.0
     thesis: str = ""
     tags: list[str] = field(default_factory=list)
+
+    # —— v2.8+ positions section 字段合并(从 .config/portfolio.yaml.positions[] 迁移过来) ——
+    school: str = ""                                      # 价值 / 成长 / 周期 / 防御
+    rationale: str = ""                                   # 买入逻辑 60-120 字
+    criteria_met: list[str] = field(default_factory=list)
+    review_triggers: list[str] = field(default_factory=list)
+
+    # —— v2.7+ 持仓详情扩展字段(全部可选) ——
+    buy_rationale: str = ""
+    buy_criteria_met: list[str] = field(default_factory=list)
+    sell_rationale: str = ""
+    exit_triggers: list[str] = field(default_factory=list)
+    price_band: dict = field(default_factory=dict)
+    short_term_signals: dict = field(default_factory=dict)
+    exit_date: str | None = None
+    exit_price: float | None = None
+    closed_at: str | None = None
+    closed_reason: str = ""
 
     @property
     def cost_total(self) -> float | None:
@@ -178,6 +198,20 @@ def load_portfolio(path: Path | None = None) -> Portfolio:
             max_weight=d.get("max_weight", 0.0),
             thesis=d.get("thesis", ""),
             tags=d.get("tags") or [],
+            school=d.get("school", "") or "",
+            rationale=d.get("rationale", "") or "",
+            criteria_met=d.get("criteria_met") or [],
+            review_triggers=d.get("review_triggers") or [],
+            buy_rationale=d.get("buy_rationale", "") or "",
+            buy_criteria_met=d.get("buy_criteria_met") or [],
+            sell_rationale=d.get("sell_rationale", "") or "",
+            exit_triggers=d.get("exit_triggers") or [],
+            price_band=d.get("price_band") or {},
+            short_term_signals=d.get("short_term_signals") or {},
+            exit_date=d.get("exit_date"),
+            exit_price=d.get("exit_price"),
+            closed_at=d.get("closed_at"),
+            closed_reason=d.get("closed_reason", "") or "",
         )
 
     holdings = [parse_holding(h) for h in (doc.get("holdings") or [])]
@@ -304,3 +338,93 @@ def upsert_holdings(
 
     bak = save_portfolio(doc, path=path, backup=backup)
     return bak, {"added": added, "updated": updated, "status_flipped": status_flipped}
+
+
+# ─── v2.7+ 软删 / 硬删 / 详情更新 ─────────────────────────────────
+def close_holding(
+    ticker: str,
+    reason: str = "",
+    exit_price: float | None = None,
+    sell_rationale: str = "",
+    exit_triggers: list[str] | None = None,
+    path: Path | None = None,
+    backup: bool = True,
+) -> tuple[Path | None, bool]:
+    """软删 — status=exited + 写卖出归档字段(exit_date/exit_price/sell_rationale/exit_triggers).
+
+    holdings_view.build_snapshot 只装配 active+watch,exited 立即从持仓总览消失,
+    yaml 保留供复盘。返回 (备份路径, 是否命中)。
+    """
+    doc = load_yaml_dict(path)
+    holdings = doc.get("holdings") or []
+    hit = False
+    today = datetime.now().strftime("%Y-%m-%d")
+    for h in holdings:
+        if str(h.get("ticker", "")).strip() == str(ticker).strip():
+            h["status"] = "exited"
+            h["closed_at"] = today
+            h["exit_date"] = today
+            if reason:
+                h["closed_reason"] = reason
+            if sell_rationale:
+                h["sell_rationale"] = sell_rationale
+            if exit_price is not None:
+                h["exit_price"] = float(exit_price)
+            if exit_triggers:
+                h["exit_triggers"] = list(exit_triggers)
+            hit = True
+            break
+    if not hit:
+        return None, False
+    doc.setdefault("_meta", {})["last_updated"] = today
+    doc["holdings"] = holdings
+    bak = save_portfolio(doc, path=path, backup=backup)
+    return bak, True
+
+
+def delete_holding(
+    ticker: str,
+    path: Path | None = None,
+    backup: bool = True,
+) -> tuple[Path | None, bool]:
+    """硬删 — 从 holdings 列表彻底移除指定 ticker。返回 (备份路径, 是否命中)。"""
+    doc = load_yaml_dict(path)
+    holdings = doc.get("holdings") or []
+    before = len(holdings)
+    holdings = [h for h in holdings if str(h.get("ticker", "")).strip() != str(ticker).strip()]
+    if len(holdings) == before:
+        return None, False
+    doc["holdings"] = holdings
+    doc.setdefault("_meta", {})["last_updated"] = datetime.now().strftime("%Y-%m-%d")
+    bak = save_portfolio(doc, path=path, backup=backup)
+    return bak, True
+
+
+def update_holding_details(
+    ticker: str,
+    updates: dict,
+    path: Path | None = None,
+    backup: bool = True,
+) -> tuple[Path | None, bool]:
+    """更新指定 ticker 的持仓详情字段(支持 v2.7+ 扩展字段)。空值忽略。"""
+    doc = load_yaml_dict(path)
+    holdings = doc.get("holdings") or []
+    hit = False
+    for h in holdings:
+        if str(h.get("ticker", "")).strip() == str(ticker).strip():
+            for k, v in updates.items():
+                if v is None:
+                    continue
+                if isinstance(v, str) and not v.strip():
+                    continue
+                if isinstance(v, (list, dict)) and len(v) == 0:
+                    continue
+                h[k] = v
+            hit = True
+            break
+    if not hit:
+        return None, False
+    doc.setdefault("_meta", {})["last_updated"] = datetime.now().strftime("%Y-%m-%d")
+    doc["holdings"] = holdings
+    bak = save_portfolio(doc, path=path, backup=backup)
+    return bak, True

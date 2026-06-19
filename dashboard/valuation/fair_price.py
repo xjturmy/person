@@ -113,23 +113,96 @@ def load_portfolio(path: Path | str = PORTFOLIO_PATH) -> dict[str, PortfolioEntr
     with path.open("r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
 
-    positions = data.get("positions", []) or []
+    # v2.8+ positions[] 已 merge 进 holdings[],直接读 holdings 字段。
+    holdings = data.get("holdings", []) or []
     return {
-        p["ticker"]: PortfolioEntry(
-            ticker=p["ticker"],
-            name=p.get("name", ""),
-            school=p.get("school", ""),
-            rationale=p.get("rationale", ""),
-            criteria_met=p.get("criteria_met", []) or [],
-            review_triggers=p.get("review_triggers", []) or [],
+        h["ticker"]: PortfolioEntry(
+            ticker=h["ticker"],
+            name=h.get("name", ""),
+            school=h.get("school", ""),
+            rationale=h.get("rationale", ""),
+            criteria_met=h.get("criteria_met", []) or [],
+            review_triggers=h.get("review_triggers", []) or [],
         )
-        for p in positions
+        for h in holdings
     }
 
 
 def is_in_portfolio(ticker: str, path: Path | str = PORTFOLIO_PATH) -> bool:
     """判断 ticker 是否在持仓档案里。"""
     return ticker in load_portfolio(path)
+
+
+def _backup_portfolio(path: Path) -> Path | None:
+    """改写 portfolio.yaml 前备份到 .bak(单层覆盖)。"""
+    if not path.exists():
+        return None
+    bak = path.with_suffix(path.suffix + ".bak")
+    bak.write_bytes(path.read_bytes())
+    return bak
+
+
+def add_to_portfolio(ticker: str, name: str, school: str = "未分类",
+                     rationale: str = "(待填写)",
+                     path: Path | str = PORTFOLIO_PATH) -> bool:
+    """把 ticker 加入持仓档案 holdings[](status=watch 默认)。已存在则跳过。
+
+    v2.8+:positions[] 已合并到 holdings[],此函数直写 holdings 字段。
+    新条目带 school/rationale,详细 criteria_met / review_triggers 由用户后续在 yaml 补全。
+
+    返回 True 表示新增成功,False 表示已存在 / ticker 为空。
+    """
+    if not ticker:
+        return False
+    path = Path(path)
+    if path.exists():
+        with path.open("r", encoding="utf-8") as f:
+            doc = yaml.safe_load(f) or {}
+    else:
+        doc = {}
+
+    holdings = doc.setdefault("holdings", []) or []
+    if any(str(h.get("ticker", "")).strip() == ticker for h in holdings):
+        return False
+
+    _backup_portfolio(path)
+    holdings.append({
+        "ticker": ticker,
+        "name": name or ticker,
+        "status": "watch",
+        "school": school,
+        "rationale": rationale,
+        "criteria_met": [],
+        "review_triggers": [],
+    })
+    doc["holdings"] = holdings
+    with path.open("w", encoding="utf-8") as f:
+        yaml.safe_dump(doc, f, allow_unicode=True, sort_keys=False, default_flow_style=False)
+    return True
+
+
+def remove_from_portfolio(ticker: str,
+                          path: Path | str = PORTFOLIO_PATH) -> bool:
+    """从持仓档案 holdings[] 物理移除 ticker(硬删,保兼容)。
+
+    v2.8+:对 holdings[] 操作;若要软删归档(status=exited),改用 loader.close_holding。
+    """
+    if not ticker:
+        return False
+    path = Path(path)
+    if not path.exists():
+        return False
+    with path.open("r", encoding="utf-8") as f:
+        doc = yaml.safe_load(f) or {}
+    holdings = doc.get("holdings") or []
+    new_holdings = [h for h in holdings if str(h.get("ticker", "")).strip() != ticker]
+    if len(new_holdings) == len(holdings):
+        return False
+    _backup_portfolio(path)
+    doc["holdings"] = new_holdings
+    with path.open("w", encoding="utf-8") as f:
+        yaml.safe_dump(doc, f, allow_unicode=True, sort_keys=False, default_flow_style=False)
+    return True
 
 
 # ─── 数据加载(从 preson.duckdb)──────────────────────────────────────

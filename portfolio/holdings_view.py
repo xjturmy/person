@@ -51,6 +51,7 @@ class HoldingRow:
     pe_pct: float | None          # 0-1
     tags: list[str] = field(default_factory=list)
     thesis: str = ""
+    school: str = ""
 
 
 @dataclass
@@ -83,6 +84,7 @@ class HoldingsSnapshot:
     cash_ratio: float              # 现金/总资本
     audit_alerts: list[DecisionAuditAlert]
     rebalance_alerts: list[str]    # 再平衡引擎给的提示
+    ticker_to_school: dict[str, str] = field(default_factory=dict)
 
 
 def _last_price(con, ticker: str) -> float | None:
@@ -206,6 +208,7 @@ def build_snapshot(
             cost_total=cost_t, pnl=pnl, pnl_pct=pnl_pct,
             fscore=fs, pe_pct=pct,
             tags=list(h.tags or []), thesis=h.thesis or "",
+            school=h.school or "",
         ))
 
     if con:
@@ -283,6 +286,7 @@ def build_snapshot(
         cash_ratio=cash_ratio,
         audit_alerts=audit_alerts,
         rebalance_alerts=rebalance_alerts,
+        ticker_to_school={h.ticker: (h.school or "") for h in p.holdings},
     )
 
 

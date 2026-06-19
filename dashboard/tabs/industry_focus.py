@@ -1,3 +1,6 @@
+# v2.9 P0b 已迁移到 tabs/industry/(analysis / preselect / confirm 三件套)。
+# 本文件保留兼容:tabs.industry.analysis 直接复用此处的渲染函数/helper;
+# 主入口 render() 已被 PAGE_MARKET_HUB 4 sub-tab 替代,P5 清理。
 """v2.5 行业分析 Tab — 8 聚焦行业 4 区行业卡 + 顶部 banner + sidebar 编辑入口.
 
 4 区结构(每行业):
@@ -35,17 +38,45 @@ if str(DASHBOARD_DIR) not in sys.path:
 
 INDUSTRY_MASTER_YAML = ROOT / ".config" / "industry_master.yaml"
 FOCUS_YAML = ROOT / ".config" / "focus_industries.yaml"
+ETF_MAPPING_YAML = ROOT / ".tools" / "rules" / "industry_etf_mapping.yaml"
+BROAD_ETF_YAML = ROOT / ".config" / "broad_index_etf.yaml"
+PORTFOLIO_YAML = ROOT / ".config" / "portfolio.yaml"
+KONDRATIEFF_YAML = DASHBOARD_DIR / "data" / "kondratieff.yaml"
 ETF_DB = ROOT / "data" / "etf.duckdb"
+MACRO_DB = ROOT / "data" / "macro.duckdb"
 
 GREEN_BG = "#dcfce7"
 GREEN_FG = "#14532d"
 GREEN_GRAD = "linear-gradient(135deg,#16a34a 0%,#22c55e 100%)"
+BLUE_BG = "#dbeafe"
+BLUE_FG = "#1e3a8a"
 
 PHASE_EMOJI = {
     "rising": "📈", "topping": "🔻", "falling": "📉",
     "bottoming": "🟢", "sideways": "🔄",
 }
 LAYER_CN = {"defensive": "防御层", "offensive": "进攻层", "auxiliary": "过渡"}
+LAYER_STYLE = {
+    "defensive": (GREEN_BG, GREEN_FG),
+    "offensive": (BLUE_BG, BLUE_FG),
+    "auxiliary": ("#f3f4f6", "#374151"),
+}
+
+OFFENSIVE_DIRECTION = {
+    "通信设备": "AI",
+    "电池": "能源",
+    "化学制药": "生物",
+}
+CYCLE_TYPE_LAYER = {"防御": "defensive", "成长": "offensive"}
+
+TYPE_METHODOLOGY = {
+    "stalwart": ("彼得林奇 · 稳健增长", "01_knowledge/03_投资策略与选股/02_彼得林奇投资法/"),
+    "fast_grower": ("彼得林奇 · 快速增长", "01_knowledge/03_投资策略与选股/02_彼得林奇投资法/"),
+    "cyclical": ("彼得林奇 · 周期型", "01_knowledge/03_投资策略与选股/02_彼得林奇投资法/"),
+    "slow_grower": ("彼得林奇 · 缓慢增长", "01_knowledge/03_投资策略与选股/02_彼得林奇投资法/"),
+    "bank": ("格雷厄姆 · 银行专版", "01_knowledge/03_投资策略与选股/01_格雷厄姆投资法/"),
+    "insurance": ("格雷厄姆 · 保险专版", "01_knowledge/03_投资策略与选股/01_格雷厄姆投资法/"),
+}
 
 
 @st.cache_data(ttl=1800)
@@ -137,36 +168,291 @@ def _format_num(v, fmt: str = "{:.2f}") -> str:
     return fmt.format(v)
 
 
-def _render_top_banner(focus_list: list[dict]) -> None:
-    """G1: 顶部 8 行业速览(2 行 4 列)."""
+@st.cache_data(ttl=3600)
+def _load_etf_mapping() -> dict:
+    """industry → {layer, target_pct, direction}."""
+    d = _load_yaml(str(ETF_MAPPING_YAML))
+    out: dict = {}
+    for row in d.get("mapping") or []:
+        ind = row.get("industry")
+        if not ind:
+            continue
+        out[ind] = {
+            "layer": row.get("layer"),
+            "target_pct": row.get("target_pct"),
+            "direction": row.get("direction"),
+        }
+    return out
+
+
+@st.cache_data(ttl=3600)
+def _load_broad_etfs() -> list[dict]:
+    d = _load_yaml(str(BROAD_ETF_YAML))
+    return [e for e in (d.get("broad_etfs") or []) if e.get("visible", True)]
+
+
+@st.cache_data(ttl=3600)
+def _load_kondratieff_banner() -> dict:
+    if not KONDRATIEFF_YAML.exists():
+        return {}
+    try:
+        return yaml.safe_load(KONDRATIEFF_YAML.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return {}
+
+
+@st.cache_data(ttl=600)
+def _portfolio_etf_held() -> tuple[set[str], set[str]]:
+    """返回 (holdings tickers, benchmark/index names)."""
+    d = _load_yaml(str(PORTFOLIO_YAML))
+    tickers: set[str] = set()
+    names: set[str] = set()
+    for h in d.get("holdings") or []:
+        t = str(h.get("ticker", "")).strip()
+        if t:
+            tickers.add(t.zfill(6))
+        n = str(h.get("name", "")).strip()
+        if n:
+            names.add(n)
+    for b in d.get("benchmarks") or []:
+        n = str(b.get("name", "")).strip()
+        if n:
+            names.add(n)
+    return tickers, names
+
+
+def _resolve_layer(industry: str, mapping: dict, master: dict) -> str:
+    meta = mapping.get(industry) or {}
+    layer = meta.get("layer")
+    if layer:
+        return str(layer)
+    cycle_type = (master.get("cycle_attrs") or {}).get("type", "")
+    return CYCLE_TYPE_LAYER.get(cycle_type, "auxiliary")
+
+
+def _short_text(text: str, max_len: int = 14) -> str:
+    if not text or text == "—":
+        return "—"
+    return text if len(text) <= max_len else text[: max_len - 1] + "…"
+
+
+@st.cache_data(ttl=1800)
+def _etf_1y_return(code: str) -> float | None:
+    if not ETF_DB.exists() or not code:
+        return None
+    try:
+        con = duckdb.connect(str(ETF_DB), read_only=True)
+        df = con.execute(
+            "SELECT close FROM etf_prices "
+            "WHERE etf_code = ? AND date >= (CURRENT_DATE - INTERVAL 365 DAY) "
+            "ORDER BY date",
+            [code],
+        ).fetchdf()
+        con.close()
+    except Exception:
+        return None
+    if df.empty or len(df) < 2:
+        return None
+    base = df["close"].iloc[0]
+    last = df["close"].iloc[-1]
+    if not base or base <= 0:
+        return None
+    return float(last / base - 1.0)
+
+
+def _macro_pe_display(pe_key: str | None) -> str:
+    if not pe_key:
+        return "—"
+    if not MACRO_DB.exists():
+        return "—"
+    try:
+        from tabs.market._helpers import _load_macro_latest
+        mtime = MACRO_DB.stat().st_mtime
+        row = _load_macro_latest(str(MACRO_DB), pe_key, mtime)
+        if row and row.get("value") is not None:
+            pct = row.get("pct_5y")
+            pct_s = f" · 5y {_format_pct(pct * 100)}" if pct is not None else ""
+            return f"{row['value']:.1f}{pct_s}"
+    except Exception:
+        pass
+    return "—"
+
+
+def _render_industry_mini_card(focus_item: dict, mapping: dict) -> None:
+    ind = focus_item["industry"]
+    type_ = focus_item.get("type", "stalwart")
+    master = _industry_master_dict().get(ind, {})
+    layer = _resolve_layer(ind, mapping, master)
+    bg, fg = LAYER_STYLE.get(layer, LAYER_STYLE["auxiliary"])
+    badge = LAYER_CN.get(layer, layer)
+
+    pct = _cached_percentile(ind)
+    cyc = _cached_cycle(ind)
+    meta = mapping.get(ind) or {}
+    target = meta.get("target_pct")
+    target_s = f"{target[0]}-{target[1]}%" if target else "—"
+
+    direction = OFFENSIVE_DIRECTION.get(ind) or meta.get("direction")
+    dir_tag = f" · 🎯{direction}" if direction and layer == "offensive" else ""
+
+    top1_name, top1_etf = "—", "—"
+    try:
+        top_df = _cached_top7(ind, type_, top_n=1)
+        if not top_df.empty:
+            top1_name = str(top_df.iloc[0].get("name", "—"))
+    except Exception:
+        pass
+    try:
+        etfs = _cached_etf(ind, top_n=1)
+        if etfs:
+            top1_etf = etfs[0].get("code", "—")
+    except Exception:
+        pass
+
+    phase_s = f"{PHASE_EMOJI.get(cyc['phase'], '❓')} {cyc['phase_cn']}"
+    kp = _short_text(cyc.get("kondratieff_position") or "—", 16)
+
     st.markdown(
-        f"<div style='background:{GREEN_GRAD};padding:1.2rem;border-radius:8px;"
-        f"color:white;margin-bottom:1rem;'>"
-        f"<h3 style='margin:0;'>🏭 行业分析 · {len(focus_list)} 聚焦行业</h3>"
-        f"<p style='margin:0.3rem 0 0;opacity:0.9;'>"
-        f"自顶向下视角:周期 × 估值分位 × 推荐公司 × ETF 选择</p></div>",
+        f"<div style='background:{bg};padding:0.55rem 0.65rem;"
+        f"border-radius:6px;border-left:3px solid {fg};font-size:0.82rem;'>"
+        f"<b>{ind}</b> <span style='color:{fg};font-size:0.75rem;'>[{badge}]{dir_tag}</span><br>"
+        f"{phase_s} · PE 第{_format_pct(pct['pe_percentile_10y'])} · 配 {target_s}<br>"
+        f"康波:{kp}<br>"
+        f"Top1 {top1_name} · ETF {top1_etf}</div>",
         unsafe_allow_html=True,
     )
 
-    per_row = 4
-    for i in range(0, len(focus_list), per_row):
-        cols = st.columns(per_row)
-        for j, f in enumerate(focus_list[i:i + per_row]):
-            with cols[j]:
-                ind = f["industry"]
-                pct = _cached_percentile(ind)
-                cyc = _cached_cycle(ind)
-                phase_s = f"{PHASE_EMOJI.get(cyc['phase'], '❓')} {cyc['phase_cn']}"
-                st.markdown(
-                    f"<div style='background:{GREEN_BG};padding:0.6rem;"
-                    f"border-radius:6px;border-left:3px solid {GREEN_FG};"
-                    f"font-size:0.85rem;'>"
-                    f"<b>{ind}</b><br>"
-                    f"{phase_s} · PE 第{_format_pct(pct['pe_percentile_10y'])}<br>"
-                    f"N={pct['member_count']} · {cyc['cycle_type']}</div>",
-                    unsafe_allow_html=True,
-                )
+
+def _render_broad_etf_mini_card(broad_item: dict) -> None:
+    layer = broad_item.get("layer", "defensive")
+    bg, fg = LAYER_STYLE.get(layer, LAYER_STYLE["auxiliary"])
+    badge = LAYER_CN.get(layer, layer)
+    code = broad_item.get("etf_code", "—")
+    name = broad_item.get("name", "—")
+    role = _short_text(broad_item.get("role", ""), 22)
+    target = broad_item.get("target_pct")
+    target_s = f"{target[0]}-{target[1]}%" if target else "—"
+
+    ret = _etf_1y_return(code)
+    ret_s = f"{ret:+.1%}" if ret is not None else "—"
+    pe_s = _macro_pe_display(broad_item.get("macro_pe_key"))
+
+    held_tickers, held_names = _portfolio_etf_held()
+    held = code in held_tickers or name in held_names
+    held_s = "🌟 已配" if held else ""
+
+    st.markdown(
+        f"<div style='background:{bg};padding:0.55rem 0.65rem;"
+        f"border-radius:6px;border-left:3px solid {fg};font-size:0.82rem;'>"
+        f"<b>{name}</b> <span style='color:{fg};font-size:0.75rem;'>[{badge}]</span> {held_s}<br>"
+        f"{code} · 1y {ret_s} · 配 {target_s}<br>"
+        f"PE {pe_s}<br>"
+        f"<span style='opacity:0.85;'>{role}</span></div>",
+        unsafe_allow_html=True,
+    )
+
+
+def _render_coverage_check(focus_list: list[dict], broad_etfs: list[dict]) -> None:
+    focus_inds = {f["industry"] for f in focus_list}
+    themes = {"AI": "通信设备", "能源": "电池", "生物": "化学制药"}
+    lines = []
+    for theme, ind in themes.items():
+        hit = "✅" if ind in focus_inds else "⚠️ 未覆盖"
+        lines.append(f"- **{theme}**({ind}): {hit}")
+
+    visible_broad = [e["name"] for e in broad_etfs if e.get("visible", True)]
+    if visible_broad:
+        lines.append(f"- **宽基 ETF**: {' · '.join(visible_broad)}")
+
+    missing_def = []
+    for note_ind in ("红利低波", "黄金"):
+        if note_ind not in focus_inds:
+            missing_def.append(note_ind)
+    if missing_def:
+        lines.append(
+            f"- **防御缺口**: {' / '.join(missing_def)} 未在聚焦行业 — "
+            f"请通过宽基 / 专项 ETF 配置(见 industry_etf_mapping)"
+        )
+
+    st.markdown("\n".join(lines))
+
+
+def _render_top_banner(focus_list: list[dict]) -> None:
+    """康波驱动 banner:行业 mini-card + 宽基 ETF + 覆盖度检查."""
+    mapping = _load_etf_mapping()
+    kdf = _load_kondratieff_banner()
+    broad_etfs = _load_broad_etfs()
+
+    cycle = kdf.get("cycle", "—")
+    phase = kdf.get("phase", "—")
+    phase_emoji = kdf.get("phase_emoji", "🔴")
+    strategy = kdf.get("strategy_summary", "")
+    alloc = _load_yaml(str(ETF_MAPPING_YAML)).get("target_allocation") or {}
+    def_rng = alloc.get("defensive", [65, 75])
+    off_rng = alloc.get("offensive", [25, 35])
+
+    st.markdown(
+        f"<div style='background:{GREEN_GRAD};padding:1rem 1.2rem;border-radius:8px;"
+        f"color:white;margin-bottom:0.8rem;'>"
+        f"<h3 style='margin:0;'>🏭 行业分析 · {len(focus_list)} 聚焦行业</h3>"
+        f"<p style='margin:0.35rem 0 0;opacity:0.92;font-size:0.9rem;'>"
+        f"{phase_emoji} {cycle} · <b>{phase}</b>"
+        f"{' · ' + strategy if strategy else ''}"
+        f"<br>配置框架:防御 {def_rng[0]}-{def_rng[1]}% / 进攻 {off_rng[0]}-{off_rng[1]}%</p></div>",
+        unsafe_allow_html=True,
+    )
+
+    defensive, offensive, other = [], [], []
+    for f in focus_list:
+        ind = f["industry"]
+        master = _industry_master_dict().get(ind, {})
+        layer = _resolve_layer(ind, mapping, master)
+        if layer == "defensive":
+            defensive.append(f)
+        elif layer == "offensive":
+            offensive.append(f)
+        else:
+            other.append(f)
+
+    for title, group in [
+        ("🛡️ 防御层行业", defensive),
+        ("⚔️ 进攻层行业", offensive),
+    ]:
+        if not group:
+            continue
+        st.markdown(f"**{title}**")
+        per_row = 4
+        for i in range(0, len(group), per_row):
+            cols = st.columns(per_row)
+            for j, f in enumerate(group[i:i + per_row]):
+                with cols[j]:
+                    _render_industry_mini_card(f, mapping)
         st.write("")
+
+    if other:
+        st.markdown("**🔄 过渡层行业**")
+        cols = st.columns(min(4, len(other)))
+        for j, f in enumerate(other):
+            with cols[j]:
+                _render_industry_mini_card(f, mapping)
+        st.write("")
+
+    if broad_etfs:
+        st.markdown("**📊 宽基 ETF · 卫星底仓**")
+        def_broad = [e for e in broad_etfs if e.get("layer") == "defensive"]
+        off_broad = [e for e in broad_etfs if e.get("layer") == "offensive"]
+        for title, group in [("防御宽基", def_broad), ("进攻宽基", off_broad)]:
+            if not group:
+                continue
+            st.caption(title)
+            cols = st.columns(len(group))
+            for j, item in enumerate(group):
+                with cols[j]:
+                    _render_broad_etf_mini_card(item)
+        st.write("")
+
+    with st.expander("🔍 康波覆盖度检查", expanded=True):
+        _render_coverage_check(focus_list, broad_etfs)
 
 
 def _render_etf_overlay(codes: list[str], names: list[str]) -> None:
@@ -259,6 +545,46 @@ def _render_industry_card(focus_item: dict) -> None:
                 pm = top_df.iloc[0].get("primary_master", "—")
                 ds = top_df.iloc[0].get("data_source", "—")
                 st.caption(f"评分链路:{type_} → primary={pm};数据池:{ds}")
+
+                # Top 3 快捷操作:加自选 / 跳公司
+                top3 = top_df.head(3)
+                btn_cols = st.columns(len(top3))
+                for bi, (_, row) in enumerate(top3.iterrows()):
+                    ticker = str(row.get("ticker", "")).zfill(6)
+                    cname = str(row.get("name", ""))
+                    with btn_cols[bi]:
+                        st.caption(f"{row.get('rank', bi + 1)}. {cname} ({ticker})")
+                        if st.button("🌟 加自选", key=f"wl_{ind}_{ticker}", use_container_width=True):
+                            try:
+                                import watchlist as _wl
+                                n = _wl.add(
+                                    pd.DataFrame([{
+                                        "ticker": ticker,
+                                        "name": cname,
+                                        "source_industry": ind,
+                                    }]),
+                                    preset=f"行业分析·{ind}",
+                                )
+                                if n:
+                                    st.success(f"✅ 已加入观察池:{cname}")
+                                else:
+                                    st.info(f"已在观察池:{cname}")
+                            except Exception as ex:
+                                st.info(f"观察池写入不可用 — 请切到「选股确定」手动添加 ({ex})")
+                        if st.button("📊 跳公司", key=f"co_{ind}_{ticker}", use_container_width=True):
+                            try:
+                                from tabs.market import DB_PATH as _DB_PATH
+                                from dashboard_helpers import _folder_to_ticker
+                                from navigation import goto, PAGE_COMPANY
+                                db_mtime = _DB_PATH.stat().st_mtime if _DB_PATH.exists() else 0.0
+                                t2f = {v: k for k, v in _folder_to_ticker(db_mtime).items()}
+                                folder = t2f.get(ticker, "")
+                                if folder:
+                                    goto(PAGE_COMPANY, company=folder, sub_tab="公司研判")
+                                else:
+                                    st.warning(f"未找到 {cname}({ticker}) 的公司目录")
+                            except Exception as ex:
+                                st.warning(f"跳转失败:{ex}")
         except Exception as e:
             st.warning(f"评分失败:{e}")
 
@@ -321,6 +647,11 @@ def _render_industry_card(focus_item: dict) -> None:
             kp = cyc.get("kondratieff_position") or "—"
             st.markdown(f"**康波位置**:{kp}")
 
+            label, kpath = TYPE_METHODOLOGY.get(type_, ("评分方法论", "01_knowledge/03_投资策略与选股/"))
+            st.markdown(
+                f"**📚 方法论**: [{label}]({kpath})"
+            )
+
 
 def _render_sidebar_editor() -> None:
     """G2: sidebar「⚙️ 编辑聚焦行业」expander."""
@@ -352,14 +683,11 @@ def _render_sidebar_editor() -> None:
 
 
 def _render_valuation_matrix() -> None:
-    """⑤ 行业估值矩阵(从 L1 市场周期迁来):粗粒度热力图 + 细粒度下钻。"""
-    st.markdown("### ⑤ 行业估值矩阵 · 哪些行业被低估?")
+    """行业估值矩阵(从 L1 市场周期迁来):粗粒度热力图 + 细粒度下钻。"""
+    st.markdown("### 行业估值矩阵 · 哪些行业被低估?")
     try:
-        from tabs.market import (
-            _section_industry_heatmap,
-            _section_industry_drilldown,
-            DB_PATH as _DB_PATH,
-        )
+        from tabs.market import DB_PATH as _DB_PATH, _section_industry_heatmap
+
         db_mtime = _DB_PATH.stat().st_mtime if _DB_PATH.exists() else 0.0
         _section_industry_heatmap(str(_DB_PATH), db_mtime)
     except Exception as e:
@@ -373,7 +701,7 @@ def render() -> None:
 
     _render_sidebar_editor()
 
-    # ⑤ 行业估值矩阵 — 自顶向下入口(粗类热力图 + 细类下钻)
+    # 行业估值矩阵 — 自顶向下入口(粗类热力图 + 细类下钻)
     _render_valuation_matrix()
     st.markdown("---")
 
