@@ -5,6 +5,7 @@ API:
   apply_filters(df, filters)                   -> pd.DataFrame  按一组 {metric, op, value} 过滤
   apply_preset(df, preset_id)                  -> pd.DataFrame  应用 presets.yaml 中的预设
   load_presets(yaml_path)                      -> dict          {presets: [...], metrics: {...}}
+  load_prelim_presets(yaml_path)               -> list[dict]    初步筛选硬过滤预设
   load_master_rules(master_id)                 -> dict          读 .tools/rules/{master_id}.yaml
   score_with_master(df, master_id, year)       -> pd.DataFrame  追加 score / max_score / rating / valid_rules / total_rules
   format_rating(score, thresholds, valid)      -> str           emoji 评级
@@ -55,6 +56,12 @@ METRIC_FALLBACK: dict[str, str] = {
 
 def load_presets(path: Path | str = PRESETS_PATH) -> dict:
     return yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+
+
+def load_prelim_presets(path: Path | str = PRESETS_PATH) -> list[dict]:
+    """初步筛选专用预设(仅硬过滤,无大师评分)。"""
+    cfg = load_presets(path)
+    return list(cfg.get("prelim_presets") or [])
 
 
 def _conn(db_path: Path | str = DB_PATH) -> duckdb.DuckDBPyConnection:

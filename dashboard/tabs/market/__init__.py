@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import streamlit as st
 
+from navigation import goto, PAGE_MARKET_HUB, SUB_INDUSTRY_ANALYSIS
+
 from ._helpers import DB_PATH, MACRO_DB
 from .banner import _section_verdict_banner
 from .graham import _section_graham_index
@@ -59,27 +61,31 @@ def render(*args, **kwargs) -> None:
 
     # ⓪ 综合结论 banner
     _section_verdict_banner(macro_path, macro_mtime)
+    st.write("")
 
     # ① 康波周期定位卡
-    st.markdown("### ① 康波周期定位 · 我们处在哪个大周期?")
+    st.subheader("🌀 康波周期定位")
+    st.caption("我们处在哪个大周期？")
     _section_kondratieff_card()
 
     # ② 格雷厄姆指数
-    st.markdown("### ② 格雷厄姆指数 · 股票比债券更值得买吗?")
+    st.subheader("📐 格雷厄姆指数")
+    st.caption("股票比债券更值得买吗？")
     _section_graham_index(macro_path, macro_mtime)
 
     # ③ 5 项宏观时序(原段 1 改提问式)
-    st.markdown("---")
-    st.markdown("### ③ 五大宏观信号 · 流动性、通胀、利率怎么样?")
+    st.subheader("🌡️ 五大宏观信号")
+    st.caption("流动性、通胀、利率怎么样？")
     _section_thermometer_trends(macro_path, macro_mtime)
 
     # ④ A 股全指 PE 分位带
-    st.markdown("---")
-    st.markdown("### ④ 大盘估值水位 · A 股全指 PE 处于历史什么位置?")
+    st.subheader("📊 大盘估值水位")
+    st.caption("A 股全指 PE 处于历史什么位置？")
     _section_a_full_band(macro_path, macro_mtime)
 
     # ⑤ 行业估值矩阵 — 已迁至 🏭 行业分析 sub-tab(避免重复)
-    st.caption("💡 行业估值矩阵已迁至「🏭 行业分析」sub-tab,点击上方切换查看")
+    if st.button("🏭 跳到行业分析 →", key="market_to_industry", use_container_width=False):
+        goto(PAGE_MARKET_HUB, sub_tab=SUB_INDUSTRY_ANALYSIS)
 
 
 __all__ = [

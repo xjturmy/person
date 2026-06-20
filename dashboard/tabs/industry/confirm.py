@@ -83,37 +83,25 @@ def _render_section_confirmed() -> None:
         st.info("尚未确认任何行业 — 到「🎯 行业预选」勾选,再回来确认")
         return
 
-    show_note = any(f.get("note") for f in focus_list)
-    col_weights = [0.4, 2, 1.2, 0.8, 1.5]
-    if show_note:
-        col_weights.insert(4, 1.5)
+    # 列宽:选 / 行业 / note / 确认日 — 按内容长度配比
+    col_weights = [0.5, 1.5, 2.2, 1.3]
 
     hcols = st.columns(col_weights)
     hcols[0].markdown("**选**")
     hcols[1].markdown("**行业**")
-    hcols[2].markdown("**type**")
-    hcols[3].markdown("**weight**")
-    if show_note:
-        hcols[4].markdown("**note**")
-        hcols[5].markdown("**确认日**")
-    else:
-        hcols[4].markdown("**确认日**")
+    hcols[2].markdown("**note**")
+    hcols[3].markdown("**确认日**")
 
     selected_for_remove: list[str] = []
     for f in focus_list:
         ind = f.get("industry")
-        cols = st.columns(col_weights)
+        cols = st.columns(col_weights, vertical_alignment="center")
         chk = cols[0].checkbox(
             "选", value=False, key=f"confirmed_chk_{ind}", label_visibility="collapsed",
         )
         cols[1].markdown(f"**{ind}**")
-        cols[2].markdown(f"`{f.get('type','—')}`")
-        cols[3].markdown(f"{f.get('weight','—')}")
-        if show_note:
-            cols[4].markdown(f"{f.get('note') or '—'}")
-            cols[5].markdown(f"{f.get('confirmed_at','—')}")
-        else:
-            cols[4].markdown(f"{f.get('confirmed_at','—')}")
+        cols[2].markdown(f"{f.get('note') or '—'}")
+        cols[3].markdown(f"{f.get('confirmed_at','—')}")
         if chk:
             selected_for_remove.append(ind)
 
@@ -144,15 +132,30 @@ def _render_section_confirmed() -> None:
                      key="confirm_remove_btn"):
             try:
                 import state as _state
-                removed = 0
+                removed_set: set[str] = set()
                 for ind in selected_for_remove:
                     if _state.remove_focus(ind):
-                        removed += 1
-                st.success(f"✅ 已删除 {removed} 个行业")
+                        removed_set.add(ind)
+                st.success(f"✅ 已删除 {len(removed_set)} 个行业")
                 # 清掉孤立股复选 + 二次确认
                 for ind in selected_for_remove:
                     st.session_state.pop(f"confirmed_chk_{ind}", None)
                 st.session_state.pop("confirm_remove_ack", None)
+                # 清理可能仍指向被删除行业的下钻 / 预选 session_state
+                _stale_keys = (
+                    "industry_overview_drill",
+                    "focus_industry_l1",
+                    "preselect_drill_pick",
+                    "_persist_industry_overview_drill",
+                    "_persist_preselect_drill_pick",
+                )
+                for k in _stale_keys:
+                    if st.session_state.get(k) in removed_set:
+                        st.session_state.pop(k, None)
+                # shadow set 内若有已删 L1/L2 名,一并剔除
+                _shadow = st.session_state.get("_persist_l1_picks")
+                if isinstance(_shadow, set) and removed_set & _shadow:
+                    st.session_state["_persist_l1_picks"] = _shadow - removed_set
                 _layers._clear_cache()
                 st.rerun()
             except Exception as e:
@@ -196,7 +199,9 @@ def _render_section_draft() -> None:
             if added:
                 _stamp_confirmed_at(added)
             # 清草稿
-            _session.clear_draft(_session.FUNNEL_INDUSTRY_DRAFT)
+            from tabs.industry._draft_helpers import clear_industry_draft
+
+            clear_industry_draft()
             _layers._clear_cache()
             msg = f"✅ 新增 {len(added)} 个"
             if skipped:
@@ -229,6 +234,29 @@ def _render_section_consistency() -> None:
     st.dataframe(show, hide_index=True, use_container_width=True)
 
 
+def _render_section_archive() -> None:
+    """④ 已确认行业档案 — 完整 4 区卡,默认折叠."""
+    st.markdown("### ④ 已确认行业档案")
+    try:
+        from funnel import layers as _layers
+        import tabs.industry_focus as _focus
+    except Exception as e:
+        st.error(f"档案区加载失败:{e}")
+        return
+
+    focus_list = list(_layers.get_focus_industries() or [])
+    if not focus_list:
+        st.caption("落盘后将在此查看 Top7 / ETF / 行业知识全文")
+        return
+
+    st.caption("完整行业档案 — 落盘后的深度阅读区")
+    for f in focus_list:
+        try:
+            _focus._render_industry_card(f, expanded=False)
+        except Exception as e:
+            st.warning(f"行业卡 {f.get('industry')} 渲染失败:{e}")
+
+
 def _render_nav_to_screener() -> None:
     st.markdown("---")
     cols = st.columns([3, 1])
@@ -249,6 +277,8 @@ def render() -> None:
     _render_section_draft()
     st.markdown("---")
     _render_section_consistency()
+    st.markdown("---")
+    _render_section_archive()
     _render_nav_to_screener()
 
 

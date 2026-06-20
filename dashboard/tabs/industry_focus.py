@@ -146,7 +146,7 @@ def _cached_top7(industry: str, type_: str, top_n: int = 7) -> pd.DataFrame:
 def _save_focus_yaml(focus_list: list[str], top_n: int, market_cap_min: int) -> None:
     master = _industry_master_dict()
     out_focus = [
-        {"industry": ind, "type": master.get(ind, {}).get("type", "stalwart"), "weight": 1.0}
+        {"industry": ind, "type": master.get(ind, {}).get("type", "stalwart")}
         for ind in focus_list
     ]
     text = yaml.safe_dump(
@@ -499,8 +499,8 @@ def _render_etf_overlay(codes: list[str], names: list[str]) -> None:
     st.plotly_chart(fig, use_container_width=True)
 
 
-def _render_industry_card(focus_item: dict) -> None:
-    """单行业 4 区卡:A 速览 / B Top 7 / C ETF / D 知识."""
+def _render_industry_card_body(focus_item: dict) -> None:
+    """单行业 4 区卡内容(A/B/C/D),不含外层 expander."""
     ind = focus_item["industry"]
     type_ = focus_item.get("type", "stalwart")
     master = _industry_master_dict().get(ind, {})
@@ -508,149 +508,157 @@ def _render_industry_card(focus_item: dict) -> None:
     pct = _cached_percentile(ind)
     cyc = _cached_cycle(ind)
 
-    title = f"🏭 {ind}({master.get('sw_l1', '—')}) · 类型 {type_} · {cyc['cycle_type']}"
-    with st.expander(title, expanded=True):
-        # ── A 区 · 行业速览 ──
-        st.markdown("##### 📍 A · 行业速览")
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric(
-            "当前周期阶段",
-            f"{PHASE_EMOJI.get(cyc['phase'], '❓')} {cyc['phase_cn']}",
-            f"信心 {cyc['confidence']:.1f}",
-        )
-        c2.metric("PE 中位", _format_num(pct["pe_median"]),
-                  f"第 {_format_pct(pct['pe_percentile_10y'])}")
-        c3.metric("PB 中位", _format_num(pct["pb_median"]),
-                  f"第 {_format_pct(pct['pb_percentile_10y'])}")
-        c4.metric("成份股", f"N={pct['member_count']}",
-                  pct["data_source"])
-        st.caption(f"📝 {cyc['rationale']}")
+    # ── A 区 · 行业速览 ──
+    st.markdown("##### 📍 A · 行业速览")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric(
+        "当前周期阶段",
+        f"{PHASE_EMOJI.get(cyc['phase'], '❓')} {cyc['phase_cn']}",
+        f"信心 {cyc['confidence']:.1f}",
+    )
+    c2.metric("PE 中位", _format_num(pct["pe_median"]),
+              f"第 {_format_pct(pct['pe_percentile_10y'])}")
+    c3.metric("PB 中位", _format_num(pct["pb_median"]),
+              f"第 {_format_pct(pct['pb_percentile_10y'])}")
+    c4.metric("成份股", f"N={pct['member_count']}",
+              pct["data_source"])
+    st.caption(f"📝 {cyc['rationale']}")
 
-        # ── B 区 · 推荐公司 Top 7 ──
-        st.divider()
-        st.markdown("##### 📍 B · 推荐公司 Top 7")
-        try:
-            top_df = _cached_top7(ind, type_, top_n=7)
-            if top_df.empty:
-                st.info("暂无评分候选(数据池可能为空)")
-            else:
-                show = top_df[["rank", "ticker", "name", "score", "rating",
-                               "reason", "is_owned"]].copy()
-                show["score"] = show["score"].apply(
-                    lambda x: f"{x:.0f}" if pd.notna(x) else "—"
-                )
-                show["is_owned"] = show["is_owned"].map({True: "🌟 已持", False: ""})
-                show.columns = ["排名", "代码", "名称", "分数", "评级", "理由", "自选"]
-                st.dataframe(show, hide_index=True, use_container_width=True)
-                pm = top_df.iloc[0].get("primary_master", "—")
-                ds = top_df.iloc[0].get("data_source", "—")
-                st.caption(f"评分链路:{type_} → primary={pm};数据池:{ds}")
-
-                # Top 3 快捷操作:加自选 / 跳公司
-                top3 = top_df.head(3)
-                btn_cols = st.columns(len(top3))
-                for bi, (_, row) in enumerate(top3.iterrows()):
-                    ticker = str(row.get("ticker", "")).zfill(6)
-                    cname = str(row.get("name", ""))
-                    with btn_cols[bi]:
-                        st.caption(f"{row.get('rank', bi + 1)}. {cname} ({ticker})")
-                        if st.button("🌟 加自选", key=f"wl_{ind}_{ticker}", use_container_width=True):
-                            try:
-                                import watchlist as _wl
-                                n = _wl.add(
-                                    pd.DataFrame([{
-                                        "ticker": ticker,
-                                        "name": cname,
-                                        "source_industry": ind,
-                                    }]),
-                                    preset=f"行业分析·{ind}",
-                                )
-                                if n:
-                                    st.success(f"✅ 已加入观察池:{cname}")
-                                else:
-                                    st.info(f"已在观察池:{cname}")
-                            except Exception as ex:
-                                st.info(f"观察池写入不可用 — 请切到「选股确定」手动添加 ({ex})")
-                        if st.button("📊 跳公司", key=f"co_{ind}_{ticker}", use_container_width=True):
-                            try:
-                                from tabs.market import DB_PATH as _DB_PATH
-                                from dashboard_helpers import _folder_to_ticker
-                                from navigation import goto, PAGE_COMPANY
-                                db_mtime = _DB_PATH.stat().st_mtime if _DB_PATH.exists() else 0.0
-                                t2f = {v: k for k, v in _folder_to_ticker(db_mtime).items()}
-                                folder = t2f.get(ticker, "")
-                                if folder:
-                                    goto(PAGE_COMPANY, company=folder, sub_tab="公司研判")
-                                else:
-                                    st.warning(f"未找到 {cname}({ticker}) 的公司目录")
-                            except Exception as ex:
-                                st.warning(f"跳转失败:{ex}")
-        except Exception as e:
-            st.warning(f"评分失败:{e}")
-
-        # ── C 区 · 推荐 ETF Top 3 ──
-        st.divider()
-        st.markdown("##### 📍 C · 推荐 ETF + 选择建议")
-        etfs = _cached_etf(ind, top_n=3)
-        if not etfs:
-            st.info("此行业暂无 ETF 配置")
+    # ── B 区 · 推荐公司 Top 7 ──
+    st.divider()
+    st.markdown("##### 📍 B · 推荐公司 Top 7")
+    try:
+        top_df = _cached_top7(ind, type_, top_n=7)
+        if top_df.empty:
+            st.info("暂无评分候选(数据池可能为空)")
         else:
-            etf_df = pd.DataFrame([{
-                "代码": c["code"],
-                "名称": c["name"],
-                "主题": c["theme"],
-                "1y 涨跌": f"{c['return_1y']:+.1%}" if c["return_1y"] is not None else "—",
-                "流动性分位": f"{c['liquidity_score']:.0f}" if c["liquidity_score"] is not None else "—",
-                "层级": LAYER_CN.get(c.get("layer"), "—"),
-                "推荐理由": c["rationale"],
-            } for c in etfs])
-            st.dataframe(etf_df, hide_index=True, use_container_width=True)
+            show = top_df[["rank", "ticker", "name", "score", "rating",
+                           "reason", "is_owned"]].copy()
+            show["score"] = show["score"].apply(
+                lambda x: f"{x:.0f}" if pd.notna(x) else "—"
+            )
+            show["is_owned"] = show["is_owned"].map({True: "🌟 已持", False: ""})
+            show.columns = ["排名", "代码", "名称", "分数", "评级", "理由", "自选"]
+            st.dataframe(show, hide_index=True, use_container_width=True)
+            pm = top_df.iloc[0].get("primary_master", "—")
+            ds = top_df.iloc[0].get("data_source", "—")
+            st.caption(f"评分链路:{type_} → primary={pm};数据池:{ds}")
 
-            layer = etfs[0].get("layer")
-            target = etfs[0].get("target_pct")
-            if target:
-                st.caption(
-                    f"📐 此行业属{LAYER_CN.get(layer, '—')},建议配置 {target[0]}-{target[1]}%"
-                )
+            # Top 3 快捷操作:加自选 / 跳公司
+            top3 = top_df.head(3)
+            btn_cols = st.columns(len(top3))
+            for bi, (_, row) in enumerate(top3.iterrows()):
+                ticker = str(row.get("ticker", "")).zfill(6)
+                cname = str(row.get("name", ""))
+                with btn_cols[bi]:
+                    st.caption(f"{row.get('rank', bi + 1)}. {cname} ({ticker})")
+                    if st.button("🌟 加自选", key=f"wl_{ind}_{ticker}", use_container_width=True):
+                        try:
+                            import watchlist as _wl
+                            n = _wl.add(
+                                pd.DataFrame([{
+                                    "ticker": ticker,
+                                    "name": cname,
+                                    "source_industry": ind,
+                                }]),
+                                preset=f"行业分析·{ind}",
+                            )
+                            if n:
+                                st.success(f"✅ 已加入观察池:{cname}")
+                            else:
+                                st.info(f"已在观察池:{cname}")
+                        except Exception as ex:
+                            st.info(f"观察池写入不可用 — 请切到「选股确定」手动添加 ({ex})")
+                    if st.button("📊 跳公司", key=f"co_{ind}_{ticker}", use_container_width=True):
+                        try:
+                            from tabs.market import DB_PATH as _DB_PATH
+                            from dashboard_helpers import _folder_to_ticker
+                            from navigation import goto, PAGE_COMPANY
+                            db_mtime = _DB_PATH.stat().st_mtime if _DB_PATH.exists() else 0.0
+                            t2f = {v: k for k, v in _folder_to_ticker(db_mtime).items()}
+                            folder = t2f.get(ticker, "")
+                            if folder:
+                                goto(PAGE_COMPANY, company=folder, sub_tab="公司研判")
+                            else:
+                                st.warning(f"未找到 {cname}({ticker}) 的公司目录")
+                        except Exception as ex:
+                            st.warning(f"跳转失败:{ex}")
+    except Exception as e:
+        st.warning(f"评分失败:{e}")
 
-            try:
-                _render_etf_overlay(
-                    [c["code"] for c in etfs],
-                    [c["name"] for c in etfs],
-                )
-            except Exception:
-                pass
+    # ── C 区 · 推荐 ETF Top 3 ──
+    st.divider()
+    st.markdown("##### 📍 C · 推荐 ETF + 选择建议")
+    etfs = _cached_etf(ind, top_n=3)
+    if not etfs:
+        st.info("此行业暂无 ETF 配置")
+    else:
+        etf_df = pd.DataFrame([{
+            "代码": c["code"],
+            "名称": c["name"],
+            "主题": c["theme"],
+            "1y 涨跌": f"{c['return_1y']:+.1%}" if c["return_1y"] is not None else "—",
+            "流动性分位": f"{c['liquidity_score']:.0f}" if c["liquidity_score"] is not None else "—",
+            "层级": LAYER_CN.get(c.get("layer"), "—"),
+            "推荐理由": c["rationale"],
+        } for c in etfs])
+        st.dataframe(etf_df, hide_index=True, use_container_width=True)
 
-        # ── D 区 · 行业知识 ──
-        st.divider()
-        st.markdown("##### 📍 D · 行业知识 + 周期特性")
-        kc1, kc2 = st.columns([2, 1])
-        with kc1:
-            md_rel = master.get("knowledge_md", "")
-            md_path = ROOT / md_rel if md_rel else None
-            if md_path and md_path.exists():
-                md_text = md_path.read_text(encoding="utf-8")
-                if len(md_text) > 1500:
-                    st.markdown(md_text[:1500])
-                    with st.expander("📖 查看完整知识 md", expanded=False):
-                        st.markdown(md_text)
-                else:
+        layer = etfs[0].get("layer")
+        target = etfs[0].get("target_pct")
+        if target:
+            st.caption(
+                f"📐 此行业属{LAYER_CN.get(layer, '—')},建议配置 {target[0]}-{target[1]}%"
+            )
+
+        try:
+            _render_etf_overlay(
+                [c["code"] for c in etfs],
+                [c["name"] for c in etfs],
+            )
+        except Exception:
+            pass
+
+    # ── D 区 · 行业知识 ──
+    st.divider()
+    st.markdown("##### 📍 D · 行业知识 + 周期特性")
+    kc1, kc2 = st.columns([2, 1])
+    with kc1:
+        md_rel = master.get("knowledge_md", "")
+        md_path = ROOT / md_rel if md_rel else None
+        if md_path and md_path.exists():
+            md_text = md_path.read_text(encoding="utf-8")
+            if len(md_text) > 1500:
+                st.markdown(md_text[:1500])
+                with st.expander("📖 查看完整知识 md", expanded=False):
                     st.markdown(md_text)
             else:
-                st.info(f"知识库文件未找到:{md_rel or '—'}")
-        with kc2:
-            st.markdown("**🔍 关键观察指标**")
-            indicators = master.get("cycle_attrs", {}).get("key_indicators", []) or []
-            for kw in indicators:
-                st.markdown(f"- {kw}")
-            st.markdown(f"**周期类型**:{cyc['cycle_type']}")
-            kp = cyc.get("kondratieff_position") or "—"
-            st.markdown(f"**康波位置**:{kp}")
+                st.markdown(md_text)
+        else:
+            st.info(f"知识库文件未找到:{md_rel or '—'}")
+    with kc2:
+        st.markdown("**🔍 关键观察指标**")
+        indicators = master.get("cycle_attrs", {}).get("key_indicators", []) or []
+        for kw in indicators:
+            st.markdown(f"- {kw}")
+        st.markdown(f"**周期类型**:{cyc['cycle_type']}")
+        kp = cyc.get("kondratieff_position") or "—"
+        st.markdown(f"**康波位置**:{kp}")
 
-            label, kpath = TYPE_METHODOLOGY.get(type_, ("评分方法论", "01_knowledge/03_投资策略与选股/"))
-            st.markdown(
-                f"**📚 方法论**: [{label}]({kpath})"
-            )
+        label, kpath = TYPE_METHODOLOGY.get(type_, ("评分方法论", "01_knowledge/03_投资策略与选股/"))
+        st.markdown(
+            f"**📚 方法论**: [{label}]({kpath})"
+        )
+
+def _render_industry_card(focus_item: dict, *, expanded: bool = True) -> None:
+    """单行业 4 区卡:A 速览 / B Top 7 / C ETF / D 知识."""
+    ind = focus_item["industry"]
+    type_ = focus_item.get("type", "stalwart")
+    master = _industry_master_dict().get(ind, {})
+    cyc = _cached_cycle(ind)
+    title = f"🏭 {ind}({master.get('sw_l1', '—')}) · 类型 {type_} · {cyc['cycle_type']}"
+    with st.expander(title, expanded=expanded):
+        _render_industry_card_body(focus_item)
 
 
 def _render_sidebar_editor() -> None:

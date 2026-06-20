@@ -89,7 +89,7 @@ def _section_verdict_banner(macro_path: str, macro_mtime: float) -> None:
         <div style="background: linear-gradient(90deg, {color}22 0%, transparent 100%);
                     border-left: 5px solid {color};
                     padding: 14px 18px; border-radius: 8px; margin: 8px 0 16px;">
-          <div style="font-size: 18px; font-weight: 700;">
+          <div style="font-size: 18px; font-weight: 600;">
             {verdict_emoji} 当前综合判断:{verdict_text}
             <span style="font-size: 13px; color: #555; margin-left: 12px; font-weight: 500;">
               建议权益占比 ≈ <b>{eq_target}%</b> · 三信号通过 {pass_n}/3

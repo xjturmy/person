@@ -1,21 +1,44 @@
 # dash-02 公司筛选预设
 #
-# 设计:
-# - 5 套预设(巴菲特/格雷厄姆/林奇/格林布拉特/自定义)
-# - 4 套大师预设接 .tools/rules/{master_id}.yaml 评分体系(score_with_master)
-# - filters 段:快速预过滤(留存),不通过 = 不进入评分
-# - metrics 段:可用指标定义(自定义模式滑块来源)
+# prelim_presets  → 「初步筛选」Tab:仅硬指标过滤,不接大师评分
+# presets         → 大师方法论元数据(林奇/格雷厄姆/巴菲特 Tab 读 rules_yaml + tagline)
+# metrics         → 自定义粗筛滑块来源
 #
 # 字段:
-#   id            唯一标识
-#   name          中文名
-#   icon          UI 图标
-#   tagline       一句话定位
-#   description   一句话描述(候选清单标题用)
-#   rules_yaml    .tools/rules/{x}.yaml(null = 不接评分,纯硬过滤)
-#   book_origin   来源典籍
-#   knowledge_link 项目知识库相对路径
-#   filters       预过滤条件列表
+#   id / name / icon / description / filters
+
+prelim_presets:
+  - id: value
+    name: 价值粗筛
+    icon: "📉"
+    description: 低 PE 分位 + 合理 PB + 有股息
+    filters:
+      - { metric: pe_pct_10y,     op: "<=", value: 0.30 }
+      - { metric: pb,             op: "<=", value: 4.0  }
+      - { metric: dividend_yield, op: ">=", value: 0.025 }
+
+  - id: quality
+    name: 质量粗筛
+    icon: "💪"
+    description: 高 ROE + 现金流健康 + 低负债
+    filters:
+      - { metric: roe,        op: ">=", value: 0.15 }
+      - { metric: cfo_to_ni,  op: ">=", value: 0.80 }
+      - { metric: debt_ratio, op: "<=", value: 0.65 }
+
+  - id: growth
+    name: 成长粗筛
+    icon: "📈"
+    description: 营收正增长 + F-Score 及格
+    filters:
+      - { metric: rev_yoy, op: ">=", value: 0.10 }
+      - { metric: fscore,  op: ">=", value: 6 }
+
+  - id: custom
+    name: 自定义
+    icon: "⚙️"
+    description: 8 个原始指标自由组合
+    filters: []
 
 presets:
   # 林奇置顶 — 采用最新六类分类器方法(M6 输出),per-class 5 维评分

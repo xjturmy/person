@@ -1,66 +1,60 @@
-"""tabs.industry.analysis · 只读分析卡(v2.9 重构).
+"""tabs.industry.analysis · 全市场扫描台(只读,不依赖 focus).
 
-来源:
-  - 4 区行业卡(A 速览 / B Top7 / C ETF / D 知识)直接复用 tabs.industry_focus._render_industry_card
-  - 21 SW L1 全景复用 tabs.industry_overview.render(用 expander 收起)
-
-信息密度按 v2.9 计划:
-  - 默认展开「估值速览 + Top7」(_render_industry_card 内 expander expanded=True)
-  - ETF / 知识 已在原 _render_industry_card 中以 divider 分段(原样保留)
-  - 21 SW L1 全景 收 1 层 expander
+职责:
+  - 行业估值矩阵(粗类热力图 + 细类下钻)
+  - 21 SW L1 全景(默认展开) — 发现低估行业
+  - L2 知识块内可「加入预选」
+  不含已 focus 行业的 4 区重卡(迁至「行业确定」档案区)。
 """
 from __future__ import annotations
 
 import importlib
+import os
 
 import streamlit as st
 
+from tabs.industry.preselect import _load_kondratieff
+
+
+def _render_kondratieff_hint() -> None:
+    """一行引用市场研判结论,不重复完整 banner."""
+    kdf = _load_kondratieff()
+    if not kdf:
+        return
+    phase = kdf.get("phase") or "—"
+    emoji = kdf.get("phase_emoji") or "🔴"
+    strategy = kdf.get("strategy_summary") or ""
+    st.caption(
+        f"{emoji} 当前康波 **{phase}**"
+        + (f" — {strategy}" if strategy else "")
+        + " · 完整解读见「📊 市场研判」"
+    )
+
 
 def render() -> None:
-    """主入口 — 只读分析,不写 focus."""
-    # 直接复用原 industry_focus 的渲染逻辑;sidebar editor 与 _save 操作仍走原文件,
-    # 这里只调展示函数,不调 _render_sidebar_editor(v2.9 把编辑全挪到 confirm/preselect)。
-    import tabs.industry_focus as _focus
-    _focus = importlib.reload(_focus)
+    """主入口 — 全市场只读扫描,不写 focus."""
+    st.markdown("### 🏭 行业分析 · 全市场扫描")
+    st.caption(
+        "从估值矩阵和 SW 全景发现机会 → 勾选/加入预选 → 到「🎯 行业预选 · 初步筛选行业」深度研判"
+    )
+    _render_kondratieff_hint()
 
-    # 顶部估值矩阵(粗类热力图 + 细类下钻)
+    from tabs import industry_focus as _focus
+    if os.getenv("PRESON_DEV_RELOAD"):
+        _focus = importlib.reload(_focus)
+
     try:
-        st.caption("粗类矩阵看宏观轮动；SW 全景看 A 股行业对标")
         _focus._render_valuation_matrix()
         st.markdown("---")
     except Exception as e:
         st.caption(f"⚠️ 行业估值矩阵加载失败:{e}")
 
-    focus_list = []
+    st.markdown("#### 🌐 21 SW L1 行业估值全景")
     try:
-        from funnel import layers as _layers
-        focus_list = list(_layers.get_focus_industries() or [])
-    except Exception:
-        focus_list = []
-
-    if not focus_list:
-        st.warning(
-            "尚未配置聚焦行业 — 切到「🎯 行业预选」勾选,再到「✅ 行业确定」落盘"
-        )
-    else:
-        try:
-            _focus._render_top_banner(focus_list)
-        except Exception as e:
-            st.caption(f"⚠️ 顶部 banner 失败:{e}")
-        for f in focus_list:
-            try:
-                _focus._render_industry_card(f)
-            except Exception as e:
-                st.warning(f"行业卡 {f.get('industry')} 渲染失败:{e}")
-
-    # 21 SW L1 全景 — 收 1 层 expander
-    with st.expander("🌐 21 SW L1 行业估值全景(全市场视角)", expanded=False):
-        st.caption("粗类矩阵看宏观轮动；SW 全景看 A 股行业对标")
-        try:
-            from tabs import industry_overview as _overview
-            _overview.render()
-        except Exception as e:
-            st.warning(f"21 SW L1 全景加载失败:{e}")
+        from tabs import industry_overview as _overview
+        _overview.render(show_preselect_actions=True)
+    except Exception as e:
+        st.warning(f"21 SW L1 全景加载失败:{e}")
 
 
 __all__ = ["render"]

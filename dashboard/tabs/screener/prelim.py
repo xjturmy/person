@@ -1,8 +1,10 @@
-"""tabs.screener.prelim · 初步筛选(多维过滤预设).
+"""tabs.screener.prelim · 初步筛选(多维硬过滤).
 
 universe 来自 funnel.layers.get_screener_universe(),受 focus 行业约束。
-对 universe ∩ screener.load_all() 子集运行 apply_filters(预设 yaml),
-通过名单写入 FUNNEL_SCREENER_PRELIM 草稿,供「选股确定」汇总。
+对 universe 子集运行 apply_filters(粗筛预设 / 自定义滑块),
+通过名单写入 FUNNEL_SCREENER_PRELIM 草稿,供林奇/格雷厄姆 Tab 继承。
+
+大师评分、方法论卡、散点图 → 见「林奇选股」「格雷厄姆选股」Tab。
 """
 from __future__ import annotations
 
@@ -20,22 +22,53 @@ def _load_screener_data(db_mtime: float, year: int) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=600)
-def _load_presets_cached(_dummy: float) -> dict:
-    return _scr.load_presets()
+def _load_prelim_presets_cached(_dummy: float) -> list[dict]:
+    return _scr.load_prelim_presets()
+
+
+def _render_custom_sliders(metrics_cfg: dict) -> list[dict]:
+    """自定义模式:从 metrics 段生成用户可调过滤条件。"""
+    filters: list[dict] = []
+    if not metrics_cfg:
+        return filters
+
+    st.caption("拖动滑块设定阈值(左=下限,右=上限;未勾选则不生效)")
+    cols = st.columns(2)
+    items = list(metrics_cfg.items())
+    for i, (key, meta) in enumerate(items):
+        col = cols[i % 2]
+        with col:
+            label = meta.get("label", key)
+            lo, hi = meta.get("range", [0.0, 1.0])
+            step = meta.get("step", 0.01)
+            enabled = st.checkbox(f"启用 {label}", value=False, key=f"prelim_custom_en_{key}")
+            if not enabled:
+                continue
+            use_min = st.checkbox(f"{label} ≥", value=True, key=f"prelim_custom_min_{key}")
+            val = st.slider(
+                label, min_value=float(lo), max_value=float(hi),
+                value=float(lo if use_min else hi), step=float(step),
+                key=f"prelim_custom_val_{key}",
+            )
+            filters.append({
+                "metric": key,
+                "op": ">=" if use_min else "<=",
+                "value": val,
+            })
+    return filters
 
 
 def render(companies=None, db_mtime: float = 0.0) -> None:
     st.markdown("### 🧮 初步筛选")
     st.caption(
-        "universe 来自「行业确定」聚焦行业展开。多维过滤预设(PE 分位 / "
-        "ROE / F-Score 等)给候选打粗筛标签,通过名单在下方「确定」区汇总。"
+        "universe 来自「行业确定」聚焦行业展开。"
+        "此处仅做**多维硬指标粗筛**;林奇/格雷厄姆大师评分请切到对应 Tab。"
     )
 
     df_universe = _universe.get_or_block()
     if df_universe is None:
         return
 
-    # universe summary
     try:
         from funnel import layers as _layers
         n_focus = len(_layers.get_focus_names() or set())
@@ -43,7 +76,6 @@ def render(companies=None, db_mtime: float = 0.0) -> None:
         n_focus = 0
     st.info(f"universe: **{len(df_universe)}** 只(来自 **{n_focus}** 个 focus 行业)")
 
-    # 拉全量指标,再按 universe ticker 过滤
     fscore_year = pd.Timestamp.now().year - 1
     with st.spinner("加载指标 + F-Score..."):
         try:
@@ -62,27 +94,38 @@ def render(companies=None, db_mtime: float = 0.0) -> None:
         )
         return
 
-    # 预设选择
-    presets_cfg = _load_presets_cached(db_mtime)
-    preset_options = [(p["id"], p) for p in presets_cfg.get("presets", [])]
+    presets = _load_prelim_presets_cached(db_mtime)
+    full_cfg = _scr.load_presets()
+    metrics_cfg = full_cfg.get("metrics") or {}
+
     label_for = {
-        pid: f"{p.get('icon','')} {p.get('name', pid)}"
-        for pid, p in preset_options if p
+        p["id"]: f"{p.get('icon', '')} {p.get('name', p['id'])}"
+        for p in presets if p.get("id")
     }
     if not label_for:
-        st.warning("未配置任何筛选预设(presets.yaml 为空)")
+        st.warning("未配置 prelim_presets(presets.yaml)")
         return
 
     preset_id = st.radio(
-        "筛选预设(一键应用)", list(label_for.keys()),
+        "粗筛预设(一键应用)", list(label_for.keys()),
         format_func=lambda x: label_for[x],
         horizontal=True, key="prelim_preset",
     )
-    preset_meta = next((p for p in presets_cfg["presets"] if p["id"] == preset_id), None)
-    filters = (preset_meta or {}).get("filters") or []
+    preset_meta = next((p for p in presets if p.get("id") == preset_id), None)
+    if preset_meta and preset_meta.get("description"):
+        st.caption(preset_meta["description"])
 
-    # 跑过滤
+    if preset_id == "custom":
+        filters = _render_custom_sliders(metrics_cfg)
+    else:
+        filters = (preset_meta or {}).get("filters") or []
+
     filtered = _scr.apply_filters(df, filters)
+    filtered = filtered.sort_values(
+        ["fscore", "pe_pct_10y"],
+        ascending=[False, True],
+        na_position="last",
+    )
 
     m1, m2, m3 = st.columns(3)
     m1.metric("universe 内公司", f"{len(df)}")
@@ -91,8 +134,7 @@ def render(companies=None, db_mtime: float = 0.0) -> None:
     m3.metric("通过率", f"{hit_pct:.0%}")
 
     if filtered.empty:
-        st.warning("当前预设无任何公司命中,试试切换预设。")
-        # 也清掉草稿,避免上一次残留误导
+        st.warning("当前预设无任何公司命中,试试切换预设或放宽自定义阈值。")
         try:
             from funnel import session as _session
             _session.set_draft(_session.FUNNEL_SCREENER_PRELIM, [])
@@ -100,9 +142,10 @@ def render(companies=None, db_mtime: float = 0.0) -> None:
             pass
         return
 
-    # 候选清单 + checkbox(默认全勾,用户可取消)
+    st.markdown("##### 📋 候选清单 · 按 F-Score ↓ / PE 分位 ↑")
     disp = filtered.copy()
-    disp["加入草稿"] = True
+    disp["加入草稿"] = False
+
     cols_order = [
         "加入草稿", "name", "ticker", "pe", "pe_pct_10y",
         "pb", "dividend_yield", "roe", "rev_yoy", "cfo_to_ni",
@@ -123,7 +166,7 @@ def render(companies=None, db_mtime: float = 0.0) -> None:
         num_rows="fixed",
         disabled=[c for c in show.columns if c != "加入草稿"],
         column_config={
-            "加入草稿": st.column_config.CheckboxColumn(default=True, width="small"),
+            "加入草稿": st.column_config.CheckboxColumn(default=False, width="small"),
             "PE 10y 分位": st.column_config.NumberColumn(format="%.1f%%"),
             "股息率":     st.column_config.NumberColumn(format="%.2f%%"),
             "ROE":        st.column_config.NumberColumn(format="%.1f%%"),
@@ -137,7 +180,6 @@ def render(companies=None, db_mtime: float = 0.0) -> None:
         key="prelim_table",
     )
 
-    # 写草稿:勾选的 ticker
     selected_codes = (
         edited.loc[edited["加入草稿"], "代码"].astype(str).str.zfill(6).tolist()
         if "加入草稿" in edited.columns else []
@@ -150,7 +192,7 @@ def render(companies=None, db_mtime: float = 0.0) -> None:
 
     st.caption(
         f"✏️ 草稿已同步:{len(selected_codes)} 只 → "
-        f"在下方确定区勾选写入观察池"
+        f"可切到「林奇选股 / 格雷厄姆选股」继续,或在「选股确定」汇总"
     )
 
 

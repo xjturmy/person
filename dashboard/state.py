@@ -30,9 +30,9 @@ def _load_yaml(path: Path) -> dict:
 
 
 def industry_master() -> dict[str, dict]:
-    """name → 主索引条目 dict."""
-    d = _load_yaml(INDUSTRY_MASTER_YAML)
-    return {i["name"]: i for i in (d.get("industries") or [])}
+    """name → 主索引条目 dict(yaml + companies.csv 合并;csv 出现的 L2 自动补全)."""
+    from tabs.industry._master_loader import load_master_merged
+    return load_master_merged()
 
 
 def l2_under_l1(sw_l1: str) -> list[dict]:
@@ -79,7 +79,7 @@ def add_focus(
         return False
     if type_ is None:
         type_ = (industry_master().get(industry) or {}).get("type", "stalwart")
-    row: dict[str, Any] = {"industry": industry, "type": type_, "weight": float(weight)}
+    row: dict[str, Any] = {"industry": industry, "type": type_}
     if note:
         row["note"] = note
     rows.append(row)

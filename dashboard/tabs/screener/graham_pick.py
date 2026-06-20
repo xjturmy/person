@@ -14,6 +14,7 @@ import streamlit as st
 from screening import screener as _scr
 
 from . import _universe
+from ._ui_helpers import count_excellent, preset_for_master, render_methodology_card, render_scatter
 
 _MASTER_LABELS = {
     "graham": "格雷厄姆",
@@ -90,9 +91,16 @@ def render(companies=None, db_mtime: float = 0.0) -> None:
         st.warning("输入为空 — 检查初筛草稿或换数据源。")
         return
 
+    label = _MASTER_LABELS[master_id]
+    value_preset = preset_for_master(master_id) or {
+        "name": label,
+        "tagline": "深度价值 / 护城河评分",
+        "rules_yaml": master_id,
+    }
+    render_methodology_card(value_preset)
+
     tickers_key = ",".join(sorted(df_in["ticker"].astype(str).str.zfill(6).tolist()))
     year = pd.Timestamp.now().year - 1
-    label = _MASTER_LABELS[master_id]
     with st.spinner(f"运行{label}评分..."):
         try:
             scored = _value_scored(db_mtime, year, tickers_key, master_id)
@@ -122,10 +130,14 @@ def render(companies=None, db_mtime: float = 0.0) -> None:
     hit_mask = scored["score"].fillna(-1) >= threshold
     scored["命中"] = hit_mask
 
-    m1, m2, m3 = st.columns(3)
+    m1, m2, m3, m4 = st.columns(4)
     m1.metric("评分公司", f"{int(scored['score'].notna().sum())}")
     m2.metric("命中数", f"{int(hit_mask.sum())}")
     m3.metric("阈值", f"≥ {threshold}")
+    pass_excellent = count_excellent(scored, value_preset)
+    m4.metric("🟢 优秀级", f"{pass_excellent}" if pass_excellent is not None else "—")
+
+    render_scatter(scored, value_preset, has_score=True, chart_key=f"value_scatter_{master_id}")
 
     show = scored.copy()
     show["评分"] = show.apply(

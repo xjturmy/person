@@ -18,6 +18,15 @@ if _DASH_DIR not in sys.path:
     sys.path.insert(0, _DASH_DIR)
 
 
+_SENTINEL_INDUSTRY_VALUES = {"", "unknown", "—", "未知", "none", "n/a", "null"}
+
+
+def _is_meaningful_industry(v: Optional[str]) -> bool:
+    if v is None:
+        return False
+    return str(v).strip().lower() not in _SENTINEL_INDUSTRY_VALUES
+
+
 def _load_ticker_to_industry() -> dict[str, str]:
     """companies.csv → {ticker → industry_l2}.
 
@@ -52,11 +61,12 @@ def find_orphan_watchlist(focus_names: set[str]) -> list[dict]:
     t2i = _load_ticker_to_industry()
     out: list[dict] = []
     for e in entries:
-        ticker = getattr(e, "ticker", "") or ""
+        ticker = str(getattr(e, "ticker", "") or "").zfill(6)
         name = getattr(e, "name", "") or ""
         # entry.source_industry 当前 WatchlistEntry 未定义,留兼容空位
+        # 历史脏值 "unknown"/"—"/"未知" 等占位串视为未设置,触发 csv 兜底
         industry: Optional[str] = getattr(e, "source_industry", None)
-        if not industry:
+        if not _is_meaningful_industry(industry):
             industry = t2i.get(ticker, "") or ""
         if industry in focus_names:
             continue

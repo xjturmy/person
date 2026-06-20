@@ -205,12 +205,18 @@ with st.sidebar:
           section[data-testid="stSidebar"] [data-baseweb="select"] {
             font-size: 15px !important;
           }
+          section[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) {
+            border-left: 3px solid #1f77b4;
+            padding-left: 8px;
+            background: rgba(31,119,180,0.06);
+            border-radius: 4px;
+          }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
-    st.markdown("### 🧭 导航")
+    st.markdown("**🧭 导航**")
     page = st.radio("页面", PAGES, key="nav", label_visibility="collapsed")
 
     # M0 #4:选股 + 设置合并为一段(去掉 divider,改名"当前公司")
@@ -308,6 +314,30 @@ with st.sidebar:
 
 # dash-01:顶部全局市场温度计(仅「市场 & 行业」页展示)
 if page == PAGE_MARKET_HUB:
+    st.markdown(
+        """
+        <style>
+          section.main div[data-testid="stRadio"] > div > label {
+            padding: 6px 14px;
+            margin-right: 4px;
+            border-radius: 6px;
+            border: 1px solid #e6e6e6;
+            background: #fafafa;
+            cursor: pointer;
+            transition: all 0.15s ease;
+          }
+          section.main div[data-testid="stRadio"] label:has(input:checked) {
+            background: #1f77b4 !important;
+            border-color: #1f77b4 !important;
+          }
+          section.main div[data-testid="stRadio"] label:has(input:checked) p {
+            color: white !important;
+            font-weight: 600 !important;
+          }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
     try:
         import ui.thermometer as _hth
         _macro_db = ROOT / "data" / "macro.duckdb"
@@ -323,32 +353,51 @@ tab_home = tab_overview = tab_compare = st.container()
 
 # ─── 🌡️ 市场 & 行业(v2.9 P0b:4 合 1 — 市场研判 / 行业分析 / 行业预选 / 行业确定)──
 if page == PAGE_MARKET_HUB:
-    # v2.9 P0b:若 nav_intent 指定 sub_tab,在 st.tabs 渲染前提示(streamlit 不支持
-    # 程序化切 active tab,这里靠 caption 指引用户点击)。一旦 intent 被 consume,
-    # 后续 rerun 不再提示。
-    try:
-        from navigation import consume_intent as _consume_intent
-        _intent = _consume_intent()
-        if _intent and _intent.get("sub_tab"):
-            st.info(f"👉 请点击 sub-tab:**{_intent['sub_tab']}**")
-    except Exception:
-        pass
-
     from navigation import (
+        MARKET_HUB_SUB_TAB_KEY as _MARKET_SUB_TAB_KEY,
         SUB_MARKET_JUDGE as _SUB_MARKET_JUDGE,
         SUB_INDUSTRY_ANALYSIS as _SUB_INDUSTRY_ANALYSIS,
         SUB_INDUSTRY_PRESELECT as _SUB_INDUSTRY_PRESELECT,
         SUB_INDUSTRY_CONFIRM as _SUB_INDUSTRY_CONFIRM,
     )
-    sub_market, sub_analysis, sub_preselect, sub_confirm = st.tabs(
-        [
-            f"📊 {_SUB_MARKET_JUDGE}",
-            f"🏭 {_SUB_INDUSTRY_ANALYSIS}",
-            f"🎯 {_SUB_INDUSTRY_PRESELECT}",
-            f"✅ {_SUB_INDUSTRY_CONFIRM}",
-        ]
+
+    _MARKET_SUB_IDS = (
+        _SUB_MARKET_JUDGE,
+        _SUB_INDUSTRY_ANALYSIS,
+        _SUB_INDUSTRY_PRESELECT,
+        _SUB_INDUSTRY_CONFIRM,
     )
-    with sub_market:
+    _MARKET_SUB_LABELS = {
+        _SUB_MARKET_JUDGE: f"📊 {_SUB_MARKET_JUDGE}",
+        _SUB_INDUSTRY_ANALYSIS: f"🏭 {_SUB_INDUSTRY_ANALYSIS}",
+        _SUB_INDUSTRY_PRESELECT: f"🎯 {_SUB_INDUSTRY_PRESELECT}",
+        _SUB_INDUSTRY_CONFIRM: f"✅ {_SUB_INDUSTRY_CONFIRM}",
+    }
+
+    try:
+        from navigation import consume_intent as _consume_intent
+        _intent = _consume_intent()
+        _intent_sub = (_intent or {}).get("sub_tab")
+        if _intent_sub in _MARKET_SUB_IDS:
+            st.session_state[_MARKET_SUB_TAB_KEY] = _intent_sub
+    except Exception:
+        pass
+
+    if _MARKET_SUB_TAB_KEY not in st.session_state:
+        st.session_state[_MARKET_SUB_TAB_KEY] = _SUB_MARKET_JUDGE
+
+    # st.tabs 在 widget rerun 后会回到第一格;radio + session key 可保持当前子页
+    st.markdown("<div style='height:1px;background:#eee;margin:8px 0 12px;'></div>", unsafe_allow_html=True)
+    active_sub = st.radio(
+        "市场子页",
+        options=_MARKET_SUB_IDS,
+        format_func=lambda s: _MARKET_SUB_LABELS[s],
+        horizontal=True,
+        key=_MARKET_SUB_TAB_KEY,
+        label_visibility="collapsed",
+    )
+
+    if active_sub == _SUB_MARKET_JUDGE:
         try:
             from tabs.market import render as _render_market
             _render_market(companies, selected, DB_MTIME)
@@ -356,7 +405,7 @@ if page == PAGE_MARKET_HUB:
             st.error(f"⚠️ 市场研判加载失败:{_exc}")
             import traceback as _tb
             st.code(_tb.format_exc(), language="python")
-    with sub_analysis:
+    elif active_sub == _SUB_INDUSTRY_ANALYSIS:
         try:
             from tabs.industry import analysis as _industry_analysis
             _industry_analysis.render()
@@ -364,7 +413,7 @@ if page == PAGE_MARKET_HUB:
             st.error(f"⚠️ 行业分析加载失败:{_exc}")
             import traceback as _tb
             st.code(_tb.format_exc(), language="python")
-    with sub_preselect:
+    elif active_sub == _SUB_INDUSTRY_PRESELECT:
         try:
             from tabs.industry import preselect as _industry_preselect
             _industry_preselect.render()
@@ -372,7 +421,7 @@ if page == PAGE_MARKET_HUB:
             st.error(f"⚠️ 行业预选加载失败:{_exc}")
             import traceback as _tb
             st.code(_tb.format_exc(), language="python")
-    with sub_confirm:
+    elif active_sub == _SUB_INDUSTRY_CONFIRM:
         try:
             from tabs.industry import confirm as _industry_confirm
             _industry_confirm.render()

@@ -1,0 +1,176 @@
+_meta:
+  version: '1.0'
+  status: demo
+  base_currency: CNY
+  last_updated: '2026-06-15'
+account:
+  total_capital: 1000000
+  target_equity_ratio: 0.7
+  cash_min_ratio: 0.1
+  cash_max_ratio: 0.5
+rebalance:
+  max_position_weight: 0.2
+  max_deviation_pct: 0.05
+  score_floor: 4
+  valuation_ceiling_pct: 0.85
+  valuation_floor_pct: 0.15
+  review_cadence_days: 30
+holdings:
+- ticker: '600519'
+  name: 贵州茅台
+  status: watch
+  target_weight: 0.1
+  max_weight: 0.15
+  thesis: 白酒龙头 + 高 ROE + 强护城河;PE 9% 分位低估
+  tags:
+  - 消费
+  - 白酒
+  - 价值
+- ticker: 000858
+  name: 五粮液
+  status: watch
+  target_weight: 0.05
+  max_weight: 0.1
+  thesis: 次高端白酒;F-Score 2023 拿到 9/9 满分,2025 PE 异常待跟踪
+  tags:
+  - 消费
+  - 白酒
+  - 价值
+- ticker: '300750'
+  name: 宁德时代
+  status: watch
+  target_weight: 0.08
+  max_weight: 0.12
+  thesis: 锂电龙头;F-Score 持续改善 + 海外占比提升
+  tags:
+  - 新能源
+  - 制造
+  - 成长
+- ticker: 002594
+  name: 比亚迪
+  status: watch
+  target_weight: 0.07
+  max_weight: 0.12
+  thesis: 新能源车 + 储能;2020 / 2024 拿到 9/8 满分
+  tags:
+  - 新能源
+  - 制造
+  - 成长
+- ticker: '300308'
+  name: 中际旭创
+  status: exited
+  target_weight: 0.05
+  max_weight: 0.1
+  thesis: 光模块龙头;AI 算力受益 + F-Score 持续向上
+  tags:
+  - 科技
+  - 算力
+  - 成长
+  closed_at: '2026-06-15'
+  exit_date: '2026-06-15'
+  closed_reason: 录错,清掉重录
+  exit_price: 0.03
+- ticker: '600276'
+  name: 恒瑞医药
+  status: watch
+  target_weight: 0.05
+  max_weight: 0.1
+  thesis: 创新药 V 形反转;F-Score 2023 拿到 9/9 满分
+  tags:
+  - 医药
+  - 创新药
+  - 反转
+- ticker: '002050'
+  name: 三花智控
+  status: watch
+  target_weight: 0.04
+  max_weight: 0.08
+  thesis: 热管理龙头;储能 + 机器人新业务,F-Score 2025 拿到 8/9
+  tags:
+  - 新能源
+  - 制造
+  - 成长
+- ticker: '000333'
+  name: 美的集团
+  status: watch
+  target_weight: 0.05
+  max_weight: 0.1
+  thesis: 家电龙头 + 海外扩张;高股息 + F-Score 反弹
+  tags:
+  - 消费
+  - 家电
+  - 价值成长
+- ticker: '600887'
+  name: 伊利股份
+  status: watch
+  target_weight: 0.04
+  max_weight: 0.08
+  thesis: 乳制品龙头;F-Score 持续改善但增速放缓
+  tags:
+  - 消费
+  - 食品
+- ticker: '600036'
+  name: 招商银行
+  status: watch
+  target_weight: 0.06
+  max_weight: 0.1
+  thesis: 零售银行龙头;F-Score 行业版数据待 P3 解锁
+  tags:
+  - 金融
+  - 银行
+- ticker: '601336'
+  name: 新华保险
+  status: watch
+  target_weight: 0.03
+  max_weight: 0.06
+  thesis: 寿险;F-Score 行业版数据待 P3 解锁
+  tags:
+  - 金融
+  - 保险
+- ticker: '603379'
+  name: 三美股份
+  status: watch
+  target_weight: 0.03
+  max_weight: 0.06
+  thesis: 氟化工;周期 + F-Score 震荡
+  tags:
+  - 化工
+  - 周期
+- ticker: '601766'
+  name: 中国中车
+  status: watch
+  target_weight: 0.03
+  max_weight: 0.06
+  thesis: 轨交装备;F-Score 改善 + 政策受益
+  tags:
+  - 制造
+  - 央企
+- ticker: '002475'
+  name: 立讯精密
+  status: watch
+  target_weight: 0.02
+  max_weight: 0.05
+  thesis: 苹果产业链;F-Score 走弱待新增量
+  tags:
+  - 科技
+  - 制造
+- ticker: 02097
+  name: 蜜雪集团
+  status: watch
+  target_weight: 0.0
+  max_weight: 0.03
+  thesis: 港股新股;数据天花板,IPO < 1 年观察
+  tags:
+  - 消费
+  - 港股
+exited: []
+benchmarks:
+- name: 沪深300
+  ticker: 000300.SH
+  weight: 0.5
+- name: 中证500
+  ticker: 000905.SH
+  weight: 0.3
+- name: 现金(余额宝)
+  annualized_return: 0.018
+  weight: 0.2

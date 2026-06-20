@@ -1,8 +1,8 @@
 """统一跳转协议 — P0 阶段 1 基础设施。
 
 各 Tab 想跨页跳转时调用 `goto(...)`,把意图写入 `st.session_state["nav_intent"]` 并触发 rerun。
-路由层(app.py)在 selectbox 之前 `peek_intent()` 拿到 intent 覆盖 page/company/sub_tab;
-被覆盖的目标页入口再用 `consume_intent()` 真正清空。
+路由层(app.py)在 sub-tab radio 渲染前 `consume_intent()` 写入持久 key;
+`st.tabs` 无法跨 rerun 记住选中项,市场 & 行业页改用带 session key 的 `st.radio`。
 
 PAGE_* 常量值必须与 app.py 中同名常量完全一致(emoji + 中文标签),
 否则路由比较会失配。这里 mirror,**不**改 app.py 的值。
@@ -21,11 +21,13 @@ PAGE_COMPANY    = "🏢 公司研究"
 PAGE_GOLD       = "🥇 黄金"
 PAGE_DC         = "💼 决策中心"
 
-# v2.9 P0b: PAGE_MARKET_HUB 的 4 个 sub-tab 标签(与 app.py st.tabs 标签 1:1)
+# v2.9 P0b: PAGE_MARKET_HUB 的 4 个 sub-tab 标签(与 app.py st.radio 选项 1:1)
 SUB_MARKET_JUDGE       = "市场研判"
 SUB_INDUSTRY_ANALYSIS  = "行业分析"
 SUB_INDUSTRY_PRESELECT = "行业预选"
 SUB_INDUSTRY_CONFIRM   = "行业确定"
+
+MARKET_HUB_SUB_TAB_KEY = "market_hub_sub_tab"
 
 # v2.9 P1: PAGE_SCREENER 的 4 个 sub-tab 标签(与 tabs/screener/__init__.py st.tabs 一致,不含 emoji)
 SUB_SCREENER_PRELIM    = "初步筛选"
@@ -83,6 +85,7 @@ __all__ = [
     "PAGE_MARKET_HUB", "PAGE_SCREENER", "PAGE_COMPANY", "PAGE_GOLD", "PAGE_DC",
     "SUB_MARKET_JUDGE", "SUB_INDUSTRY_ANALYSIS",
     "SUB_INDUSTRY_PRESELECT", "SUB_INDUSTRY_CONFIRM",
+    "MARKET_HUB_SUB_TAB_KEY",
     "SUB_SCREENER_PRELIM", "SUB_SCREENER_LYNCH",
     "SUB_SCREENER_GRAHAM", "SUB_SCREENER_CONFIRM",
     "SUB_DC_HOLDINGS", "SUB_DC_TRACKER", "SUB_DC_LOG", "SUB_DC_REPORTS",

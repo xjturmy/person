@@ -183,8 +183,52 @@ def is_data_ready(db_path: str | Path, db_mtime: float) -> bool:
     return any(v and "error" not in (v or {}) for v in data.values())
 
 
+def _card_for_indicator(ind: dict, d: dict | None) -> str:
+    """单张指标卡 HTML。"""
+    if not d or "error" in (d or {}):
+        return (
+            f"<div style='{CARD_STYLE}'>"
+            f"<div style='{CARD_LABEL_STYLE}'>{ind['label']}</div>"
+            "<div style='font-size:18px;color:#bbb;font-weight:600'>—</div>"
+            f"<div style='{CARD_HINT_STYLE}'>无数据</div>"
+            "</div>"
+        )
+    cur = d["current"]
+    pct = d.get("pct_5y")
+    badge = _badge(pct, ind["interpret"])
+    cur_str = ind["fmt"].format(cur)
+    pct_str = f"{pct * 100:.0f}%" if pct is not None else "—"
+    meaning = ind.get("meaning", "")
+    thresholds = ind.get("thresholds", "")
+    tooltip_lines = [
+        f"最新 {d['date']} · 5y 分位 {pct_str} · 样本 {d.get('n_5y', '?')} 个",
+    ]
+    if meaning:
+        tooltip_lines.append(f"含义:{meaning}")
+    if thresholds:
+        tooltip_lines.append(f"阈值:{thresholds}")
+    tooltip = " | ".join(tooltip_lines).replace("'", "&#39;")
+    return (
+        f"<div title='{tooltip}' style='{CARD_STYLE}'>"
+        f"<div style='{CARD_LABEL_STYLE}'>{ind['label']}</div>"
+        f"<div style='{CARD_VALUE_STYLE}'>{cur_str}</div>"
+        f"<div style='{CARD_HINT_STYLE}'>{badge} 5y {pct_str}</div>"
+        "</div>"
+    )
+
+
+_THERMO_ROW_STYLE = (
+    "display:flex;flex-wrap:nowrap;gap:8px;width:100%;"
+    "align-items:stretch;margin-bottom:0.25rem;"
+)
+_THERMO_CELL_STYLE = "flex:1 1 0;min-width:0;"
+
+
 def render(db_path: str | Path, mtime: float) -> None:
-    """在调用处渲染温度计栏。数据缺失时退化为友好提示。"""
+    """在调用处渲染温度计栏。数据缺失时退化为友好提示。
+
+    用单块 flex HTML 替代 st.columns,避免 rerun 时先竖排后横排的闪烁。
+    """
     data = _load(str(db_path), mtime)
     if "_error" in data:
         st.caption(f"🌡️ 市场温度计 · {data['_error']}")
@@ -193,45 +237,16 @@ def render(db_path: str | Path, mtime: float) -> None:
         st.caption("🌡️ 市场温度计 · 暂无数据 · 跑 `.venv/bin/python .tools/db/fetch_macro.py`")
         return
 
-    cols = st.columns(len(INDICATORS))
-    for col, ind in zip(cols, INDICATORS):
-        d = data.get(ind["key"])
-        with col:
-            if not d or "error" in (d or {}):
-                st.markdown(
-                    "<div style='text-align:center;border:1px solid #e0e0e0;"
-                    "border-radius:8px;padding:8px;background:#fafafa;'>"
-                    f"<div style='font-size:11px;color:#888'>{ind['label']}</div>"
-                    "<div style='font-size:18px;color:#bbb;font-weight:600'>—</div>"
-                    "<div style='font-size:10px;color:#aaa'>无数据</div>"
-                    "</div>",
-                    unsafe_allow_html=True,
-                )
-                continue
-            cur = d["current"]
-            pct = d.get("pct_5y")
-            badge = _badge(pct, ind["interpret"])
-            cur_str = ind["fmt"].format(cur)
-            pct_str = f"{pct*100:.0f}%" if pct is not None else "—"
-            meaning = ind.get("meaning", "")
-            thresholds = ind.get("thresholds", "")
-            tooltip_lines = [
-                f"最新 {d['date']} · 5y 分位 {pct_str} · 样本 {d.get('n_5y', '?')} 个",
-            ]
-            if meaning:
-                tooltip_lines.append(f"含义:{meaning}")
-            if thresholds:
-                tooltip_lines.append(f"阈值:{thresholds}")
-            tooltip = " | ".join(tooltip_lines)
-            st.markdown(
-                f"<div title='{tooltip}' style='text-align:center;"
-                "border:1px solid #e0e0e0;border-radius:8px;padding:8px;background:#fafafa;'>"
-                f"<div style='font-size:11px;color:#666'>{ind['label']}</div>"
-                f"<div style='font-size:18px;font-weight:700;line-height:1.2'>{cur_str}</div>"
-                f"<div style='font-size:10px;color:#888'>{badge} 5y {pct_str}</div>"
-                "</div>",
-                unsafe_allow_html=True,
-            )
+    cells = "".join(
+        f"<div style='{_THERMO_CELL_STYLE}'>"
+        f"{_card_for_indicator(ind, data.get(ind['key']))}"
+        f"</div>"
+        for ind in INDICATORS
+    )
+    st.markdown(
+        f"<div style='{_THERMO_ROW_STYLE}'>{cells}</div>",
+        unsafe_allow_html=True,
+    )
 
 
 # ───── 兼容旧 API ───────────────────────────────────────────────────
