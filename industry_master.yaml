@@ -180,7 +180,7 @@ industries:
         - 制冷剂(R32/R134a)价格
         - 氢氟酸成本
     etf_codes: ["159870", "516020", "516220"]
-    knowledge_md: ""  # TODO 待补
+    knowledge_md: "03_macro/02_行业对标数据/09_化学制品.md"
     leaders: ["603379", "002326"]
 
   - code: RAIL_TRANSIT
@@ -195,8 +195,8 @@ industries:
         - 国铁集团动车组招标
         - 城轨投资增速
     etf_codes: ["159871", "562500", "159855"]
-    knowledge_md: ""  # TODO 待补
-    leaders: ["601766", "601766"]
+    knowledge_md: "03_macro/02_行业对标数据/10_轨交设备.md"
+    leaders: ["601766", "688187", "688009", "603111"]
 
   - code: CONSUMER_ELEC
     name: 消费电子
@@ -210,8 +210,8 @@ industries:
         - 苹果新机销量
         - AI PC/手机渗透率
     etf_codes: ["515260", "512480", "159995"]
-    knowledge_md: ""  # TODO 待补
-    leaders: ["002475", "002241"]
+    knowledge_md: "03_macro/02_行业对标数据/11_消费电子.md"
+    leaders: ["002475", "002241", "601138", "300433"]
 
   - code: HOME_PARTS
     name: 家电零部件
@@ -224,9 +224,10 @@ industries:
       key_indicators:
         - 新能源车热管理渗透率
         - 储能/数据中心液冷需求
-    etf_codes: ["159996", "159783", "159755"]
-    knowledge_md: ""  # TODO 待补
-    leaders: ["002050", "002508"]
+    # 无专属「家电零部件」ETF;仅保留最贴近的家电ETF,不用电池/新能源车凑数
+    etf_codes: ["159996"]
+    knowledge_md: "03_macro/02_行业对标数据/12_家电零部件.md"
+    leaders: ["002050", "002011", "002126"]
 
   - code: AUTO
     name: 乘用车
@@ -241,8 +242,8 @@ industries:
         - 出口销量与海外建厂
         - 终端折扣力度
     etf_codes: ["515030", "159806", "516390"]
-    knowledge_md: ""  # TODO 待补
-    leaders: ["002594", "601127", "000625"]
+    knowledge_md: "03_macro/02_行业对标数据/13_乘用车.md"
+    leaders: ["002594", "601127", "000625", "601633"]
 
   - code: HK_SOFT_DRINK
     name: 软饮料
@@ -257,5 +258,259 @@ industries:
         - 加盟商单店营收
         - 海外门店扩张
     etf_codes: ["159736", "513180", "159865"]
-    knowledge_md: ""  # TODO 待补
-    leaders: ["02097", "01717"]
+    knowledge_md: "03_macro/02_行业对标数据/14_软饮料.md"
+    leaders: ["02097", "01364", "02555", "605499"]
+
+  # ========== P0 候选池实有 L2(2026-06-20 阶段 2 补齐) ==========
+
+  - code: SECURITIES
+    name: 证券
+    sw_l1: 非银金融
+    type: cyclical
+    summary: "资本市场核心中介,经纪+投行+自营+资管+信用五业协同,beta>1.3,与 A 股市场强同步"
+    cycle_attrs:
+      type: 周期
+      kondratieff_position: 复苏期至繁荣期最佳配置,危机/萧条期回避
+      key_indicators:
+        - A 股日均成交额(>1万亿景气/<6000亿萧条)
+        - 两融余额(>1.6万亿风险偏好高)
+        - IPO 月度发行规模
+        - 沪深 300 一年涨跌(beta 1.3 倍放大)
+        - 行业 PB 估值分位(<1.3 历史低位)
+    etf_codes: ["512880", "512000", "159841"]
+    knowledge_md: "03_macro/02_行业对标数据/15_证券.md"
+    leaders: ["600030", "601688", "300059", "601211", "600999"]
+
+  - code: COAL_MINING
+    name: 煤炭开采
+    sw_l1: 煤炭
+    type: cyclical
+    summary: "中国能源压舱石,长协稳定+高分红 60-75%,在低利率环境兼具周期与类债资产属性"
+    cycle_attrs:
+      type: 周期
+      kondratieff_position: 萧条/复苏初期资源品轮动 + 高股息防御双重逻辑
+      key_indicators:
+        - 秦港 5500 大卡动力煤价(平衡 675-800)
+        - 重点电厂日耗+库存可用天数
+        - 龙头股息率 vs 10 年国债利差
+        - 澳洲焦煤进口价+蒙煤通关量
+        - 电煤长协覆盖率(>80% 业绩稳)
+    etf_codes: ["515220", "159944", "562850"]
+    knowledge_md: "03_macro/02_行业对标数据/16_煤炭开采.md"
+    leaders: ["601088", "601225", "601898", "600188", "000983"]
+
+  - code: OIL_GAS
+    name: 油气开采
+    sw_l1: 石油石化
+    type: cyclical
+    summary: "三桶油垄断上游,WTI 油价+美元+地缘三因子驱动,中海油低成本高弹性是首选标的"
+    cycle_attrs:
+      type: 周期
+      kondratieff_position: 萧条期资源品避险 + 复苏期需求复苏双重驱动
+      key_indicators:
+        - 布伦特/WTI 油价(70-85 美元平衡)
+        - OPEC+ 月度产量决议
+        - 美页岩油钻机数+库欣库存
+        - 三桶油桶油成本 vs 现货价
+        - 地缘事件(俄乌/中东/伊朗制裁)
+    etf_codes: ["162411", "159930", "159992"]
+    knowledge_md: "03_macro/02_行业对标数据/17_油气开采.md"
+    leaders: ["601857", "600938", "600028", "601808", "600583"]
+
+  - code: TELECOM_CARRIER
+    name: 电信运营
+    sw_l1: 通信
+    type: slow_grower
+    summary: "三大运营商类公用事业,5G 资本开支高峰已过,云业务+高分红双轮驱动,股息率 5-7%"
+    cycle_attrs:
+      type: 防御
+      kondratieff_position: 萧条/复苏期防御核心 — 类公用事业+高股息+政策友好
+      key_indicators:
+        - 移动 ARPU(移动 51/电信 46/联通 44 元)
+        - 5G 套餐渗透率
+        - 资本开支/收入比(从 25% 降至 18%)
+        - 政企云业务收入增速(+30-50%)
+        - 股息率 vs 10 年国债利差(>3pp 类债)
+    etf_codes: ["515880", "159930", "562500"]
+    knowledge_md: "03_macro/02_行业对标数据/18_电信运营.md"
+    leaders: ["600941", "601728", "600050", "000063", "000938"]
+
+  - code: SEMI_EQUIP
+    name: 半导体设备
+    sw_l1: 电子
+    type: fast_grower
+    summary: "芯片制造卖铲人,国产替代核心抓手,北方华创/中微等在制裁窗口加速突破"
+    cycle_attrs:
+      type: 成长
+      kondratieff_position: 第六次康波 AI 半导体核心
+      key_indicators:
+        - 晶圆厂资本开支(中芯/华虹/长存/长鑫年度 Capex)
+        - 分品类国产化率(刻蚀/薄膜/光刻/CMP/量检测)
+        - 在手订单与合同负债(领先营收 2-3 季度)
+        - 海外巨头制裁清单(BIS 实体清单扩围)
+        - 研发费用率(20%+ 健康)
+    etf_codes: ["512480", "159995", "588200"]
+    knowledge_md: "03_macro/02_行业对标数据/19_半导体设备.md"
+    leaders: ["002371", "688012", "688072", "688120"]
+
+  - code: IC_CHIP
+    name: 集成电路
+    sw_l1: 电子
+    type: fast_grower
+    summary: "数字经济基石,设计+制造+封测三大环节,AI 芯片与存储国产化为新增长极"
+    cycle_attrs:
+      type: 成长
+      kondratieff_position: 第六次康波 AI 半导体主线
+      key_indicators:
+        - 下游需求结构(手机/PC/汽车/AI 服务器占比)
+        - 晶圆厂稼动率(中芯/华虹季度披露)
+        - 存储芯片价格(DRAM/NAND 现货周期指示)
+        - 设计公司库存周转天数
+        - 美国出口管制清单(BIS/EAR 修订)
+    etf_codes: ["512480", "159995", "588200"]
+    knowledge_md: "03_macro/02_行业对标数据/20_集成电路.md"
+    leaders: ["688981", "603501", "002049", "603986"]
+
+  - code: SECURITY_EQUIP
+    name: 安防设备
+    sw_l1: 电子
+    type: stalwart
+    summary: "海康+大华双寡头,AIoT 第二曲线打开空间,高 ROE+强现金流+防御股息"
+    cycle_attrs:
+      type: 防御
+      kondratieff_position: 萧条期防御补充(高 ROE+股息)
+      key_indicators:
+        - 创新业务营收占比(萤石+机器人+微影+汽车)
+        - 海外业务恢复(实体清单冲击后触底回升)
+        - 四大事业群结构(PBG/EBG/SMBG/海外)
+        - 存货周转天数(< 120 天健康)
+        - 股息率(海康 2-3%/大华 3-4%)
+    etf_codes: ["515260", "159995", "159928"]
+    knowledge_md: "03_macro/02_行业对标数据/21_安防设备.md"
+    leaders: ["002415", "002236", "002373"]
+
+  - code: POWER_GRID
+    name: 电网二次设备
+    sw_l1: 电力设备
+    type: fast_grower
+    summary: "电网神经中枢,特高压+配网智能化+储能调度三大成长极,央企股息防御"
+    cycle_attrs:
+      type: 成长
+      kondratieff_position: 第六次康波 新型电力系统基础设施
+      key_indicators:
+        - 国网/南网年度投资计划(2024 国网 6000 亿+)
+        - 特高压招标节奏(直流换流阀/GIS 中标)
+        - 配网投资占比(从 50% 升至 60%+)
+        - 储能/虚拟电厂订单(新型电力系统催化)
+        - 在手订单与合同负债(景气前瞻指标)
+    etf_codes: ["159611", "159766", "515030"]
+    knowledge_md: "03_macro/02_行业对标数据/22_电网二次设备.md"
+    leaders: ["600406", "601126", "000400", "600312"]
+
+  - code: PV_EQUIP
+    name: 光伏设备
+    sw_l1: 电力设备
+    type: cyclical
+    summary: "硅料-硅片-电池片-组件全产业链,一体化龙头主导,2024-2025 过剩出清,BC/HJT 技术迭代"
+    cycle_attrs:
+      type: 周期
+      kondratieff_position: 第六次康波能源革命方向 / 当前过剩出清期
+      key_indicators:
+        - 硅料价格(N 型致密料)
+        - 组件价格
+        - 一体化龙头开工率
+        - 全球年度装机量 YoY
+        - PB 分位(cyclical 估值锚)
+    etf_codes: ["515790", "159857", "516390"]
+    knowledge_md: "03_macro/02_行业对标数据/23_光伏设备.md"
+    leaders: ["601012", "600438", "002129", "002459", "300274"]
+
+  - code: INDUSTRIAL_AUTO
+    name: 工业自动化
+    sw_l1: 电力设备
+    type: fast_grower
+    summary: "伺服/PLC/机器人国产替代,汇川绝对龙头,新能源车电驱+智能制造长逻辑驱动"
+    cycle_attrs:
+      type: 成长
+      kondratieff_position: 第六次康波信息技术+智能制造分支 / 长期成长主线
+      key_indicators:
+        - 制造业 PMI
+        - 通用自动化市场 YoY
+        - 新能源车电驱配套量
+        - 国产化率(伺服/PLC)
+        - PEG 估值
+    etf_codes: ["159611", "159766", "159805"]
+    knowledge_md: "03_macro/02_行业对标数据/24_工业自动化.md"
+    leaders: ["300124", "002851", "603416", "002979"]
+
+  - code: AUTO_PARTS
+    name: 汽车零部件
+    sw_l1: 汽车
+    type: fast_grower
+    summary: "新能源车单车价值量提升+智能化(域控/线控)+国产替代,特斯拉/比亚迪/华为系供应链优选"
+    cycle_attrs:
+      type: 成长
+      kondratieff_position: 第六次康波智能交通+能源革命交汇 / 长期成长
+      key_indicators:
+        - 新能源车月度渗透率
+        - 龙头单车价值量 ASP
+        - 大客户月度交付量
+        - 毛利率(价格战压力)
+        - PEG 估值
+    etf_codes: ["515030", "159806", "516390"]
+    knowledge_md: "03_macro/02_行业对标数据/25_汽车零部件.md"
+    leaders: ["601689", "600741", "600660", "603596", "603197"]
+
+  - code: TCM_HERBAL
+    name: 中药
+    sw_l1: 医药生物
+    type: stalwart
+    summary: "政策保护+老字号品牌+独家品种三重护城河,奢侈品定价+高股息防御,老龄化长逻辑受益"
+    cycle_attrs:
+      type: 防御
+      kondratieff_position: 萧条期消费防御 + 老龄化长逻辑
+      key_indicators:
+        - 片仔癀终端零售价
+        - 中药材价格指数
+        - 国家基药目录与医保谈判
+        - 配方颗粒集采进度
+        - OTC 渠道库存与动销
+    etf_codes: ["159647", "562860", "512170"]
+    knowledge_md: "03_macro/02_行业对标数据/26_中药.md"
+    leaders: ["600436", "000538", "600085", "000999", "000423"]
+
+  - code: BIO_PRODUCT
+    name: 生物制品
+    sw_l1: 医药生物
+    type: fast_grower
+    summary: "疫苗+血制品+生长激素+创新生物药,高研发壁垒+长生命周期,出海是估值核心锚"
+    cycle_attrs:
+      type: 成长
+      kondratieff_position: 第六次康波生物科技方向
+      key_indicators:
+        - 疫苗批签发数据(HPV/带状疱疹/13价)
+        - 血制品采浆量与浆站审批
+        - 生长激素水针/长效占比
+        - 创新疫苗管线Ⅲ期进度
+        - License-out 出海交易
+    etf_codes: ["159992", "512170", "159929"]
+    knowledge_md: "03_macro/02_行业对标数据/27_生物制品.md"
+    leaders: ["300122", "000661", "688185", "002007", "600161"]
+
+  - code: MEDICAL_SERVICE
+    name: 医疗服务
+    sw_l1: 医药生物
+    type: fast_grower
+    summary: "连锁专科+体检+CXO三大赛道,标准化复制+医生资源+规模效应,集采免疫+老龄化长逻辑"
+    cycle_attrs:
+      type: 成长
+      kondratieff_position: 第六次康波生物科技方向 + 老龄化超长周期
+      key_indicators:
+        - 连锁门店数与同店增长
+        - CXO 在手订单/新签订单
+        - DRG/DIP 医保支付改革
+        - 海外营收占比(CXO 地缘政治)
+        - 老龄化与慢病渗透率
+    etf_codes: ["159828", "512170", "159929"]
+    knowledge_md: "03_macro/02_行业对标数据/28_医疗服务.md"
+    leaders: ["300015", "300760", "002044", "600763", "603259"]

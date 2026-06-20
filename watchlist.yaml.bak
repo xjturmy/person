@@ -107,12 +107,3 @@ entries:
   status: pending
   notes: ''
   source_industry: 消费电子
-- ticker: '159996'
-  name: 家电ETF
-  added_at: '2026-06-19'
-  preset: 行业预选·家电零部件·ETF
-  score: null
-  rating: null
-  status: pending
-  notes: ''
-  source_industry: 家电零部件
