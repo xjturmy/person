@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "chunk_bytes": 94371840,
+  "files": [
+    {
+      "original": "data/preson.duckdb",
+      "sha256": "8718b5fc32809f3a070725247e5f5d543fae0f19a4dda910105dfecc558f6744",
+      "size": 224407552,
+      "chunk_bytes": 94371840,
+      "parts": [
+        ".github_blob_store/data/preson.duckdb/part000",
+        ".github_blob_store/data/preson.duckdb/part001",
+        ".github_blob_store/data/preson.duckdb/part002"
+      ]
+    }
+  ]
+}
