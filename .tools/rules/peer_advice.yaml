@@ -1,0 +1,103 @@
+# Phase C · 同行对比建议规则
+#
+# 输入:industry_percentile 的 9 指标分位
+# 输出:每指标 (label, signal) + 综合估值评级
+#
+# direction:
+#   high_good → 高分位 = 强(self 比同行优)
+#   low_good  → 低分位 = 强(self 比同行便宜 / 估值低)
+#
+# signal:
+#   每指标根据分位映射到 [-2, +2] 整数信号
+#   weight 加权汇总 → bands 决定综合评级
+
+metrics:
+  PE:
+    direction: low_good
+    thresholds:
+      strong_pos: 30      # 第 30 分位以下 → +2(估值低)
+      mild_pos: 45
+      mild_neg: 55
+      strong_neg: 70      # 第 70 分位以上 → -2(估值高)
+    weight: 2
+
+  PB:
+    direction: low_good
+    thresholds:
+      strong_pos: 30
+      mild_pos: 45
+      mild_neg: 55
+      strong_neg: 70
+    weight: 1
+
+  PEG:
+    direction: low_good
+    thresholds:
+      strong_pos: 30
+      mild_pos: 45
+      mild_neg: 55
+      strong_neg: 70
+    weight: 2
+
+  ROE:
+    direction: high_good
+    thresholds:
+      strong_neg: 30      # 第 30 分位以下 → -2(盈利弱)
+      mild_neg: 45
+      mild_pos: 55
+      strong_pos: 70      # 第 70 分位以上 → +2(盈利强)
+    weight: 2
+
+  毛利率:
+    direction: high_good
+    thresholds:
+      strong_neg: 30
+      mild_neg: 45
+      mild_pos: 55
+      strong_pos: 70
+    weight: 1
+
+  营收YoY:
+    direction: high_good
+    thresholds:
+      strong_neg: 30
+      mild_neg: 45
+      mild_pos: 55
+      strong_pos: 70
+    weight: 1
+
+  净利YoY:
+    direction: high_good
+    thresholds:
+      strong_neg: 30
+      mild_neg: 45
+      mild_pos: 55
+      strong_pos: 70
+    weight: 1
+
+  F-Score lite:
+    direction: high_good
+    thresholds:
+      strong_neg: 30
+      mild_neg: 45
+      mild_pos: 55
+      strong_pos: 70
+    weight: 1
+
+# 综合估值汇总(加权信号求和)
+aggregation:
+  # 加权 sum 按以下区间映射(总权重 11,理论范围 [-22, +22])
+  bands:
+    - { min: 6,    label: "低估",  emoji: "🟢", color: "#10B981" }
+    - { min: 2,    label: "偏低",  emoji: "🟢", color: "#34D399" }
+    - { min: -2,   label: "合理",  emoji: "🟡", color: "#F59E0B" }
+    - { min: -6,   label: "偏高",  emoji: "🟠", color: "#FB923C" }
+    - { min: -100, label: "高估",  emoji: "🔴", color: "#EF4444" }
+
+# 输出文案模板
+narrative:
+  # 总结句模板:{label} · 综合{quality}
+  # quality 由 ROE/F-Score 主导
+  quality_strong: "优质"   # ROE 高分位 + F-Score 高
+  quality_normal: "中性"
+  quality_weak:   "存疑"   # ROE/营收/净利 多数偏弱

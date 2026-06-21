@@ -1,0 +1,42 @@
+# 公司事件库 · 用于估值时序图 annotation 叠加
+# key = ticker(A 股 6 位 / 港股 5 位),value = 事件列表
+# type 可选:pe_anomaly / dividend / split / buyback / earnings / other
+
+"000858":  # 五粮液
+  - date: "2026-05-15"
+    type: pe_anomaly
+    note: "财务异常致 PE 飙至 174"
+
+"600519":  # 贵州茅台
+  - date: "2025-06-28"
+    type: dividend
+    note: "2024 年度分红 (约 30.88 元/股)"
+  - date: "2026-06-27"
+    type: dividend
+    note: "2025 年度分红"
+
+"600036":  # 招商银行
+  - date: "2025-07-10"
+    type: dividend
+    note: "2024 年度分红"
+  - date: "2026-07-09"
+    type: dividend
+    note: "2025 年度分红"
+
+"600887":  # 伊利股份
+  - date: "2025-06-20"
+    type: dividend
+    note: "2024 年度分红"
+  - date: "2026-06-19"
+    type: dividend
+    note: "2025 年度分红"
+
+"002594":  # 比亚迪
+  - date: "2025-06-15"
+    type: dividend
+    note: "2024 年度分红"
+
+"300750":  # 宁德时代
+  - date: "2025-06-10"
+    type: dividend
+    note: "2024 年度分红"

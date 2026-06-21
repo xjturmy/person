@@ -1,0 +1,42 @@
+{
+  "theme": "能源资源",
+  "description": "能源资源相关主题，涵盖传统能源、清洁能源、资源类行业",
+  "etfs": [
+    {
+      "code": "159930",
+      "name": "易方达能源互联网指数ETF",
+      "index_code": "399858",
+      "index_name": "能源互联网指数",
+      "manager": "易方达基金",
+      "inception_date": "2018-12-28",
+      "scale": 22.5,
+      "fee": 0.15,
+      "url": "https://www.efunds.com.cn"
+    },
+    {
+      "code": "159758",
+      "name": "广发中证全指能源ETF",
+      "index_code": "399815",
+      "index_name": "中证全指能源指数",
+      "manager": "广发基金",
+      "inception_date": "2020-05-18",
+      "scale": 15.0,
+      "fee": 0.15,
+      "url": "https://www.gffunds.com.cn"
+    },
+    {
+      "code": "161126",
+      "name": "易方达消费行业",
+      "index_code": "399950",
+      "index_name": "中证消费指数",
+      "manager": "易方达基金",
+      "inception_date": "2019-01-25",
+      "scale": 65.0,
+      "fee": 0.15,
+      "url": "https://www.efunds.com.cn"
+    }
+  ],
+  "notes": "能源资源是基础工业，与经济增长、大宗商品价格密切相关。政策变化（如能源转型）对该行业影响重大。",
+  "last_updated": "2026-04-23",
+  "update_frequency": "季度"
+}

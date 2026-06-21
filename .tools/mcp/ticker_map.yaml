@@ -1,0 +1,104 @@
+# ticker → 公司信息映射
+# stock: A股代码（6位）或港股代码
+# folder: 02_companies/ 下的目录名
+# name: 中文简称
+# category: non_financial / bank / insurance / hk
+
+"601336":
+  name: 新华保险
+  folder: 01_新华保险
+  category: insurance
+
+"603379":
+  name: 三美股份
+  folder: 02_三美股份
+  category: non_financial
+
+"02097":
+  name: 蜜雪集团
+  folder: 03_蜜雪集团
+  category: hk
+
+"601766":
+  name: 中国中车
+  folder: 05_中国中车
+  category: non_financial
+
+"600519":
+  name: 贵州茅台
+  folder: 06_贵州茅台
+  category: non_financial
+
+"000333":
+  name: 美的集团
+  folder: 07_美的集团
+  category: non_financial
+
+"002475":
+  name: 立讯精密
+  folder: 08_立讯精密
+  category: non_financial
+
+"002050":
+  name: 三花智控
+  folder: 09_三花智控
+  category: non_financial
+
+"002594":
+  name: 比亚迪
+  folder: 10_比亚迪
+  category: non_financial
+
+"000858":
+  name: 五粮液
+  folder: 11_五粮液
+  category: non_financial
+
+"600036":
+  name: 招商银行
+  folder: 12_招商银行
+  category: bank
+
+"600887":
+  name: 伊利股份
+  folder: 13_伊利股份
+  category: non_financial
+
+"300308":
+  name: 中际旭创
+  folder: 14_中际旭创
+  category: non_financial
+
+"600276":
+  name: 恒瑞医药
+  folder: 15_恒瑞医药
+  category: non_financial
+
+"300750":
+  name: 宁德时代
+  folder: 16_宁德时代
+  category: non_financial
+
+# 中文名 → ticker 快速查找
+name_to_ticker:
+  新华保险: "601336"
+  三美股份: "603379"
+  蜜雪集团: "02097"
+  中国中车: "601766"
+  贵州茅台: "600519"
+  茅台: "600519"
+  美的集团: "000333"
+  美的: "000333"
+  立讯精密: "002475"
+  三花智控: "002050"
+  比亚迪: "002594"
+  五粮液: "000858"
+  招商银行: "600036"
+  招行: "600036"
+  伊利股份: "600887"
+  伊利: "600887"
+  中际旭创: "300308"
+  恒瑞医药: "600276"
+  恒瑞: "600276"
+  宁德时代: "300750"
+  宁德: "300750"

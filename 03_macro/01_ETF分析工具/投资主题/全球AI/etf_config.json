@@ -1,0 +1,45 @@
+{
+  "theme": "全球AI",
+  "description": "全球AI ETF，进攻权益-全球AI龙头配置。通过纳斯达克100指数获得全球AI龙头企业 exposure",
+  "framework_role": "进攻权益-全球AI龙头",
+  "target_allocation": "3-5%",
+  "cycle_logic": "全球AI龙头（NVIDIA、Microsoft、Google、Meta等）是第六次康波的核心驱动力。通过QDII ETF获得全球配置",
+  "etfs": [
+    {
+      "code": "513100",
+      "name": "国泰纳斯达克100ETF",
+      "index_code": "NDX",
+      "index_name": "纳斯达克100指数",
+      "manager": "国泰基金",
+      "inception_date": "2013-05-15",
+      "scale": 85.0,
+      "fee": 0.80,
+      "url": "https://www.gtja.com"
+    },
+    {
+      "code": "159941",
+      "name": "广发纳斯达克100ETF",
+      "index_code": "NDX",
+      "index_name": "纳斯达克100指数",
+      "manager": "广发基金",
+      "inception_date": "2015-04-29",
+      "scale": 210.0,
+      "fee": 0.80,
+      "url": "https://www.gffunds.com.cn"
+    },
+    {
+      "code": "513400",
+      "name": "工银道琼斯美国科技50ETF",
+      "index_code": "DJUSTC50",
+      "index_name": "道琼斯美国科技领先50指数",
+      "manager": "工银瑞信基金",
+      "inception_date": "2020-11-26",
+      "scale": 32.0,
+      "fee": 0.80,
+      "url": "https://www.icbccs.com.cn"
+    }
+  ],
+  "notes": "纳斯达克100包含全球最核心的AI龙头，是获取全球AI红利的便捷工具。需注意汇率波动与QDII额度影响。分批买入，不追高。",
+  "last_updated": "2026-04-23",
+  "update_frequency": "季度"
+}

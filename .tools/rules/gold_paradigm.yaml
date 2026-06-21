@@ -1,0 +1,214 @@
+# 黄金三大范式投票引擎 · 阈值规约
+#
+# 鲁政委《保卫财富:黄金投资新时代》三大范式 + 周金涛康波周期
+#
+# 用法:
+#   from paradigm_engine import vote
+#   vote(snapshot) -> ParadigmVote(verified=True, source='paradigm_engine_v1')
+#
+# 信号 source 类型:
+#   - gold_metrics    → 从 gold.duckdb / gold_metrics 表 读 indicator 最新值
+#   - gold_ratios     → 从 gold_ratios 表 读 (date, column) 最新值
+#   - manual_const    → manual_value 字段直接采用(2026-05 状态硬编码,需季度 review)
+#   - manual_csv      → .config/<csv> 读最新一行;不存在时走 default_active
+#   - not_implemented → 标记未来要接入(走 default_active)
+
+version: 1
+as_of_assumption: "2026-05"   # manual_const 信号的快照时点;过期需复审
+
+paradigms:
+
+  # ────────────────────────────────────────────────────────────────────
+  # 范式一 · 经济金融属性(短期月-季级)
+  # ────────────────────────────────────────────────────────────────────
+  economic_financial:
+    name: "经济金融属性"
+    horizon: "短期(月-季)"
+    label: "🟢 范式一"
+    threshold: 3   # 5 信号中通过 ≥3 即激活
+    signals:
+
+      - id: kondratiev_phase
+        name: 康波周期位置
+        type: categorical
+        source: manual_const
+        manual_value: "萧条期中后段"
+        active_when_in: ["萧条期", "萧条期中后段"]
+
+      - id: real_rate
+        name: 实际利率(US 10Y - CPI YoY)
+        type: numeric
+        source: gold_metrics
+        indicator: US_REAL_RATE
+        active_when_lt: 0           # < 0% 激活
+
+      - id: vix_panic
+        name: VIX 恐慌指数
+        type: numeric
+        source: not_implemented     # P3 待接入
+        manual_value: 18            # 静态占位:2026-05 ~18
+        active_when_gt: 25
+        default_active: false
+
+      - id: spdr_recent_inflow
+        name: SPDR 黄金 ETF 持仓(近 6 月变化)
+        type: pct_change
+        source: gold_metrics
+        indicator: SPDR_HOLDINGS
+        window_days: 180
+        active_when_gt: 5           # 6 月变化 > 5% 激活
+        default_active: false       # 数据未接入时不激活
+
+      - id: geopolitical_event
+        name: 地缘风险事件
+        type: categorical
+        source: manual_const
+        manual_value: "持续"        # 2026-05 俄乌+中东
+        active_when_in: ["持续", "高位"]
+
+  # ────────────────────────────────────────────────────────────────────
+  # 范式二 · 技术革命属性(中期年-十年级)
+  # ────────────────────────────────────────────────────────────────────
+  tech_revolution:
+    name: "技术革命属性"
+    horizon: "中期(年-十年)"
+    label: "🟡 范式二"
+    threshold: 3
+    signals:
+
+      - id: ai_commercialization
+        name: AI 商用化进度
+        type: categorical
+        source: manual_const
+        manual_value: "中期"        # GPT-5+ 应用规模化
+        active_when_in: ["早期", "中期"]
+
+      - id: tech_gold_correlation
+        name: 美股科技 vs 金价 12 月相关性
+        type: numeric
+        source: not_implemented
+        manual_value: 0.42          # 实测 +0.42 同向
+        active_when_gt: 0
+
+      - id: us_productivity_yoy
+        name: 美国非农生产力 YoY
+        type: numeric
+        source: not_implemented
+        manual_value: 1.8           # 2026-05 ~1.8%
+        active_when_lt: 2.0
+
+      - id: ai_layoff_index
+        name: AI 替代率新闻指数
+        type: categorical
+        source: manual_const
+        manual_value: "高位"
+        active_when_in: ["高位", "极高"]
+
+      - id: energy_revolution_competition
+        name: 能源革命 vs 黄金需求竞争
+        type: categorical
+        source: manual_const
+        manual_value: "中性"
+        active_when_in: ["利好黄金"]
+        default_active: false       # 中性 → 不激活
+
+  # ────────────────────────────────────────────────────────────────────
+  # 范式三 · 大国博弈属性(长期十年-世代级)
+  # ────────────────────────────────────────────────────────────────────
+  great_power_struggle:
+    name: "大国博弈属性"
+    horizon: "长期(十年-世代)"
+    label: "🔴 范式三"
+    threshold: 3
+    signals:
+
+      - id: cb_continuous_purchase
+        name: 全球央行连续净购金年数
+        type: numeric
+        source: manual_const
+        manual_value: 3             # 连续 3 年(2023-2025)
+        active_when_gte: 2
+
+      - id: usd_reserve_share
+        name: 美元储备占比(IMF COFER)
+        type: numeric
+        source: manual_const
+        manual_value: 58            # 2025Q4 = 58%
+        active_when_lt: 60
+
+      - id: dedollarization_initiatives
+        name: 去美元化倡议推进
+        type: categorical
+        source: manual_const
+        manual_value: "推进中"      # BRICS+ 扩容
+        active_when_in: ["推进中", "加速"]
+
+      - id: sanction_weaponization
+        name: 制裁工具化频率
+        type: categorical
+        source: manual_const
+        manual_value: "历史高位"
+        active_when_in: ["历史高位", "高位"]
+
+      - id: em_gold_reserves
+        name: 新兴经济体黄金储备占比
+        type: categorical
+        source: manual_const
+        manual_value: "多国≥10%"
+        active_when_in: ["多国≥10%", "≥10%"]
+
+
+# ────────────────────────────────────────────────────────────────────
+# 主导身份判定规则(投票结果 → 配置区间)
+#
+# 规则匹配顺序:从特殊到通用,先匹配先返回。
+# ────────────────────────────────────────────────────────────────────
+identity_rules:
+
+  - id: all_three
+    when: { p1: true, p2: true, p3: true }
+    label: "🛡️ 避险 + 🔥 抗通胀 + 🔄 周期(三身份共振)"
+    suggested_pct: [20, 25]
+    note: "三范式全开;高风险偏好可至 38%(鲁政委震撼结论)"
+
+  - id: inflation_cycle
+    when: { p1: false, p2: true, p3: true }
+    label: "🔥 抗通胀 + 🔄 周期"
+    suggested_pct: [15, 20]
+    note: "中期 + 长期共振,短期(范式一)钝化"
+
+  - id: safe_cycle
+    when: { p1: true, p2: false, p3: true }
+    label: "🛡️ 避险 + 🔄 周期"
+    suggested_pct: [15, 20]
+    note: "短期 + 长期共振"
+
+  - id: safe_inflation
+    when: { p1: true, p2: true, p3: false }
+    label: "🛡️ 避险 + 🔥 抗通胀"
+    suggested_pct: [15, 20]
+    note: "短期 + 中期共振"
+
+  - id: cycle_only
+    when: { p1: false, p2: false, p3: true }
+    label: "🔄 周期(长期)"
+    suggested_pct: [10, 15]
+    note: "仅大国博弈范式激活,战略持有"
+
+  - id: inflation_only
+    when: { p1: false, p2: true, p3: false }
+    label: "🔥 抗通胀(中期)"
+    suggested_pct: [10, 15]
+    note: "仅技术革命范式激活"
+
+  - id: safe_only
+    when: { p1: true, p2: false, p3: false }
+    label: "🛡️ 避险(短期)"
+    suggested_pct: [5, 10]
+    note: "仅经济金融范式激活,短期窗口"
+
+  - id: weak
+    when: { p1: false, p2: false, p3: false }
+    label: "黄金弱势期"
+    suggested_pct: [0, 5]
+    note: "三范式全钝,降至战略下限"

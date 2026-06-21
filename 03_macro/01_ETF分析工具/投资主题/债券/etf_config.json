@@ -1,0 +1,45 @@
+{
+  "theme": "债券",
+  "description": "债券ETF，防御层配置。包含国债、国开债等高等级债券，锁定票息收益，高利率环境受益",
+  "framework_role": "防御层-国债/债券",
+  "target_allocation": "10-15%",
+  "cycle_logic": "萧条期利率维持高位，配置高等级债券可锁定票息，在经济下行时提供稳定现金流",
+  "etfs": [
+    {
+      "code": "511010",
+      "name": "国泰上证5年期国债ETF",
+      "index_code": "H11006",
+      "index_name": "上证5年期国债指数",
+      "manager": "国泰基金",
+      "inception_date": "2013-03-05",
+      "scale": 45.0,
+      "fee": 0.30,
+      "url": "https://www.gtja.com"
+    },
+    {
+      "code": "159650",
+      "name": "鹏扬中债-政策性金融债ETF",
+      "index_code": "CBA04501",
+      "index_name": "中债-中高等级政策性金融债指数",
+      "manager": "鹏扬基金",
+      "inception_date": "2022-06-28",
+      "scale": 25.0,
+      "fee": 0.30,
+      "url": "https://www.pyamc.com.cn"
+    },
+    {
+      "code": "511260",
+      "name": "国泰上证10年期国债ETF",
+      "index_code": "H11077",
+      "index_name": "上证10年期国债指数",
+      "manager": "国泰基金",
+      "inception_date": "2017-08-04",
+      "scale": 30.0,
+      "fee": 0.30,
+      "url": "https://www.gtja.com"
+    }
+  ],
+  "notes": "国债ETF挂钩国债指数，成分为国债而非股票。适合作为无风险利率配置，为组合提供稳定票息收益。",
+  "last_updated": "2026-04-23",
+  "update_frequency": "季度"
+}

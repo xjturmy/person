@@ -1,0 +1,45 @@
+{
+  "theme": "红利低波",
+  "description": "红利低波ETF，防御层权益核心配置。精选高股息+低波动股票，稳定现金流+低估值+抗通胀",
+  "framework_role": "防御层-防御权益",
+  "target_allocation": "15-20%",
+  "cycle_logic": "萧条期优先配置高股息、低估值、现金流稳定的标的。红利低波策略在震荡市与熊市超额收益显著",
+  "etfs": [
+    {
+      "code": "512590",
+      "name": "华泰柏瑞红利低波动ETF",
+      "index_code": "H30269",
+      "index_name": "中证红利低波动指数",
+      "manager": "华泰柏瑞基金",
+      "inception_date": "2018-12-04",
+      "scale": 55.0,
+      "fee": 0.50,
+      "url": "https://www.hftfund.com"
+    },
+    {
+      "code": "515450",
+      "name": "华泰柏瑞中证红利低波动ETF",
+      "index_code": "H30269",
+      "index_name": "中证红利低波动指数",
+      "manager": "华泰柏瑞基金",
+      "inception_date": "2020-07-08",
+      "scale": 42.0,
+      "fee": 0.50,
+      "url": "https://www.hftfund.com"
+    },
+    {
+      "code": "563020",
+      "name": "华泰柏瑞红利低波ETF",
+      "index_code": "H30269",
+      "index_name": "中证红利低波动指数",
+      "manager": "华泰柏瑞基金",
+      "inception_date": "2023-05-12",
+      "scale": 28.0,
+      "fee": 0.50,
+      "url": "https://www.hftfund.com"
+    }
+  ],
+  "notes": "红利低波指数精选股息率高+波动率低的50只股票，集中在银行、煤炭、钢铁等高股息行业。估值防御性强，适合萧条期配置。",
+  "last_updated": "2026-04-23",
+  "update_frequency": "季度"
+}

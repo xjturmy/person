@@ -1,0 +1,94 @@
+# Buffett 分类自适应评分 — 三类 × 5 维 × 阈值表
+#
+# 与 Lynch classifier 同口径:每维 0-100,加权综合 0-100。
+# 阈值表抽出来便于日后微调,不写死在代码里。
+#
+# 三类:
+#   compounder       — 复利稳健型(茅台/伊利/美的位):ROE 长期≥15% + CAGR 5-20%
+#   cyclical_value   — 周期价值型(中车/三美位):波动大但 ROIC 长期为正
+#   quality_growth   — 高质量成长型(宁王/比亚迪/中际旭创位):CAGR ≥20% + FCF 转正
+#
+# 5 维:moat_quality / compounding / capital_allocation / financial_safety / valuation
+# ───────────────────────────────────────────────────────────────────
+
+version: 1
+master: buffett
+score_range: [0, 100]
+rating_thresholds:
+  excellent: 75
+  good:      60
+  warning:   45
+
+classification:
+  compounder:
+    name_cn: 复利稳健型
+    emoji: 🏰
+    desc: 高 ROE 长期可持续、增长温和、护城河深 — 巴菲特最爱的"喜诗糖果型"
+    triggers:
+      roe_min: 0.15
+      rev_cagr_range: [0.05, 0.20]
+  cyclical_value:
+    name_cn: 周期价值型
+    emoji: 🔄
+    desc: 营收波动大但长期 ROIC 为正 — 巴菲特对周期股的少数布点(BNSF/IBM 型)
+    triggers:
+      rev_volatility: ">0.20"
+      roe_min: 0.08
+  quality_growth:
+    name_cn: 高质量成长型
+    emoji: 🚀
+    desc: 高速扩张但 FCF 已转正且 ROE 仍高 — 后期苹果型(资本性扩张转向 FCF)
+    triggers:
+      rev_cagr_min: 0.20
+      fcf_positive: true
+
+dim_schema:
+  # ─── 维度 1:护城河质量(ROE 长期均值 + 毛利稳定性)
+  moat_quality:
+    label: 护城河质量
+    weight: 0.25
+    formula_hint: ROE 长期均值 + 毛利稳定性
+    type_calibration:
+      compounder:      { roe_full: 0.18, roe_zero: 0.05 }    # ROE 18%+ 满分 / 5% 0 分
+      cyclical_value:  { roe_full: 0.12, roe_zero: 0.02 }    # 周期型放宽
+      quality_growth:  { roe_full: 0.18, roe_zero: 0.05 }
+
+  # ─── 维度 2:复利能力(FCF CAGR + 留存回报)
+  compounding:
+    label: 复利能力
+    weight: 0.25
+    formula_hint: FCF 10y CAGR(无则营收 CAGR)+ 净利增速兜底
+    type_calibration:
+      compounder:      { cagr_full: 0.10, cagr_zero: -0.05 }
+      cyclical_value:  { cagr_full: 0.08, cagr_zero: -0.10 }   # 周期型起伏大,放宽
+      quality_growth:  { cagr_full: 0.20, cagr_zero: 0.00 }    # 成长型门槛拉高
+
+  # ─── 维度 3:资本配置(ROIC 代理 + FCF / 净利润)
+  capital_allocation:
+    label: 资本配置
+    weight: 0.20
+    formula_hint: 用 CFO/NI 作 FCF 转化代理;高 ROE 公司加分
+    type_calibration:
+      compounder:      { cfo_ni_full: 1.0, cfo_ni_zero: 0.3 }
+      cyclical_value:  { cfo_ni_full: 0.8, cfo_ni_zero: 0.0 }
+      quality_growth:  { cfo_ni_full: 0.8, cfo_ni_zero: 0.0 }
+
+  # ─── 维度 4:财务安全(负债率)
+  financial_safety:
+    label: 财务安全
+    weight: 0.15
+    formula_hint: 资产负债率反向 + 流动比率加分(若有)
+    type_calibration:
+      compounder:      { debt_safe: 0.40, debt_danger: 0.70 }
+      cyclical_value:  { debt_safe: 0.50, debt_danger: 0.75 }   # 周期型放宽
+      quality_growth:  { debt_safe: 0.40, debt_danger: 0.65 }   # 成长型铁律收紧
+
+  # ─── 维度 5:估值合理性(PE 分位 + PE×PB 复合)
+  valuation:
+    label: 估值合理性
+    weight: 0.15
+    formula_hint: PE 10y 分位反向(分位越低分越高)+ PE×PB ≤ 22.5 加分
+    type_calibration:
+      compounder:      { pe_pct_target: 0.30 }   # 30% 分位下满分
+      cyclical_value:  { pe_pct_target: 0.20 }   # 周期股严苛,低位才买
+      quality_growth:  { pe_pct_target: 0.50 }   # 成长股允许偏高

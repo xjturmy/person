@@ -1,0 +1,42 @@
+stock,name,category,industry,industry_l2,lynch_class,tier,kondratieff,note,in_archive
+300760,迈瑞医疗,non_financial,医药生物,化学制药,fast_grower,A,第六次康波生物科技,国产医疗器械龙头,no
+002460,赣锋锂业,non_financial,电力设备,电池,fast_grower,A,第六次康波能源革命,锂资源+电池一体化,no
+300014,亿纬锂能,non_financial,电力设备,电池,fast_grower,A,第六次康波能源革命,储能+动力双轮,no
+002241,歌尔股份,non_financial,电子,消费电子,fast_grower,A,旧动能/AI 端侧硬件复用,声学/VR 代工龙头,no
+000063,中兴通讯,non_financial,通信,通信设备,fast_grower,A,第六次康波 AI 算力基建,5G 主设备国产双龙头,no
+300502,新易盛,non_financial,通信,通信设备,fast_grower,A,第六次康波 AI 算力基建,800G 光模块龙头,no
+000651,格力电器,non_financial,家用电器,白色家电,stalwart,A,萧条期稳定现金流,空调双雄,no
+600690,海尔智家,non_financial,家用电器,白色家电,stalwart,A,萧条期稳定现金流,全球白电份额第一,no
+000568,泸州老窖,non_financial,食品饮料,白酒,stalwart,A,萧条期防御核心,浓香老三,no
+600809,山西汾酒,non_financial,食品饮料,白酒,stalwart,A,萧条期防御核心,"清香龙头,全国化扩张",no
+603288,海天味业,non_financial,食品饮料,饮料乳品,stalwart,A,萧条期防御消费核心,调味品龙头,no
+000625,长安汽车,non_financial,汽车,乘用车,cyclical,A,萧条期回避/复苏期反转,新能源+自主品牌转型,no
+601127,赛力斯,non_financial,汽车,乘用车,cyclical,A,萧条期回避/复苏期反转,华为合作问界系列,no
+000001,平安银行,bank,银行,股份制银行,bank,A,萧条期防御金融核心,"零售转型,平安系",no
+600000,浦发银行,bank,银行,股份制银行,bank,A,萧条期防御金融核心,上海系股份行,no
+601166,兴业银行,bank,银行,股份制银行,bank,A,萧条期防御金融核心,"同业之王,绿色金融",no
+601318,中国平安,insurance,非银金融,保险,insurance,A,萧条期防御金融,综合金融龙头,no
+601601,中国太保,insurance,非银金融,保险,insurance,A,萧条期防御金融,寿险+财险双轨,no
+601628,中国人寿,insurance,非银金融,保险,insurance,A,萧条期防御金融,寿险绝对龙头,no
+603259,药明康德,non_financial,医药生物,医疗服务,fast_grower,B,第六次康波生物科技,CXO 全球第二,no
+300015,爱尔眼科,non_financial,医药生物,医疗服务,fast_grower,B,消费医疗扩张,眼科连锁龙头,no
+000661,长春高新,non_financial,医药生物,生物制品,fast_grower,B,第六次康波生物科技,重组生长激素龙头,no
+601012,隆基绿能,non_financial,电力设备,光伏设备,fast_grower,B,第六次康波能源革命,单晶硅片+组件双龙头,no
+300274,阳光电源,non_financial,电力设备,光伏设备,fast_grower,B,第六次康波能源革命,光伏逆变器+储能全球前三,no
+300124,汇川技术,non_financial,电力设备,工业自动化,fast_grower,B,第六次康波智能制造,工控变频龙头,no
+002371,北方华创,non_financial,电子,半导体设备,fast_grower,B,第六次康波 AI 算力基建,刻蚀/PVD 设备龙头,no
+002415,海康威视,non_financial,电子,安防设备,fast_grower,B,旧动能/AI 视觉复用,安防+物联网+AI 视觉龙头,no
+688981,中芯国际,non_financial,电子,集成电路,fast_grower,B,第六次康波 AI 算力基建,大陆晶圆代工龙头,no
+603501,韦尔股份,non_financial,电子,集成电路,fast_grower,B,第六次康波 AI 算力基建,CIS 全球第二,no
+002230,科大讯飞,non_financial,计算机,软件开发,fast_grower,B,第六次康波 AI 应用,语音 AI+大模型本土龙头,no
+600660,福耀玻璃,non_financial,汽车,汽车零部件,stalwart,B,萧条期稳定现金流,汽车玻璃全球龙头,no
+600309,万华化学,non_financial,基础化工,化学制品,cyclical,B,萧条期回避/复苏期反转,MDI 全球第一,no
+600031,三一重工,non_financial,机械设备,工程机械,cyclical,B,复苏期受益基建,"工程机械龙头,海外+电动化",no
+601088,中国神华,non_financial,煤炭,煤炭开采,cyclical,B,萧条期防御高股息,煤电一体化,no
+601398,工商银行,bank,银行,国有大型银行,bank,B,萧条期防御金融核心,"宇宙行,高股息",no
+601899,紫金矿业,non_financial,有色金属,工业金属/黄金,cyclical,C,复苏期商品反转 + 黄金链,铜+金+锂多金属龙头,no
+603993,洛阳钼业,non_financial,有色金属,工业金属,cyclical,C,复苏期商品反转,"铜+钴+钼,全球矿业新势力",no
+600585,海螺水泥,non_financial,建筑材料,水泥,cyclical,C,复苏期基建链先行,"水泥龙头,PB<1 深度价值",no
+000425,徐工机械,non_financial,机械设备,工程机械,cyclical,C,复苏期受益基建,"起重机/挖机龙头,与三一互补",no
+601919,中远海控,non_financial,交通运输,航运港口,cyclical,C,复苏期全球贸易反转,集运全球前三 + 红海地缘溢价,no
+600030,中信证券,non_financial,非银金融,证券,cyclical,C,牛市早周期,"券商一哥,行情温度计",no

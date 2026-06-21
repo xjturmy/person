@@ -1,0 +1,109 @@
+entries:
+- ticker: 002097
+  name: 蜜雪集团
+  added_at: '2026-05-06'
+  preset: 🌱 林奇六类分析
+  score: 84.0
+  rating: null
+  status: closed
+  notes: ''
+  source_industry: unknown
+- ticker: '300750'
+  name: 宁德时代
+  added_at: '2026-05-06'
+  preset: 🌱 林奇六类分析
+  score: 78.0
+  rating: null
+  status: pending
+  notes: ''
+  source_industry: unknown
+- ticker: '601336'
+  name: 新华保险
+  added_at: '2026-06-11'
+  preset: 🌱 林奇六类分析
+  score: 96.5
+  rating: 🟢 优秀
+  status: closed
+  notes: ''
+  source_industry: unknown
+- ticker: '603259'
+  name: 药明康德
+  added_at: '2026-06-11'
+  preset: 🌱 林奇六类分析
+  score: 87.2
+  rating: 🟢 优秀
+  status: pending
+  notes: ''
+  source_industry: unknown
+- ticker: '300274'
+  name: 阳光电源
+  added_at: '2026-06-11'
+  preset: 🌱 林奇六类分析
+  score: 79.1
+  rating: 🟢 优秀
+  status: pending
+  notes: ''
+  source_industry: unknown
+- ticker: '002415'
+  name: 海康威视
+  added_at: '2026-06-11'
+  preset: 🌱 林奇六类分析
+  score: 77.2
+  rating: 🟢 优秀
+  status: pending
+  notes: ''
+  source_industry: unknown
+- ticker: '000333'
+  name: 美的集团
+  added_at: '2026-06-11'
+  preset: 🌱 林奇六类分析
+  score: 75.6
+  rating: 🟢 优秀
+  status: closed
+  notes: ''
+  source_industry: unknown
+- ticker: '603379'
+  name: 三美股份
+  added_at: '2026-06-11'
+  preset: 🌱 林奇六类分析
+  score: 71.1
+  rating: 🟡 合格
+  status: pending
+  notes: ''
+  source_industry: unknown
+- ticker: '002475'
+  name: 立讯精密
+  added_at: '2026-06-11'
+  preset: 🌱 林奇六类分析
+  score: 60.0
+  rating: 🟡 合格
+  status: closed
+  notes: ''
+  source_industry: unknown
+- ticker: '515030'
+  name: 新能源车ETF
+  added_at: '2026-06-19'
+  preset: 行业预选·乘用车·ETF
+  score: null
+  rating: null
+  status: pending
+  notes: ''
+  source_industry: 乘用车
+- ticker: '512480'
+  name: 半导体ETF
+  added_at: '2026-06-19'
+  preset: 行业预选·消费电子·ETF
+  score: null
+  rating: null
+  status: pending
+  notes: ''
+  source_industry: 消费电子
+- ticker: '159995'
+  name: 芯片ETF
+  added_at: '2026-06-19'
+  preset: 行业预选·消费电子·ETF
+  score: null
+  rating: null
+  status: pending
+  notes: ''
+  source_industry: 消费电子

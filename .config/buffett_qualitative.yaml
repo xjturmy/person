@@ -1,0 +1,26 @@
+# 巴菲特护城河主观打分模板
+# 由用户手填,通过 buffett_extras.save_qualitative_score 写入
+# buffett_extras.load_qualitative_score 读取
+#
+# 每个维度 0-2 分:
+#   2 = 极强  /  1 = 中等  /  0 = 不具备
+# 总分 = 5 项之和 (0-10)
+#
+# 维度说明:
+#   brand:              品牌 — 可口可乐/茅台=2; 区域品牌=1; 无=0
+#   switching_cost:     转换成本 — 操作系统/银行核心=2; 中等粘性=1; 易切换=0
+#   network_effect:     网络效应 — 微信/Visa=2; 局部网络=1; 无=0
+#   economies_of_scale: 规模经济 — Costco/沃尔玛=2; 中等=1; 不显著=0
+#   intangible_assets:  无形资产 — 专利/牌照独占=2; 有但非独占=1; 无=0
+
+companies:
+  # 模板示例 — 请参照格式手动录入,录入后删除此注释
+  # "600519":
+  #   scores:
+  #     brand: 2
+  #     switching_cost: 1
+  #     network_effect: 0
+  #     economies_of_scale: 2
+  #     intangible_assets: 2
+  #   updated_at: "2026-05-10"
+  #   notes: "茅台品牌+地理标志无可替代,规模壁垒强"

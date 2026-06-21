@@ -1,0 +1,165 @@
+master: piotroski_insurance
+master_cn: 约瑟夫·皮奥特罗斯基（保险业适配版）
+method: F-Score 9 项财务体检（保险业）
+score_type: binary
+max_score: 9
+description: |
+  Piotroski F-Score 保险业适配版 — 保险公司因浮存金、内含价值、
+  综合成本率等行业特殊性，原版 F-Score 完全不适用。
+  本版本将 6 项替换为保险业核心指标：
+  内含价值增长(EV)、新业务价值(NBV)、综合成本率(财险)、
+  偿付能力充足率(C-ROSS II)、退保率、投资收益率。
+
+  适用：A 股上市保险（新华保险 / 中国平安 / 中国人寿 等）
+
+apply_to_industries:
+  - 保险
+  - 寿险
+  - 财险
+
+threshold:
+  excellent: 8
+  good: 6
+  warning: 4
+
+rules:
+  # ===== 维度 A：核心价值增长（4 分）寿险特有 =====
+  - id: f1_ev_positive_growth
+    name: 内含价值(EV) 增长
+    formula: yoy(embedded_value) > 0
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: value
+    data_source: 保险年报"内含价值附录"
+    notes: |
+      内含价值 = 调整后净资产 + 有效业务价值
+      寿险核心估值锚（PEV 估值就是基于此）
+      替代原版"ROA 为正"
+
+  - id: f2_nbv_positive
+    name: 新业务价值(NBV) 为正
+    formula: nbv > 0
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: value
+    data_source: 保险年报
+    notes: |
+      新单业务的未来利润现值；
+      新业务断崖代表增长熄火；
+      替代原版"CFO 为正"
+
+  - id: f3_nbv_growth
+    name: 新业务价值同比改善
+    formula: yoy(nbv) > 0
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: value
+
+  - id: f4_investment_return_above_threshold
+    name: 总投资收益率 ≥ 4%
+    formula: total_investment_return >= 0.04
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: value
+    data_source: 保险年报"投资业务"附录
+    notes: |
+      4% 来自寿险精算假设的长期投资回报率；
+      替代原版"应计质量"
+
+  # ===== 维度 B：偿付能力 / 风险（3 分）替换 =====
+  - id: f5_solvency_ratio_strong
+    name: 综合偿付能力充足率 ≥ 150% 或同比改善
+    formula: solvency_ratio >= 1.5 OR yoy(solvency_ratio) > 0
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: solvency
+    data_source: 保险年报"偿付能力监管"附录
+    notes: |
+      监管底线 100%；优秀公司 ≥ 200%
+      C-ROSS II（偿二代二期）下要求趋严
+      替代原版"长期负债率下降"
+
+  - id: f6_surrender_rate_low
+    name: 退保率 ≤ 行业均值（控制在合理范围）
+    formula: surrender_rate <= 0.05                # A 股寿险行业均值 ≈ 3-5%
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: solvency
+    data_source: 保险年报
+    notes: |
+      退保率高 → 销售误导/客户不满意/产品不竞争
+      替代原版"流动比率改善"
+
+  - id: f7_no_dilution
+    name: 无股本稀释
+    formula: shares_outstanding(t) <= shares_outstanding(t-1)
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: solvency
+    notes: 保留原版
+
+  # ===== 维度 C：业务效率（2 分）替换 =====
+  - id: f8_combined_ratio_or_value_rate
+    name: 综合成本率 < 100%（财险）或 NBV 利润率改善（寿险）
+    formula: |
+      (combined_ratio < 1.0 AND insurance_type == 'P&C')
+      OR (yoy(nbv_margin) > 0 AND insurance_type == 'Life')
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: efficiency
+    data_source: 保险年报
+    notes: |
+      财险：综合成本率 = 赔付率 + 费用率，< 100% 才能承保盈利
+      寿险：NBV 利润率 = NBV / 新单保费，体现产品结构优化
+      替代原版"毛利率扩张"
+
+  - id: f9_persistency_rate_high
+    name: 13/25 月保单继续率 ≥ 85%
+    formula: persistency_13m >= 0.85 AND persistency_25m >= 0.85
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    dimension: efficiency
+    data_source: 保险年报"保单继续率"附录
+    notes: |
+      继续率 = 客户对产品的"投票"
+      高继续率 → 客户黏性强 + 销售质量高
+      替代原版"资产周转率改善"
+
+# A 股保险适配性
+expected_a_share_fit:
+  - 01_新华保险: 5-7    # 寿险，估值偏低，EV 增长稳定但 NBV 受新单影响
+
+# 数据来源备注（保险年报特殊性）
+data_source_notes:
+  embedded_value: 内含价值（EV）— 寿险特有，年报"内含价值"附录单独披露
+  nbv: 新业务价值（NBV）— 同上附录
+  solvency_ratio: 综合偿付能力充足率，按 C-ROSS II 计算
+  combined_ratio: 综合成本率（仅财险），= 赔付率 + 费用率
+  surrender_rate: 退保率，财报附注
+  persistency_13m: 13 个月保单继续率（寿险特有，年报客户经营章节）
+  total_investment_return: 总投资收益率（已实现+未实现）
+  reference: 保险公司年报附录极为关键，比利润表更重要
+
+# A 股保险特殊事项
+warnings:
+  - id: 投资端波动
+    msg: |
+      新会计准则（IFRS 17 / IFRS 9 实施后）保险利润表波动加大，
+      建议看 "营运利润"（剔除短期投资波动）而非净利润
+  - id: EV 假设敏感
+    msg: |
+      内含价值对长期投资回报率假设极敏感（5% vs 4.5% 影响 EV 10%+），
+      要看年报附录中的"敏感性测试"
+
+knowledge_reference:
+  - ../../01_knowledge/03_投资策略与选股/07_量化体检法.md
+  - ../../02_companies/01_新华保险/

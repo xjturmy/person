@@ -1,0 +1,320 @@
+# industry_etf_mapping.yaml — 康波周期 × 行业 → ETF 推荐映射(D3)
+# 生成日期: 2026-05-10
+# 数据源: 03_macro/01_ETF分析工具/康波周期ETF配置汇总.md
+# 任务包: v2.5 行业分析与聚焦 / 01_knowledge
+#
+# 当前周期定位: 第五次康波萧条期中后段 (2026)
+# 配置原则: 防御层 65-75% + 进攻层 25-35%
+#
+# layer 字段: defensive(防御) / offensive(进攻) / auxiliary(辅助过渡)
+# theme 字段: 主题 / 龙头 / 红利
+# 注: 部分康波文档列出的 ETF 可能不在 etf.duckdb 实有 35 只内,标 # not_in_etf_db 注释,
+#     E3 ETF 推荐引擎遇到该标记会优先用 industry_master.yaml 的 etf_codes 兜底。
+
+current_phase: 萧条期中后段
+target_allocation:
+  defensive: [65, 75]              # 防御层 65-75%
+  offensive: [25, 35]              # 进攻层 25-35%
+  auxiliary: [0, 5]                # 辅助过渡 0-5%
+
+mapping:
+
+  # ========== 防御层(65-75%) ==========
+
+  - industry: 黄金
+    layer: defensive
+    target_pct: [15, 20]
+    recommended_etfs:
+      - code: "518880"             # 华安黄金 ETF — 主力,落 gold.duckdb,不在 etf.duckdb
+        name: 华安黄金ETF
+        theme: 主题
+        rationale: 规模最大流动性最好,跟踪上海金 AU99.99
+        # not_in_etf_db: True(在 gold.duckdb 单独管理)
+      - code: "159937"
+        name: 博时黄金ETF
+        theme: 主题
+        rationale: 深交所黄金 ETF 备选
+        # not_in_etf_db: True(在 gold.duckdb 单独管理)
+    framework_logic: 对冲信用货币贬值 + 地缘风险,萧条期核心硬通货
+
+  - industry: 国债
+    layer: defensive
+    target_pct: [10, 15]
+    recommended_etfs:
+      - code: "511010"
+        name: 上证5年国债ETF
+        theme: 主题
+        rationale: 锁定票息 + 高利率受益,萧条期降息行情
+        # not_in_etf_db: True(35 ETF 池暂无,需后续补抓)
+    framework_logic: 流动性储备 + 久期收益,降息周期资本利得
+
+  - industry: 红利低波
+    layer: defensive
+    target_pct: [15, 20]
+    recommended_etfs:
+      - code: "512590"
+        name: 华泰柏瑞红利低波
+        theme: 红利
+        rationale: 防御权益核心,大型国企集中(工行/中行/建行/中石油)
+        # not_in_etf_db: True(35 ETF 池暂无,需后续补抓)
+    framework_logic: 高股息 + 低波动,萧条期权益替代,PE ~12 低估
+
+  - industry: 白酒
+    layer: defensive
+    target_pct: [10, 15]
+    recommended_etfs:
+      - code: "512690"
+        name: 酒ETF
+        theme: 主题
+        rationale: 白酒大消费综合曝光,茅台/五粮液权重高
+      - code: "159843"
+        name: 食品饮料ETF
+        theme: 主题
+        rationale: 白酒 + 调味品 + 乳品综合,行业分散
+      - code: "159736"
+        name: 主要消费ETF
+        theme: 主题
+        rationale: 必选消费宽口径防御
+    framework_logic: 稳定现金流 + 抗通胀 + 高 ROE,中国特色防御核心
+
+  - industry: 饮料乳品
+    layer: defensive
+    target_pct: [5, 10]
+    recommended_etfs:
+      - code: "159865"
+        name: 食品ETF
+        theme: 主题
+        rationale: 食品饮料宽口径,伊利/蒙牛权重
+      - code: "515170"
+        name: 食品饮料ETF
+        theme: 主题
+        rationale: 食饮综合,白酒/乳品/调味品三大方向
+    framework_logic: 必需消费 + 双寡头格局 + 稳定股息
+
+  - industry: 白色家电
+    layer: defensive
+    target_pct: [5, 10]
+    recommended_etfs:
+      - code: "159996"
+        name: 家电ETF
+        theme: 主题
+        rationale: 白电三巨头权重(美的/格力/海尔)
+      - code: "159958"
+        name: 家用电器ETF
+        theme: 主题
+        rationale: 家电全产业链,黑电/小家电分散
+      - code: "159928"
+        name: 中证消费ETF
+        theme: 主题
+        rationale: 大消费宽口径,家电+食饮综合
+    framework_logic: 高股息 + 海外营收占比 40%+ + 以旧换新政策托底
+
+  - industry: 股份制银行
+    layer: defensive
+    target_pct: [10, 15]
+    recommended_etfs:
+      - code: "512800"
+        name: 银行ETF华宝
+        theme: 主题
+        rationale: 银行宽口径,股份行权重高
+      - code: "512820"
+        name: 银行ETF华夏
+        theme: 主题
+        rationale: 银行 ETF 备选,流动性较好
+      - code: "515020"
+        name: 银行ETF华润
+        theme: 主题
+        rationale: 银行 ETF 第三选择
+    framework_logic: 高股息(5%+)+ 低 PB 安全垫 + 政策稳金融
+
+  - industry: 保险
+    layer: defensive
+    target_pct: [3, 8]
+    recommended_etfs:
+      - code: "512070"
+        name: 非银ETF
+        theme: 主题
+        rationale: 保险 + 券商综合,平安/国寿权重
+      - code: "510230"
+        name: 金融ETF
+        theme: 主题
+        rationale: 大金融综合(银行 + 保险 + 券商)
+      - code: "512000"
+        name: 券商ETF
+        theme: 主题
+        rationale: 券商弹性更高,牛市进攻属性
+    framework_logic: 长端利率底部 + 代理人改革 + 估值修复机会
+
+  # ========== 进攻层(25-35%) ==========
+
+  - industry: 通信设备
+    layer: offensive
+    target_pct: [3, 5]
+    recommended_etfs:
+      - code: "515880"
+        name: 通信ETF
+        theme: 主题
+        rationale: 通信设备宽口径,中际旭创/光迅/新易盛权重
+      - code: "159611"
+        name: 电信主题ETF
+        theme: 主题
+        rationale: 电信运营商 + 通信设备综合
+      - code: "159766"
+        name: 通信ETF华夏
+        theme: 主题
+        rationale: 通信 ETF 备选
+    framework_logic: 第六次康波 AI 算力基础设施 + 海外资本开支拉动光模块
+
+  - industry: 半导体
+    layer: offensive
+    target_pct: [3, 5]
+    recommended_etfs:
+      - code: "159995"
+        name: 芯片ETF
+        theme: 主题
+        rationale: A 股半导体宽口径,设计/制造/封测综合
+      - code: "512480"
+        name: 半导体ETF
+        theme: 主题
+        rationale: 半导体宽口径备选
+      - code: "515260"
+        name: 电子ETF
+        theme: 主题
+        rationale: 大电子综合,半导体 + 消费电子
+    framework_logic: 第六次康波核心驱动力 + 国产替代深化,估值偏高需小仓位分批
+
+  - industry: AI云计算
+    layer: offensive
+    target_pct: [2, 3]
+    recommended_etfs:
+      - code: "516510"
+        name: 华夏云计算ETF
+        theme: 主题
+        rationale: 云计算 + SaaS,AI 商业化基础设施
+        # not_in_etf_db: True(35 ETF 池暂无)
+    framework_logic: AI 商业化基础设施,PE 偏高需谨慎
+
+  - industry: 全球AI
+    layer: offensive
+    target_pct: [3, 5]
+    recommended_etfs:
+      - code: "513100"
+        name: 纳指ETF
+        theme: 主题
+        rationale: 全球 AI 龙头(微软/英伟达/Meta/谷歌)集中
+        # not_in_etf_db: True(35 ETF 池暂无,可走港股 ETF 替代)
+      - code: "513180"
+        name: 恒生科技ETF
+        theme: 主题
+        rationale: 中国 AI/互联网龙头(腾讯/阿里/美团/小米)
+    framework_logic: 全球 AI 浪潮 exposure,纳指为最佳代理
+
+  - industry: 新能源车
+    layer: offensive
+    target_pct: [3, 5]
+    recommended_etfs:
+      - code: "515030"
+        name: 新能源车ETF
+        theme: 主题
+        rationale: 新能源车产业链,比亚迪/宁德权重
+      - code: "159806"
+        name: 新能车ETF
+        theme: 主题
+        rationale: 新能源车 ETF 备选
+      - code: "159783"
+        name: 新能源汽车ETF
+        theme: 主题
+        rationale: 新能源车产业链第三选择
+    framework_logic: 渗透率持续提升,价格战下半场龙头集中度提升
+
+  - industry: 电池
+    layer: offensive
+    target_pct: [3, 5]
+    recommended_etfs:
+      - code: "159755"
+        name: 电池ETF
+        theme: 主题
+        rationale: 动力电池 + 储能综合,宁德/比亚迪权重
+      - code: "516390"
+        name: 新能源ETF
+        theme: 主题
+        rationale: 新能源大宽口径(电池+光伏+风电)
+    framework_logic: 储能 + 海外市场 + 龙头份额优势,产能过剩压制中小厂
+
+  - industry: 光伏
+    layer: offensive
+    target_pct: [2, 3]
+    recommended_etfs:
+      - code: "159857"
+        name: 光伏ETF
+        theme: 主题
+        rationale: 光伏全产业链,过渡期结构性机会
+        # not_in_etf_db: True(35 ETF 池暂无)
+    framework_logic: 过渡期结构性机会,产业链价格底部
+
+  - industry: 化学制药
+    layer: offensive
+    target_pct: [3, 5]
+    recommended_etfs:
+      - code: "159929"
+        name: 医药ETF
+        theme: 主题
+        rationale: 医药生物宽口径,化药/生物药/中药综合
+      - code: "159992"
+        name: 创新药ETF
+        theme: 龙头
+        rationale: 创新药纯曝光,出海+License-out 受益
+      - code: "512170"
+        name: 医疗ETF
+        theme: 主题
+        rationale: 医疗服务+器械+耗材综合
+    framework_logic: 第六次康波生物科技方向,创新药出海打开天花板
+
+  - industry: 生物科技
+    layer: offensive
+    target_pct: [2, 3]
+    recommended_etfs:
+      - code: "159892"
+        name: 生物科技ETF
+        theme: 主题
+        rationale: 生物药/CXO/疫苗早期布局
+        # not_in_etf_db: True(35 ETF 池暂无)
+    framework_logic: 第六次康波方向之一,早期布局 3-5%
+
+  # ========== 辅助层(0-5%) ==========
+
+  - industry: 化学制品
+    layer: auxiliary
+    target_pct: [0, 5]
+    recommended_etfs:
+      - code: "159870"
+        name: 化工ETF
+        theme: 主题
+        rationale: 基础化工综合,周期品种
+      - code: "516020"
+        name: 化工50ETF
+        theme: 主题
+        rationale: 化工 50 龙头集中
+      - code: "516220"
+        name: 化工龙头ETF
+        theme: 龙头
+        rationale: 化工龙头精选
+    framework_logic: 周期品种,萧条期回避 / 复苏期反转,小仓位机会
+
+  - industry: 央企价值
+    layer: auxiliary
+    target_pct: [3, 5]
+    recommended_etfs:
+      - code: "562500"
+        name: 央企共赢ETF
+        theme: 龙头
+        rationale: 央企改革主题,中字头估值修复
+      - code: "159855"
+        name: 央企现代能源ETF
+        theme: 主题
+        rationale: 央企能源央企(中石油/中石化/中海油)
+      - code: "159871"
+        name: 中证1000ETF
+        theme: 主题
+        rationale: 小盘成长宽口径(辅助配置,非央企但池内)
+    framework_logic: 央企改革 + 高股息防御 + 估值低位

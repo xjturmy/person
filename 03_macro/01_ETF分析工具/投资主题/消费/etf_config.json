@@ -1,0 +1,42 @@
+{
+  "theme": "消费",
+  "description": "消费相关主题，涵盖白酒、食品、日用消费、纺服等传统和新兴消费领域",
+  "etfs": [
+    {
+      "code": "159834",
+      "name": "易方达消费精选ETF",
+      "index_code": "399812",
+      "index_name": "消费精选指数",
+      "manager": "易方达基金",
+      "inception_date": "2021-09-09",
+      "scale": 55.0,
+      "fee": 0.15,
+      "url": "https://www.efunds.com.cn"
+    },
+    {
+      "code": "512600",
+      "name": "中证消费龙头指数ETF",
+      "index_code": "399975",
+      "index_name": "中证消费龙头指数",
+      "manager": "招商基金",
+      "inception_date": "2020-06-24",
+      "scale": 48.0,
+      "fee": 0.15,
+      "url": "https://www.cmschina.com"
+    },
+    {
+      "code": "159929",
+      "name": "易方达消费行业ETF",
+      "index_code": "399950",
+      "index_name": "中证消费指数",
+      "manager": "易方达基金",
+      "inception_date": "2019-01-25",
+      "scale": 65.0,
+      "fee": 0.15,
+      "url": "https://www.efunds.com.cn"
+    }
+  ],
+  "notes": "消费是经济增长的重要驱动力。随着居民收入增加和消费升级，优质消费企业长期投资价值突出。涵盖食品饮料、日用消费品、零售等多个细分领域。",
+  "last_updated": "2026-04-23",
+  "update_frequency": "季度"
+}

@@ -1,0 +1,268 @@
+master: buffett
+master_cn: 沃伦·巴菲特
+method: Owner Earnings + 5 项护城河门槛(5 档梯度版 v2.5)
+score_type: composite
+max_score: 10
+description: |
+  巴菲特价值确认法 — 用 Owner Earnings(所有者收益)替代净利润，
+  叠加 5 项护城河门槛(ROE / 负债 / 留存回报 / 回购 / 增长)。
+
+  核心思想:好生意(高 ROE 长期可持续)+ 好价格(OE 视角不贵)+ 好管理(资本配置高效)
+
+  v2.5 升级:
+    - 5 档梯度评分(0/0.5/1/1.5/2 替代 0/2 二值)
+    - oe_simple(简化版 OE = FCF)替代 oe_growth 主路径,verified=True
+    - oe_full 保留完整公式占位,数据齐时升 verified=True
+    - 排除行业不再"一刀切",加 industry_alternatives 段提供替代方案占位
+    - 新增 qualitative_moat 5 项护城河主观打分
+
+threshold:
+  excellent: 8     # 8-10 分:核心持仓
+  good: 6          # 6-7 分:观察池
+  warning: 4       # 4-5 分:谨慎
+  # < 4 分:不在巴菲特视野内
+
+exclude_industries:
+  - 银行           # 用 PB-ROE 表(industry_alternatives 提供替代占位)
+  - 保险           # 用 EV/NBV(P3 阻塞,industry_alternatives 留 hook)
+  - 高研发科技     # R&D 资本化扭曲 OE(industry_alternatives 提供 R&D 还原占位)
+
+# ═══════════════════════════════════════════════════════════════════════
+# rules — 5 项门槛全部 5 档梯度化
+# ═══════════════════════════════════════════════════════════════════════
+# 评分梯度约定(grades):
+#   excellent (满分 2.0)  / good (1.5) / fair (1.0) / weak (0.5) / fail (0)
+#   threshold 字段表示"达到该档所需的最低值"(反向规则用 上限 含义,见 low_leverage)
+#   引擎按 excellent → fail 顺序匹配,首个达标档定档
+# ═══════════════════════════════════════════════════════════════════════
+
+rules:
+  - id: oe_simple
+    name: Owner Earnings(简化版,= 自由现金流量)10 年复合增长
+    formula: cagr(free_cash_flow, 10) >= grade_threshold
+    weight: 2
+    verified: true
+    data_source: cashflow.自由现金流量(理杏仁直接字段)
+    grades:
+      excellent: { threshold: 0.15, score: 2.0 }    # CAGR ≥ 15%
+      good:      { threshold: 0.10, score: 1.5 }    # CAGR ≥ 10%
+      fair:      { threshold: 0.05, score: 1.0 }    # CAGR ≥ 5%
+      weak:      { threshold: 0.0,  score: 0.5 }    # 至少为正
+      fail:      { threshold: -inf, score: 0.0 }
+    notes: |
+      简化口径:Simple OE = CFO - CapEx ≈ 自由现金流量(理杏仁现成字段)
+      数据不足 10 年时回退 5 年 CAGR,阈值不变
+      verified=True(直接用理杏仁 cashflow.自由现金流量)
+
+  - id: oe_full
+    name: Owner Earnings(完整版)10 年复合增长 — 数据齐时启用
+    formula: cagr(net_income + d_a - maint_capex - dwc, 10) >= grade_threshold
+    weight: 0      # 默认权重 0,不参与总分;数据齐时由 extras 升 verified 后切换
+    verified: false
+    data_source: 自计算 (净利润 + 折旧摊销 - 维持性 CapEx - 营运资金变化)
+    grades:
+      excellent: { threshold: 0.15, score: 2.0 }
+      good:      { threshold: 0.10, score: 1.5 }
+      fair:      { threshold: 0.05, score: 1.0 }
+      weak:      { threshold: 0.0,  score: 0.5 }
+      fail:      { threshold: -inf, score: 0.0 }
+    notes: |
+      ⚠️ 占位规则。理杏仁 cashflow 表当前仅 4 个 metric(无独立 D&A / CapEx),
+      完整公式所需「折旧摊销」「资本支出」「营运资金变化」需补抓。
+      数据齐时由 buffett_extras.compute_owner_earnings 计算,升 verified=True
+
+  - id: roe_consistency
+    name: ROE 连续 10 年 ≥ 阈值
+    formula: min(rolling(roe, 10)) >= grade_threshold
+    weight: 2
+    verified: true
+    data_source: profitability.净资产收益率(ROE)
+    grades:
+      excellent: { threshold: 0.20, score: 2.0 }    # 每年 ≥ 20%
+      good:      { threshold: 0.18, score: 1.5 }    # 每年 ≥ 18%
+      fair:      { threshold: 0.15, score: 1.0 }    # 每年 ≥ 15%(原门槛)
+      weak:      { threshold: 0.10, score: 0.5 }    # 每年 ≥ 10%
+      fail:      { threshold: -inf, score: 0.0 }
+    notes: 巴菲特"15% 复合增长"门槛核心;5 档区分 19% 与 16% 的差异
+
+  - id: low_leverage
+    name: 长期负债 / 净利润 倍数(反向规则)
+    formula: long_term_debt / net_income <= grade_threshold
+    weight: 2
+    verified: true
+    data_source: safety.长期负债合计 + growth.归属于母公司普通股股东的净利润
+    direction: reverse    # 反向:数值越小越好,threshold 是上限
+    grades:
+      excellent: { threshold: 0.5, score: 2.0 }     # 净现金/极低杠杆
+      good:      { threshold: 2.0, score: 1.5 }     # ≤ 2 倍
+      fair:      { threshold: 5.0, score: 1.0 }     # ≤ 5 倍(原门槛)
+      weak:      { threshold: 10.0, score: 0.5 }    # ≤ 10 倍
+      fail:      { threshold: inf, score: 0.0 }
+    notes: 巴菲特原话"5 年净利润能还清的债务才是好债务"
+
+  - id: retained_earnings_return
+    name: 留存收益再投资回报
+    formula: (eps_t - eps_{t-10}) / sum(retained_eps[t-9..t-1]) >= grade_threshold
+    weight: 2
+    verified: true
+    data_source: 自计算(growth.基本每股收益 + valuation.股息率 反推派息)
+    grades:
+      excellent: { threshold: 0.18, score: 2.0 }
+      good:      { threshold: 0.15, score: 1.5 }
+      fair:      { threshold: 0.12, score: 1.0 }    # 原门槛
+      weak:      { threshold: 0.08, score: 0.5 }
+      fail:      { threshold: -inf, score: 0.0 }
+    notes: |
+      公式:(EPS 增量) / (留存 EPS 之和) ≥ threshold
+      详细年度分解由 buffett_extras.retained_earnings_breakdown 提供
+
+  - id: capital_allocation
+    name: 资本配置(ROIC + 回购)综合质量
+    formula: weighted(roic, buyback_yield, dividend_growth) >= grade_threshold
+    weight: 2
+    verified: true
+    data_source: profitability.资本回报率(ROIC) + valuation.股息率
+    grades:
+      excellent: { threshold: 0.20, score: 2.0 }    # ROIC ≥ 20% 或回购 ≥ 5%
+      good:      { threshold: 0.15, score: 1.5 }    # ROIC ≥ 15%(原门槛任一条件)
+      fair:      { threshold: 0.12, score: 1.0 }    # ROIC ≥ 12%
+      weak:      { threshold: 0.08, score: 0.5 }    # ROIC ≥ 8% 或稳定派息
+      fail:      { threshold: -inf, score: 0.0 }
+    notes: |
+      综合 ROIC 主轴 + 回购信号(回购 yield 加分)+ 股息增长趋势辅助
+      A 股回购数据稀疏,主要看 ROIC + 股息趋势
+
+# ═══════════════════════════════════════════════════════════════════════
+# industry_alternatives — 排除行业的替代评分占位
+# ═══════════════════════════════════════════════════════════════════════
+# 不改主评分逻辑,只在此声明替代方案与数据 hook
+# 由 buffett_extras.industry_alt_score(ticker, industry_type) 调用
+# 当前全部 verified=False(占位接口,数据齐时升)
+# ═══════════════════════════════════════════════════════════════════════
+
+industry_alternatives:
+  bank:
+    name: 银行 — PB-ROE 法
+    method: ROE / PB ≥ 0.10 视作优质银行
+    formula: profitability.ROE / valuation.PB >= 0.10
+    verified: true
+    data_status: ROE / PB 全 15 家全有,可直接计算
+    grades:
+      excellent: { threshold: 0.15, score: 2.0 }
+      good:      { threshold: 0.12, score: 1.5 }
+      fair:      { threshold: 0.10, score: 1.0 }
+      weak:      { threshold: 0.07, score: 0.5 }
+      fail:      { threshold: -inf, score: 0.0 }
+    notes: |
+      巴菲特对银行的核心评估:股东权益回报率与市净率的比值
+      参考:富国银行 / 美国合众银行(早期持仓)
+
+  insurance:
+    name: 保险 — 内含价值法(EV / NBV)
+    method: P / EV ≤ 1.0 且 NBV 增速 ≥ 10%
+    formula: valuation.market_cap / embedded_value <= 1.0
+    verified: false
+    data_status: |
+      ⚠️ P3 阻塞:理杏仁未提供保险 EV / NBV 字段
+      需从年报手工录入或接 wind / Choice 数据源
+    hook: buffett_extras.industry_alt_score(ticker, "insurance")
+    grades:
+      excellent: { threshold: 1.5, score: 2.0 }     # P/EV ≤ 0.67(深度低估)
+      good:      { threshold: 1.2, score: 1.5 }
+      fair:      { threshold: 1.0, score: 1.0 }
+      weak:      { threshold: 0.8, score: 0.5 }
+      fail:      { threshold: -inf, score: 0.0 }
+    notes: |
+      保险股不能用 PE/PB 直接评估,巴菲特看 GEICO 用浮存金成本 + EV
+      A 股新华保险/中国平安均披露 EV,需补数据源
+
+  high_rd_tech:
+    name: 高研发科技 — R&D 资本化还原后的 OE
+    method: OE_adj = NI + D&A + R&D - maint_capex(R&D 视为长期投资)
+    formula: cagr(net_income + d_a + r_and_d - maint_capex, 10) >= grade_threshold
+    verified: false
+    data_status: |
+      ⚠️ 占位:需从利润表抓「研发费用」字段(理杏仁部分公司有)
+      恒瑞医药 / 中际旭创等高研发企业按当前公式 OE 严重低估
+    hook: buffett_extras.industry_alt_score(ticker, "high_rd_tech")
+    grades:
+      excellent: { threshold: 0.15, score: 2.0 }
+      good:      { threshold: 0.10, score: 1.5 }
+      fair:      { threshold: 0.05, score: 1.0 }
+      weak:      { threshold: 0.0,  score: 0.5 }
+      fail:      { threshold: -inf, score: 0.0 }
+    notes: |
+      巴菲特后期(投 Apple)默许高研发企业,前提是 R&D 还原后 OE 仍优秀
+      参考《巴菲特致股东的信》对 IBM / Apple 的分析
+
+# ═══════════════════════════════════════════════════════════════════════
+# qualitative_moat — 5 项护城河主观打分(用户 checkbox)
+# ═══════════════════════════════════════════════════════════════════════
+# 每项 0-2 分,共 10 分(独立于主 5 项门槛)
+# UI 由 dashboard 后续接入;存储:.config/buffett_qualitative.yaml
+# ═══════════════════════════════════════════════════════════════════════
+
+qualitative_moat:
+  description: |
+    巴菲特定性护城河 5 维度,用户主观判断后逐项打分。
+    与主 5 项财务门槛独立,可作为筛选第二层(排序辅助 / 决策辅助)。
+  storage: .config/buffett_qualitative.yaml
+  io_hook:
+    load: buffett_extras.load_qualitative_score(ticker)
+    save: buffett_extras.save_qualitative_score(ticker, scores)
+
+  dimensions:
+    - id: brand
+      name: 品牌(Brand)
+      max_score: 2
+      anchor: |
+        2 分 = 不可替代品牌(可可乐/茅台);1 分 = 区域强势品牌;0 分 = 无品牌溢价
+      examples: [可口可乐, 茅台, 苹果]
+
+    - id: switching_cost
+      name: 转换成本(Switching Cost)
+      max_score: 2
+      anchor: |
+        2 分 = 客户更换需付出极高代价(操作系统/银行账户);1 分 = 中等粘性;0 分 = 易切换
+      examples: [微软 Office, 招商银行, SAP]
+
+    - id: network_effect
+      name: 网络效应(Network Effect)
+      max_score: 2
+      anchor: |
+        2 分 = 用户越多价值越大(美团/微信);1 分 = 局部网络;0 分 = 无网络效应
+      examples: [Visa/Mastercard, 微信, 携程]
+
+    - id: economies_of_scale
+      name: 规模经济(Economies of Scale)
+      max_score: 2
+      anchor: |
+        2 分 = 规模带来显著成本优势(沃尔玛/比亚迪);1 分 = 中等规模优势;0 分 = 规模不显著
+      examples: [Costco, 比亚迪, 美的集团]
+
+    - id: intangible_assets
+      name: 无形资产(Intangible Assets)
+      max_score: 2
+      anchor: |
+        2 分 = 专利/牌照/特许经营独占(恒瑞专利/茅台地理标志);1 分 = 有但非独占;0 分 = 无
+      examples: [恒瑞医药专利, 茅台地理标志, 三美股份制冷剂配额]
+
+# ═══════════════════════════════════════════════════════════════════════
+# A 股 15 家公司预期分布(基于知识文档评估)— 5 档化后微调
+# ═══════════════════════════════════════════════════════════════════════
+expected_a_share_fit:
+  - 06_贵州茅台:    9-10  # ⭐⭐⭐⭐⭐(品牌+ROE+OE 全满分)
+  - 11_五粮液:      8-9
+  - 07_美的集团:    8-9
+  - 13_伊利股份:    7-8
+  - 03_蜜雪集团:    7-8
+  - 09_三花智控:    6-7
+  - 02_三美股份:    6-7
+  - 12_招商银行:    skip → industry_alternatives.bank(PB-ROE 路径)
+  - 01_新华保险:    skip → industry_alternatives.insurance(P3 阻塞)
+  - 16_宁德时代:    4-6   # 周期成长,OE 失真
+  - 10_比亚迪:      4-6   # 同上
+  - 14_中际旭创:    skip → industry_alternatives.high_rd_tech
+  - 15_恒瑞医药:    skip → industry_alternatives.high_rd_tech
+  - 05_中国中车:    5-6   # 周期股
+  - 08_立讯精密:    5-6

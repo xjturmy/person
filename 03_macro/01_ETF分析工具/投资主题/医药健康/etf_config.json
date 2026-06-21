@@ -1,0 +1,42 @@
+{
+  "theme": "医药健康",
+  "description": "医药健康相关主题，涵盖生物制药、医疗器械、医疗服务等领域",
+  "etfs": [
+    {
+      "code": "159993",
+      "name": "易方达生物科技指数ETF",
+      "index_code": "399764",
+      "index_name": "生物科技指数",
+      "manager": "易方达基金",
+      "inception_date": "2021-06-10",
+      "scale": 35.0,
+      "fee": 0.15,
+      "url": "https://www.efunds.com.cn"
+    },
+    {
+      "code": "513600",
+      "name": "华夏生物科技指数ETF",
+      "index_code": "913000",
+      "index_name": "纳斯达克生物科技指数",
+      "manager": "华夏基金",
+      "inception_date": "2019-11-29",
+      "scale": 28.5,
+      "fee": 0.25,
+      "url": "https://www.huaxiafunds.com"
+    },
+    {
+      "code": "512010",
+      "name": "中证医疗ETF",
+      "index_code": "399989",
+      "index_name": "中证医疗指数",
+      "manager": "招商基金",
+      "inception_date": "2014-12-11",
+      "scale": 42.0,
+      "fee": 0.15,
+      "url": "https://www.cmschina.com"
+    }
+  ],
+  "notes": "医药健康是防守型和成长型兼具的行业，包括药品、医疗器械、医疗服务等多个细分领域。政策和创新是重要驱动因素。",
+  "last_updated": "2026-04-23",
+  "update_frequency": "季度"
+}

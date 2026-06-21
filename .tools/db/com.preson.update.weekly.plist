@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  preson 周末数据更新 LaunchAgent 模板
+
+  安装:
+    cp .tools/db/com.preson.update.weekly.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.preson.update.weekly.plist
+
+  卸载:
+    launchctl unload ~/Library/LaunchAgents/com.preson.update.weekly.plist
+    rm ~/Library/LaunchAgents/com.preson.update.weekly.plist
+
+  手动触发:
+    launchctl start com.preson.update.weekly
+
+  默认调度:每周日 21:00 触发(周一打开数据库已是上周五最新)
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.preson.update.weekly</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/gongyong/Desktop/Keyi/preson/.venv/bin/python</string>
+        <string>/Users/gongyong/Desktop/Keyi/preson/.tools/db/update.py</string>
+        <string>--quiet</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/gongyong/Desktop/Keyi/preson</string>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>0</integer>
+        <key>Hour</key>
+        <integer>21</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/gongyong/Desktop/Keyi/preson/.temp/launchd_stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/gongyong/Desktop/Keyi/preson/.temp/launchd_stderr.log</string>
+</dict>
+</plist>

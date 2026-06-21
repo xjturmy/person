@@ -1,0 +1,390 @@
+master: lynch
+master_cn: 彼得·林奇
+method: GARP（Growth at Reasonable Price）+ 六类公司分类
+score_type: composite
+description: |
+  成长投资法 — 用合理价格买成长股。
+  核心：PEG ≤ 1（高增长不能没有理由）+ 六类公司分类 + 自由现金流校验。
+
+  原则："先定性，后定量"——先判断公司是哪类，再用对应规则评分。
+
+# 六类公司分类（彼得林奇核心框架）
+company_classification:
+  slow_grower:
+    name: 缓慢增长型
+    growth_range: [0, 0.10]                      # 营收 CAGR 0-10%
+    key_indicators:
+      - dividend_yield > 0.04
+      - debt_ratio < 0.50
+    examples_a_share: [12_招商银行]
+    investment_logic: 高股息现金奶牛，不指望股价大涨
+    pe_ceiling: 12
+    peg_logic: not_applicable                    # 缓慢增长不用 PEG
+
+  stalwart:
+    name: 稳健增长型 ⭐ 林奇最爱
+    growth_range: [0.10, 0.20]                   # 营收 CAGR 10-20%
+    key_indicators:
+      - non_recurring_eps_cagr_5y >= 0.12
+      - long_term_roe > 0.15
+      - debt_ratio < 0.50
+    examples_a_share: [06_贵州茅台, 11_五粮液, 13_伊利股份, 07_美的集团]
+    investment_logic: 投资组合压舱石
+    pe_ceiling: 25
+    peg_target: <= 1.0                           # 稳健成长 PEG ≤ 1
+
+  fast_grower:
+    name: 快速增长型 ⭐ 十倍股来源
+    growth_range: [0.20, 0.50]                   # 营收 CAGR 20-50%
+    key_indicators:
+      - revenue_cagr_3y >= 0.25                  # 更优 ≥ 35%
+      - quarterly_revenue_yoy > 0.20             # 连续 8 个季度
+      - market_share < 0.01                      # 还有渗透空间
+      - debt_ratio < 0.40                        # 铁律
+    examples_a_share: [16_宁德时代, 10_比亚迪, 03_蜜雪集团, 14_中际旭创]
+    investment_logic: 寻找十倍股
+    pe_ceiling: 40
+    peg_target: <= 1.5                           # 快速成长 PEG 可放宽
+
+  cyclical:
+    name: 周期型
+    key_indicators:
+      - revenue_volatility > 0.20                # 营收波动大
+      - tied_to_macro_cycle: true
+    examples_a_share: [02_三美股份, 05_中国中车]
+    investment_logic: 低买高卖（PE 高时买入，PE 低时卖出 — 反直觉）
+    pe_logic: inverse                            # 周期股 PE 反向解读
+    peg_logic: not_applicable
+
+  turnaround:
+    name: 困境反转型
+    key_indicators:
+      - earnings_recently_negative_or_low
+      - balance_sheet_improving
+      - new_management_or_strategy
+    examples_a_share: []                          # 当前 15 家无典型困境股
+    investment_logic: 高风险高回报，错杀机会
+    pe_logic: not_applicable_until_turnaround_confirmed
+
+  asset_play:
+    name: 隐蔽资产型
+    key_indicators:
+      - hidden_assets_value > market_cap * 0.3   # 隐蔽资产 > 市值 30%
+      - examples: 土地/品牌/股权/版权
+    examples_a_share: []
+    investment_logic: 资产重估
+    valuation_method: NAV                        # 用净资产价值法
+
+
+# ─────────────────────────────────────────────────────────────────
+# 通用 GARP 评分规则（适用于稳健 + 快速增长型）
+# ─────────────────────────────────────────────────────────────────
+garp_rules:
+  - id: peg_reasonable
+    name: PEG ≤ 1（GARP 核心）
+    formula: pe_ttm / (eps_growth_3y * 100) <= 1
+    weight: 3
+    score_if_pass: 3
+    score_if_fail: 0
+    notes: 林奇核心公式 — 高 PE 必须有高增长支撑
+
+  - id: low_debt
+    name: 低负债（≤ 40%）
+    formula: total_liabilities / total_assets <= 0.40
+    weight: 2
+    score_if_pass: 2
+    score_if_fail: 0
+    data_source: safety
+    notes: 快速增长型铁律，避免增长靠加杠杆
+
+  - id: positive_fcf
+    name: 自由现金流为正
+    formula: fcf > 0
+    weight: 2
+    score_if_pass: 2
+    score_if_fail: 0
+    data_source: cashflow
+    notes: 排除"纸面利润，无现金"的伪成长
+
+  - id: institutional_holdings
+    name: 机构持仓比例 < 60%
+    formula: institutional_holding_ratio < 0.60
+    weight: 0.5                                  # L3: 数据源未校验，权重降至 0.5
+    score_if_pass: 1
+    score_if_fail: 0
+    data_source: lynch_extras.institutional_holding_proxy
+    verified: false                              # L3: AkShare 代理，非官方口径
+    notes: |
+      林奇偏好"被忽视"的股票（机构尚未抢筹）。
+      当前用 AkShare stock_main_fund_flow 代理主力资金流向，
+      非真实机构持股比例；接口失败时返回 None 降级。
+
+  - id: insider_proxy_score
+    name: 内部人净买入代理（股东户数缩减）
+    formula: shareholder_count_ratio_6m_change < -0.03
+    weight: 2
+    score_if_pass: 2
+    score_if_fail: 0
+    data_source: lynch_extras.insider_proxy_score
+    verified: false                              # L2: AkShare 代理，非直接内部人公告
+    notes: |
+      原规则 insider_buying 依赖大股东增减持公告，A 股无标准 API。
+      改用 AkShare stock_zh_a_gdhs（股东户数变动）代理：
+      户数持续收缩（-3% 以上） ≈ 筹码集中 ≈ 内部人 / 聪明资金买入信号。
+      接口失败时返回 None，该项跳过（不计分不扣分）。
+
+  # L4: PEG 曲线规则化 ── 近 5 年 PEG 曲线 < 1.0 占比
+  - id: peg_curve_grade
+    name: PEG 曲线低估占比 ≥ 60%（近 5 年）
+    formula: peg_below_1_ratio_5y >= 0.60
+    weight: 1
+    score_if_pass: 1
+    score_if_fail: 0
+    data_source: lynch_extras.peg_curve_grade
+    notes: |
+      仅看 PEG 单点估易被单期数据干扰。
+      近 5 年 PEG 序列中 < 1.0 天数占比 ≥ 60% = 长期处于合理估值 → 加 1 分。
+      数据源：peg_curve.build_peg_series，DuckDB valuation + growth 表。
+
+  # L5: 季度连续性评分
+  - id: quarterly_continuity_score
+    name: 季度营收增速连续性（8 季 hits_10）
+    formula: hits_10pct_in_8q >= 6
+    weight: 2
+    score_if_pass: 2                             # hits_10 ≥ 7 → 2 分
+    score_if_partial: 1                          # hits_10 = 6 → 1 分
+    score_if_fail: 0
+    data_source: lynch_extras.quarterly_continuity_score
+    notes: |
+      来源 lynch_classifier.quarterly_continuity()。
+      8 季中 hits_10（单季 YoY > 10%）≥ 7 → 2 分；
+      ≥ 6 → 1 分；< 6 → 0 分。
+      适用类型：fast_grower / stalwart；
+      slow_grower / cyclical / turnaround / asset_play 跳过。
+
+
+# ─────────────────────────────────────────────────────────────────
+# L1: 缓慢增长型专属规则
+# ─────────────────────────────────────────────────────────────────
+slow_grower_rules:
+  applies_to: slow_grower
+  max_score: 10
+  description: 高股息 + 低估值现金奶牛评分；PEG 不适用，用股息率 + PE 替代
+
+  rules:
+    - id: sg_dividend_yield
+      name: 高股息率（> 4%）
+      formula: dividend_yield > 0.04
+      weight: 3
+      score_if_pass: 3
+      score_if_fail: 0
+      data_source: valuation
+      notes: 缓慢增长型核心吸引力；股息率 > 4% 是传统定义的"高股息"门槛
+
+    - id: sg_dividend_continuity
+      name: 连续派息 ≥ 5 年
+      formula: consecutive_dividend_years >= 5
+      weight: 2
+      score_if_pass: 2
+      score_if_fail: 0
+      data_source: lynch_extras.dividend_history
+      notes: 林奇："如果公司能连续派息 5 年，说明有真实利润支撑"
+
+    - id: sg_low_debt
+      name: 低负债（< 50%）
+      formula: total_liabilities / total_assets < 0.50
+      weight: 2
+      score_if_pass: 2
+      score_if_fail: 0
+      data_source: safety
+      notes: 缓慢增长型尤其忌高杠杆，一旦增速滑落债务即成威胁
+
+    - id: sg_pe_ceiling
+      name: PE ≤ 12（缓慢增长估值上限）
+      formula: pe_ttm <= 12
+      weight: 3
+      score_if_pass: 3
+      score_if_fail: 0
+      data_source: valuation
+      notes: |
+        林奇:"缓慢增长型的 PE 超过 12 倍，只能靠股息，不能靠股价。"
+        PE > 12 则高估，安全边际不足。
+
+
+# ─────────────────────────────────────────────────────────────────
+# L1: 周期型专属规则
+# ─────────────────────────────────────────────────────────────────
+cyclical_rules:
+  applies_to: cyclical
+  max_score: 9
+  description: |
+    周期股 PE 反向 + 库存周转改善 + 资本开支收缩评分。
+    注意：PE 越高 = 景气越低迷 = 可能买入时机（反直觉）
+
+  rules:
+    - id: cyc_pe_inverse
+      name: PE 反向信号（行业 PE 中位数下行时，高 PE 加分）
+      formula: pe_ttm > industry_pe_median AND industry_pe_trend == 'declining'
+      weight: 3
+      score_if_pass: 3
+      score_if_fail: 0
+      data_source: valuation + industry_benchmark
+      notes: |
+        周期股 PE 反向解读：
+        - 行业 PE 处于高位但在下行通道 → 景气触底信号 → 加分
+        - 行业 PE 处于低位 → 景气顶部信号 → 不加分
+        参考：PB 历史分位 < 20% 更直接（见 04_周期型_ABCD评估.md）
+
+    - id: cyc_inventory_turnover
+      name: 库存周转率改善（同比提升）
+      formula: inventory_turnover_yoy > 0
+      weight: 3
+      score_if_pass: 3
+      score_if_fail: 0
+      data_source: turnover_db
+      notes: |
+        库存周转加快 = 产品开始去库存 = 需求复苏前兆。
+        数据源：.tools/db/ turnover.duckdb inventory_turnover 字段（sina 派生）
+
+    - id: cyc_capex_declining
+      name: 资本开支占营收比下降（同比）
+      formula: capex_to_revenue_yoy < 0
+      weight: 3
+      score_if_pass: 3
+      score_if_fail: 0
+      data_source: cashflow + growth
+      notes: |
+        周期底部企业收缩资本开支是理性行为；
+        若高位仍大举扩产 = 逆周期豪赌，扣分。
+        公式：(当期资本支出/营收) vs (上期资本支出/营收)
+
+
+# ─────────────────────────────────────────────────────────────────
+# L1: 困境反转型专属规则
+# ─────────────────────────────────────────────────────────────────
+turnaround_rules:
+  applies_to: turnaround
+  max_score: 9
+  description: |
+    困境反转三项核心信号评分。
+    参考：01_knowledge/.../05_困境反转型_ABCD评估.md
+
+  rules:
+    - id: tur_earnings_recovery
+      name: 连续 2 季扭亏转正
+      formula: cfo_positive_consecutive_quarters >= 2
+      weight: 4
+      score_if_pass: 4
+      score_if_fail: 0
+      data_source: cashflow
+      notes: |
+        林奇："不当抄底英雄 — 必须看到现金流转正再介入。"
+        标准：最近 4 季 CFO 中，连续 ≥ 2 季为正。
+        扩展：经营现金流比净利润更可信（难造假）。
+
+    - id: tur_balance_sheet_improving
+      name: 资产负债表改善（流动比率回升）
+      formula: current_ratio_yoy > 0 AND current_ratio > 1.0
+      weight: 3
+      score_if_pass: 3
+      score_if_fail: 0
+      data_source: safety
+      notes: |
+        流动比率（流动资产/流动负债）回升且 > 1.0，
+        说明短期偿债压力缓解，资产端在恢复。
+        数据源：DuckDB safety 表。
+
+    - id: tur_new_management
+      name: 新管理层 / 战略调整（手动标记）
+      formula: new_management_flag == true
+      weight: 2
+      score_if_pass: 2
+      score_if_fail: 0
+      data_source: manual                        # 需在 05_投资决策/ 手动标记
+      verified: false
+      notes: |
+        林奇："艾科卡上任 5 年，克莱斯勒涨 30 倍。"
+        无法自动识别，需在公司 05_投资决策/ 中手动标记
+        new_management_flag: true/false。
+        接口返回 None 时视为未标记（得 0 分）。
+
+
+# ─────────────────────────────────────────────────────────────────
+# L1: 隐蔽资产型专属规则
+# ─────────────────────────────────────────────────────────────────
+asset_play_rules:
+  applies_to: asset_play
+  max_score: 10
+  description: |
+    隐蔽资产型用 NAV/市值 + 隐蔽资产明细评分；PE/PEG 不适用。
+    参考：01_knowledge/.../06_隐蔽资产型_ABCD评估.md
+
+  rules:
+    - id: ap_nav_discount
+      name: NAV/市值 ≥ 1.3（资产折价 23% 以上）
+      formula: nav_to_market_cap >= 1.3
+      weight: 5
+      score_if_pass: 5
+      score_if_partial: 3                        # NAV/市值 ≥ 1.1 → 3 分
+      score_if_fail: 0
+      data_source: manual + balancesheet
+      notes: |
+        NAV = 现金 + 上市子公司股权 + 不动产估值 + 其他隐蔽资产。
+        NAV/市值 ≥ 1.3 → 市值低于资产价值 23% 以上 → 有安全边际。
+        NAV 需手填到 02_companies/{N}/03_行业分析/隐蔽资产盘点.md。
+
+    - id: ap_hidden_assets_detail
+      name: 隐蔽资产明细已识别（手动标记）
+      formula: hidden_assets_identified == true
+      weight: 5
+      score_if_pass: 5
+      score_if_fail: 0
+      data_source: manual                        # 需在 03_行业分析/隐蔽资产盘点.md
+      verified: false
+      notes: |
+        林奇："Forest 公司的缅因州森林 — 账面成本 30 年前，市价翻 N 倍。"
+        需手动盘点：土地/品牌/股权/专利/版权等。
+        在 03_行业分析/隐蔽资产盘点.md 写入后标记 hidden_assets_identified: true。
+
+
+# ─────────────────────────────────────────────────────────────────
+# 总分阈值（GARP 规则适用）
+# ─────────────────────────────────────────────────────────────────
+threshold:
+  excellent: 8                     # 8-10 分：强成长股
+  good: 5                          # 5-7 分：合格成长股
+  warning: 3                       # < 3 分：增长不足或高估
+
+# 各类型总分上限参考
+type_max_scores:
+  stalwart:    11                  # garp_rules(10) + peg_curve_grade(1)
+  fast_grower: 13                  # garp_rules(10) + peg_curve_grade(1) + quarterly_continuity(2)
+  slow_grower: 10                  # slow_grower_rules
+  cyclical:    9                   # cyclical_rules
+  turnaround:  9                   # turnaround_rules
+  asset_play:  10                  # asset_play_rules
+
+# 行业适配
+industry_first_classify: true     # 必须先分类，再套规则
+
+# 与项目知识库对照
+knowledge_reference:
+  - ../../01_knowledge/03_投资策略与选股/02_彼得林奇投资法/01_六类公司分类法.md
+  - ../../01_knowledge/03_投资策略与选股/02_彼得林奇投资法/04_周期型_ABCD评估.md
+  - ../../01_knowledge/03_投资策略与选股/02_彼得林奇投资法/05_困境反转型_ABCD评估.md
+  - ../../01_knowledge/03_投资策略与选股/02_彼得林奇投资法/06_隐蔽资产型_ABCD评估.md
+
+# 关键提醒
+warnings:
+  - id: classify_first
+    msg: "先定性（六类分类），后定量（GARP 评分）—— 误判类型 = 灾难性决策"
+  - id: cyclical_pe_inverse
+    msg: 周期股 PE 反向解读 — 高 PE 是低谷，低 PE 是周期顶部
+  - id: not_for_slow_growers
+    msg: PEG 不适用于缓慢增长型（用股息率代替）
+  - id: insider_proxy_unverified
+    msg: "insider_proxy_score 使用股东户数变动代理，非真实内部人公告，verified=false"
+  - id: institutional_proxy_unverified
+    msg: "institutional_holdings 使用主力资金流向代理，非真实机构持股比例，verified=false"
+  - id: turnaround_manual_flags
+    msg: "困境反转型的 new_management_flag 和隐蔽资产的 hidden_assets_identified 需在 05_投资决策/ 手动标记"
