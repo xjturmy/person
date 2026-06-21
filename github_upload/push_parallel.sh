@@ -167,7 +167,7 @@ merge_to_main() {
     prefix="$(prefix_for "$branch")"
     log "  read-tree $branch → ${prefix:-/}"
     if [[ -z "$prefix" ]]; then
-      git read-tree -u "$branch"
+      git read-tree --reset -u "$branch"
     else
       git read-tree --prefix="${prefix}/" -u "$branch"
     fi
