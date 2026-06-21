@@ -1,0 +1,71 @@
+# 虚拟环境
+.venv/
+venv/
+env/
+.venv.broken_premigration/
+
+# DuckDB 数据库（可由 ingest.py 重建）
+# 原始库本地保留; 超限时用 .github_blob_store 分片上传
+data/*.duckdb
+data/*.duckdb.wal
+
+# AkShare 抓取缓存（可由 fetch_akshare.py 重建）
+.tools/db/cache/
+
+# GitHub 大文件分片仓(全量上传用; clone 后 merge_assets.py 还原)
+!.github_blob_store/
+!.github_blob_store/**
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# 敏感凭据(勿上传: 第三方 API 密码/Token)
+.config/credentials.md
+.config/.lixinger_token
+.config/smtp.yaml
+
+# 投资组合持仓 — 旧 tools 路径(主配置在 .config/portfolio.yaml)
+.tools/portfolio/portfolio.yaml
+.tools/portfolio/portfolio.local.yaml
+
+# 临时文件和输出
+.temp/
+最近一个月数据提取/
+*.log
+*.tmp
+
+# 旧目录（迁移前的备份）
+01_投资方法与体系/
+02_公司档案库/
+03_行业与宏观/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "preson-research": {
+      "command": "/Users/gongyong/Desktop/Keyi/preson/.venv/bin/python3",
+      "args": ["/Users/gongyong/Desktop/Keyi/preson/.tools/mcp/server.py"],
+      "env": {
+        "PYTHONPATH": "/Users/gongyong/Desktop/Keyi/preson/.tools/mcp"
+      }
+    }
+  }
+}
