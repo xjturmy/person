@@ -27,12 +27,13 @@ MERGE_BRANCH="${MERGE_BRANCH:-main-merged}"
 SHARDS=(
   ".tools:shard/tools"
   "02_companies:shard/companies"
-  "01_knowledge:shard/knowledge"
   "03_macro:shard/macro"
   ".github_blob_store:shard/blobs"
   ".config:shard/config"
   "docs:shard/docs"
 )
+# 01_knowledge 不进 SHARDS: 走 4 个子 shard 并行(避免单分支 enumerate 瓶颈),
+# merge_to_main 直接从 main HEAD 取 01_knowledge — blob 已通过 k-* 子 shard 上传到远端.
 
 log() { echo "[$(date +%H:%M:%S)] $*"; }
 
@@ -147,20 +148,23 @@ merge_to_main() {
   git checkout --orphan "$MERGE_BRANCH"
   git rm -rf . >/dev/null 2>&1 || true
 
-  declare -A prefix_map=(
-    [shard/root]=""
-    [shard/tools]=".tools"
-    [shard/companies]="02_companies"
-    [shard/knowledge]="01_knowledge"
-    [shard/macro]="03_macro"
-    [shard/blobs]=".github_blob_store"
-    [shard/config]=".config"
-    [shard/docs]="docs"
-  )
+  # bash 3.2 兼容: 用 case 替代关联数组
+  prefix_for() {
+    case "$1" in
+      shard/root)      echo "" ;;
+      shard/tools)     echo ".tools" ;;
+      shard/companies) echo "02_companies" ;;
+      shard/macro)     echo "03_macro" ;;
+      shard/blobs)     echo ".github_blob_store" ;;
+      shard/config)    echo ".config" ;;
+      shard/docs)      echo "docs" ;;
+      *) echo "" ;;
+    esac
+  }
 
   for branch in shard/root "${SHARDS[@]##*:}"; do
     git show-ref --verify --quiet "refs/heads/$branch" || continue
-    prefix="${prefix_map[$branch]:-}"
+    prefix="$(prefix_for "$branch")"
     log "  read-tree $branch → ${prefix:-/}"
     if [[ -z "$prefix" ]]; then
       git read-tree -u "$branch"
@@ -168,6 +172,11 @@ merge_to_main() {
       git read-tree --prefix="${prefix}/" -u "$branch"
     fi
   done
+
+  # 01_knowledge 直接从 main HEAD 取(blob 已通过 k-* 子 shard 推到远端)
+  log "  checkout 01_knowledge from $MAIN_BRANCH (blobs already on remote via k-* shards)"
+  git checkout "$MAIN_BRANCH" -- 01_knowledge
+  git add 01_knowledge
 
   git commit -m "merge: parallel shard upload $(date +%Y-%m-%d)"
   log "push $MERGE_BRANCH → $MAIN_BRANCH ..."
