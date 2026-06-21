@@ -32,20 +32,30 @@
 
 ---
 
-## Shard 分支映射
+## Shard 分支映射（2026-06-21 终版，**无 main 分支**）
 
 | 分支 | 本地目录 | 约计大小 | 说明 |
 |------|---------|---------|------|
 | `shard/root` | 顶层 blob 文件 | ~50 KiB | 仅 `.gitignore`、`README.md`、`CLAUDE.md` 等 6 个文件，**不含** `data/` |
 | `shard/tools` | `.tools/` | ~4.7 MiB | 脚本与 Dashboard |
 | `shard/companies` | `02_companies/` | ~945 MiB | 公司档案 + PDF 财报 |
-| `shard/knowledge` | `01_knowledge/` | ~440 MiB | 知识库 + PDF 书籍（已剔 `_OCR可搜索版/` 322 MiB） |
 | `shard/macro` | `03_macro/` | ~233 KiB | 宏观与 ETF 数据 |
 | `shard/blobs` | `.github_blob_store/` | ~214 MiB | DuckDB 等大文件分片 |
 | `shard/config` | `.config/` | ~123 KiB | 配置（含敏感凭证，仓库须私有） |
 | `shard/docs` | `docs/` | ~552 KiB | 项目文档与计划 |
+| `shard/k-value` | `01_knowledge/04_知识体系/04_参考资料/02_价值投资/` | ~295 MiB | 价值投资大部头 PDF |
+| `shard/k-cycle` | `01_knowledge/04_知识体系/04_参考资料/04_经济周期/` | ~84 MiB | 康波/周期论 PDF |
+| `shard/k-gold` | `01_knowledge/04_知识体系/04_参考资料/05_黄金投资/` | ~34 MiB | 黄金投资 PDF |
+| `shard/k-growth` | `01_knowledge/04_知识体系/04_参考资料/03_成长投资/` | ~20 MiB | 成长投资 PDF |
 
-> `.backup/` 已加入 `.gitignore`（2026-06-21 简化）：本地保留作应急副本，远程不再镜像；如需恢复，对照活跃目录 `01_knowledge/` `02_companies/` `03_macro/` 即可。
+**共 11 个 shard 分支，合计 ~1.6 GiB。**
+
+> **为什么没有 main 分支？** 早期方案试图把所有 shard 合并到 `main` 推送，但 orphan merge commit 即使带 multi-parent，`git pack-objects` 仍会通过代理重传完整 ~2 GiB pack（实测 17 min 仅传 200 MB），收益与成本不匹配。改用 **方案 B**：远程只保留 11 个 shard 分支，clone 方用 `merge_shards.sh` 本地拼接出完整工作区。
+
+> **未上传内容**：
+> - `.backup/` 1.32 GiB（与活跃目录重复，已 `.gitignore`）
+> - `_OCR可搜索版/` 322 MiB（PDF OCR 副本，可重生成）
+> - `01_knowledge/` 中 markdown 笔记 + `01_外部资料/` 共 ~12 MiB（非关键，未拆 shard）
 
 ---
 
@@ -134,36 +144,34 @@ git ls-remote origin refs/heads/main
 
 ---
 
-## Clone 方：还原完整工作区
+## Clone 方：还原完整工作区（当前唯一方案）
 
-### 方式 A：远程已有合并好的 main
+远端只有 11 个 shard 分支，**没有 main**。clone 后必须跑 `merge_shards.sh` 拼接：
 
 ```bash
 git clone git@github.com:xjturmy/person.git preson && cd preson
-python3 .tools/github_upload/merge_assets.py --restore-all
+bash .tools/github_upload/merge_shards.sh         # 拼出 workspace 分支
+python3 .tools/github_upload/merge_assets.py --restore-all  # 还原 DuckDB
 source .venv/bin/activate
 ```
 
-### 方式 B：远程只有 shard 分支
+`merge_shards.sh` 会创建 `workspace` 分支，把各 shard 按前缀合并：
 
-```bash
-git clone git@github.com:xjturmy/person.git preson && cd preson
-bash .tools/github_upload/merge_shards.sh
-python3 .tools/github_upload/merge_assets.py --restore-all
-```
-
-`merge_shards.sh` 会将各 shard 按前缀合并到 `workspace` 分支：
-
-```
+```text
 shard/root        → /
 shard/tools       → .tools/
 shard/companies   → 02_companies/
-shard/knowledge   → 01_knowledge/
 shard/macro       → 03_macro/
 shard/blobs       → .github_blob_store/
 shard/config      → .config/
 shard/docs        → docs/
+shard/k-value     → 01_knowledge/04_知识体系/04_参考资料/02_价值投资/
+shard/k-cycle     → 01_knowledge/04_知识体系/04_参考资料/04_经济周期/
+shard/k-gold      → 01_knowledge/04_知识体系/04_参考资料/05_黄金投资/
+shard/k-growth    → 01_knowledge/04_知识体系/04_参考资料/03_成长投资/
 ```
+
+> `01_knowledge/` 中 markdown 笔记 + `01_外部资料/` 未在任何 shard，需从其它机器同步或重生成。
 
 ---
 
@@ -207,7 +215,7 @@ BATCH_SIZE=3 SLEEP_SEC=2 bash .tools/github_upload/push_in_batches.sh
 
 ---
 
-## 当前上传进度（2026-06-21 简化后）
+## 当前上传进度（2026-06-21 终版）
 
 | Shard | 状态 |
 |-------|------|
@@ -218,22 +226,23 @@ BATCH_SIZE=3 SLEEP_SEC=2 bash .tools/github_upload/push_in_batches.sh
 | `shard/docs` | ✅ |
 | `shard/blobs` | ✅ |
 | `shard/companies` | ✅ |
+| `shard/k-value` | ✅ |
+| `shard/k-cycle` | ✅ |
+| `shard/k-gold` | ✅ |
+| `shard/k-growth` | ✅ |
+| `main` | ⛔ 不推送（详见上文「为什么没有 main 分支」） |
+| `shard/companies` | ✅ |
 | `shard/knowledge` | ❌ 待上传（~440 MiB，剔 OCR 副本后） |
 | `shard/backup` | ⛔ 已弃用（.backup/ 加入 .gitignore） |
 | `main` 合并 | ❌ 待 knowledge 推完后执行 |
 
-**下一步**：
+**已完结**。如需补充上传新数据，按 shard 增量推送：
 
 ```bash
-# 1) 重建 knowledge 分支（去除 _OCR可搜索版/ 后体积下降）
-git branch -D shard/knowledge 2>/dev/null
-git subtree split -P 01_knowledge -b shard/knowledge
-
-# 2) 串行 push（440 MiB 单分支建议 PARALLEL=1）
-PARALLEL=1 git push origin shard/knowledge:refs/heads/shard/knowledge
-
-# 3) 合并 main（push_parallel.sh 已移除 shard/backup 映射）
-SKIP_SPLIT=1 PARALLEL=1 bash .tools/github_upload/push_parallel.sh
+# 例：单独刷新 02_companies/
+git update-ref -d refs/heads/shard/companies
+git subtree split -P 02_companies -b shard/companies
+git push --progress origin shard/companies:refs/heads/shard/companies --force
 ```
 
 ---
