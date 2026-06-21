@@ -66,6 +66,14 @@ wheels/
 02_公司档案库/
 03_行业与宏观/
 
+# 迁移前旧目录完整备份(本地保留,勿上传)
+.backup/
+
+# 备份/弃用/合并残留
+*.bak
+*.deprecated
+*-pre-merge-*
+
 # OS
 .DS_Store
 Thumbs.db
