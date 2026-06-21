@@ -144,34 +144,84 @@ git ls-remote origin refs/heads/main
 
 ---
 
-## Clone 方：还原完整工作区（当前唯一方案）
+## Clone 方：另一台电脑还原完整开发环境
 
-远端只有 11 个 shard 分支，**没有 main**。clone 后必须跑 `merge_shards.sh` 拼接：
+> **2026-06-21 终版**：远端 `main` 分支已是合并后的完整工作区（11 个 shard 通过 multi-parent merge 拼接而成），直接 clone 即可。`merge_shards.sh` 仅用于 main 不存在的场景，已成历史方案。
+
+### 一键脚本
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/xjturmy/person/main/.tools/github_upload/setup_new_machine.sh)
+```
+
+> 仓库私有，curl 需 GitHub token。**推荐手工执行下方步骤**，可控且能选择性跳过。
+
+### 手工步骤
+
+```bash
+# ── 1) Clone (默认拉 main,~6 MiB pack + 11 个 shard) ──
+git clone git@github.com:xjturmy/person.git preson
+cd preson
+
+# ── 2) 还原 DuckDB (从 .github_blob_store/ 分片合并) ──
+python3 .tools/github_upload/merge_assets.py --restore-all
+# 输出: data/preson.duckdb (~214 MiB) + 校验 SHA256
+
+# ── 3) Python 虚拟环境 ──
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -U pip
+pip install -r requirements.txt 2>/dev/null \
+  || pip install streamlit duckdb pandas plotly akshare tushare lixinger pyyaml requests rapidfuzz pypinyin
+
+# ── 4) 凭据文件 (在 .gitignore,从本机 scp 过来) ──
+#    .config/credentials.md         理杏仁账号/密码
+#    .config/.lixinger_token        理杏仁 API token
+#    .config/smtp.yaml              SMTP (可选,邮件提醒用)
+scp <本机IP>:~/Desktop/Keyi/preson/.config/credentials.md     .config/
+scp <本机IP>:~/Desktop/Keyi/preson/.config/.lixinger_token    .config/
+scp <本机IP>:~/Desktop/Keyi/preson/.config/smtp.yaml          .config/ 2>/dev/null || true
+
+# ── 5) 非关键 markdown 笔记 + 01_外部资料 (未在任何 shard,~12 MiB) ──
+rsync -avz --progress \
+  <本机IP>:~/Desktop/Keyi/preson/01_knowledge/04_知识体系/04_参考资料/01_外部资料/ \
+  01_knowledge/04_知识体系/04_参考资料/01_外部资料/
+
+# ── 6) 启动 Dashboard 验证 ──
+streamlit run .tools/dashboard/app.py
+# 浏览器打开 http://localhost:8501 看到 15 家公司即成功
+```
+
+### 远端结构（参考）
+
+```text
+origin/main             ← 完整合并工作区 (multi-parent merge,~6 MiB pack)
+origin/shard/root       ← 顶层文件
+origin/shard/tools      ← .tools/
+origin/shard/companies  ← 02_companies/
+origin/shard/macro      ← 03_macro/
+origin/shard/blobs      ← .github_blob_store/ (DuckDB 分片)
+origin/shard/config     ← .config/ (敏感,仓库私有保护)
+origin/shard/docs       ← docs/
+origin/shard/k-value    ← 01_knowledge/04_知识体系/04_参考资料/02_价值投资/
+origin/shard/k-cycle    ← 01_knowledge/04_知识体系/04_参考资料/04_经济周期/
+origin/shard/k-gold     ← 01_knowledge/04_知识体系/04_参考资料/05_黄金投资/
+origin/shard/k-growth   ← 01_knowledge/04_知识体系/04_参考资料/03_成长投资/
+```
+
+普通用户用不到 shard 分支，clone main 即可。shard 分支为增量更新和分片上传保留。
+
+---
+
+## 历史方案 B：merge_shards.sh（仅 main 不存在时使用）
+
+如果远端 `main` 因任何原因丢失，可用 `merge_shards.sh` 从 11 个 shard 拼出 `workspace` 分支：
 
 ```bash
 git clone git@github.com:xjturmy/person.git preson && cd preson
-bash .tools/github_upload/merge_shards.sh         # 拼出 workspace 分支
-python3 .tools/github_upload/merge_assets.py --restore-all  # 还原 DuckDB
-source .venv/bin/activate
+bash .tools/github_upload/merge_shards.sh
+python3 .tools/github_upload/merge_assets.py --restore-all
 ```
-
-`merge_shards.sh` 会创建 `workspace` 分支，把各 shard 按前缀合并：
-
-```text
-shard/root        → /
-shard/tools       → .tools/
-shard/companies   → 02_companies/
-shard/macro       → 03_macro/
-shard/blobs       → .github_blob_store/
-shard/config      → .config/
-shard/docs        → docs/
-shard/k-value     → 01_knowledge/04_知识体系/04_参考资料/02_价值投资/
-shard/k-cycle     → 01_knowledge/04_知识体系/04_参考资料/04_经济周期/
-shard/k-gold      → 01_knowledge/04_知识体系/04_参考资料/05_黄金投资/
-shard/k-growth    → 01_knowledge/04_知识体系/04_参考资料/03_成长投资/
-```
-
-> `01_knowledge/` 中 markdown 笔记 + `01_外部资料/` 未在任何 shard，需从其它机器同步或重生成。
 
 ---
 
