@@ -871,6 +871,39 @@ def _latest_value(con, table: str, ticker: str, metric: str) -> float | None:
     return float(row[0]) if row and row[0] is not None else None
 
 
+def _np_yoy_from_series(con, ticker: str) -> float | None:
+    """从「归属于母公司普通股股东的净利润」累积序列派生最近一期净利同比(小数)。
+
+    理杏仁 growth 表无「净利润同比」metric,只给累积绝对值。取最新一期与去年
+    同月日(同口径累积期)相比。返回 0.02 = +2%;数据不足返回 None。
+    """
+    try:
+        rows = con.execute(
+            "SELECT date, value FROM growth "
+            "WHERE ticker = ? AND metric = '归属于母公司普通股股东的净利润' "
+            "AND value IS NOT NULL ORDER BY date DESC LIMIT 12",
+            [ticker],
+        ).fetchall()
+    except Exception:
+        return None
+    if len(rows) < 2:
+        return None
+    latest_d, latest_v = rows[0]
+    md = str(latest_d)[5:]  # 'MM-DD'
+    yr = int(str(latest_d)[:4])
+    prev_v = None
+    for d, v in rows[1:]:
+        if str(d)[5:] == md and int(str(d)[:4]) == yr - 1:
+            prev_v = v
+            break
+    if prev_v is None or prev_v == 0:
+        return None
+    try:
+        return float(latest_v) / float(prev_v) - 1.0
+    except Exception:
+        return None
+
+
 def _pe_pct_10y(con, ticker: str) -> float | None:
     """与 score_card._pe_percentile 一致的 10y 全周期分位。"""
     cutoff = (date.today() - timedelta(days=365 * 10)).isoformat()
@@ -1260,9 +1293,25 @@ def load_metrics_from_db(ticker: str, db_path: Path | str = DB_PATH,
     m: dict[str, Any] = {"ticker": ticker}
 
     # 行业从 companies.csv 读
+    # 注:companies.csv 的 stock 列历史上丢了前导零(如 '333' / '2097'),
+    # 而 ticker 已规范化为 '000333' / '02097' → 直接字符串相等会全失配,
+    # 导致 18 家深市/港股公司 name/category/industry 全部丢失(WP3 ① 修复)。
+    # 先把 csv stock 按各自 category 规范化后再匹配。
     try:
+        try:
+            from tickers import normalize_ticker as _norm
+        except ImportError:
+            import sys as _sys
+            _sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+            from tickers import normalize_ticker as _norm
         comp = pd.read_csv(industry_csv, dtype={"stock": str})
-        row = comp[comp["stock"] == ticker]
+        comp["_stock_norm"] = comp.apply(
+            lambda r: _norm(r["stock"], market=r.get("category")),
+            axis=1,
+        )
+        row = comp[comp["_stock_norm"] == ticker]
+        if row.empty:  # 兜底:旧逻辑直配(防御)
+            row = comp[comp["stock"] == ticker]
         if not row.empty:
             m["name"] = row.iloc[0].get("name")
             m["industry_sw_l1"] = row.iloc[0].get("industry") or ""
@@ -1299,9 +1348,15 @@ def load_metrics_from_db(ticker: str, db_path: Path | str = DB_PATH,
             "经营活动产生的现金流量净额对净利润的比率"
         )
         m["rev_yoy_recent"] = _latest_value(con, "growth", ticker, "累积同比")
+        # 净利 YoY:理杏仁 growth 表并不提供「归母净利润_累积同比」metric(0 行),
+        # 旧代码两次取值恒得 None,导致 lynch 困境/周期判定 + graham 困境/价值陷阱
+        # 全部拿不到净利同比(WP3 ① 修复)。改为从「归属于母公司普通股股东的净利润」
+        # 累积序列派生:最新一期 vs 去年同月日,得到小数(0.02 = +2%)。
         m["np_yoy_recent"] = _latest_value(con, "growth", ticker, "归母净利润_累积同比")
         if m["np_yoy_recent"] is None:
             m["np_yoy_recent"] = _latest_value(con, "growth", ticker, "归母净利润_同比")
+        if m["np_yoy_recent"] is None:
+            m["np_yoy_recent"] = _np_yoy_from_series(con, ticker)
         m["rev_cagr_5y"] = _rev_cagr(con, ticker, 5)
         m["rev_cagr_3y"] = _rev_cagr(con, ticker, 3)
         m["pe_pct_10y"] = _pe_pct_10y(con, ticker)

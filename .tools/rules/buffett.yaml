@@ -39,7 +39,7 @@ exclude_industries:
 rules:
   - id: oe_simple
     name: Owner Earnings(简化版,= 自由现金流量)10 年复合增长
-    formula: cagr(free_cash_flow, 10) >= grade_threshold
+    formula: cagr(fcf, 10) >= grade_threshold
     weight: 2
     verified: true
     data_source: cashflow.自由现金流量(理杏仁直接字段)

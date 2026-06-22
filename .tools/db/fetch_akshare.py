@@ -29,9 +29,27 @@ CACHE_DIR = ROOT / ".tools" / "db" / "cache"
 PRICES_DIR = CACHE_DIR / "prices"
 
 
+def _normalize_ticker(raw, category: str | None = None) -> str:
+    """统一 ticker 为 6 位 zero-padded(A 股)/5 位(港股)字符串。
+
+    companies.csv 的 stock 列历史上被 Excel 去掉前导 0(如 '333'/'1'/'63'),
+    导致 _sina_symbol 生成无效 symbol 而被 skip。与 ingest.normalize_ticker 对齐。
+    """
+    s = str(raw).strip()
+    if not s.isdigit():
+        return s
+    if category == "hk":
+        return s.zfill(5)
+    return s.zfill(6)
+
+
 def _load_companies() -> pd.DataFrame:
     df = pd.read_csv(COMPANIES_CSV, dtype={"stock": str})
-    return df.rename(columns={"stock": "ticker"})
+    df = df.rename(columns={"stock": "ticker"})
+    df["ticker"] = df.apply(
+        lambda r: _normalize_ticker(r["ticker"], r.get("category")), axis=1
+    )
+    return df
 
 
 def _ymd(d: date) -> str:

@@ -64,9 +64,16 @@ def _ensure_db() -> None:
 
 
 def _sina_symbol(ticker: str) -> str:
-    if ticker.startswith(("60", "688")):
-        return f"sh{ticker}"
-    return f"sz{ticker}"
+    # WP3 ② 修复:companies.csv 的 stock 列丢了前导零('333' / '858'),
+    # 旧逻辑直接拼 'sz333' → akshare 空响应 → 16 家深市非金融被跳过(与 WP0
+    # fetch_akshare 同类 bug)。先把 A 股 ticker zfill 到 6 位再拼 sh/sz 前缀。
+    t = ticker.strip()
+    if t.isdigit() and len(t) < 6 and not t.startswith("0"):
+        # '333' / '858' / '2594' 等深市/A 股代码补零;港股(以 0 开头的 5 位)不动
+        t = t.zfill(6)
+    if t.startswith(("60", "688", "605", "601", "603")):
+        return f"sh{t}"
+    return f"sz{t}"
 
 
 def _to_float(v) -> float | None:

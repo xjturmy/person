@@ -334,9 +334,11 @@ def _data_hint_for(hint_id: str | None, m: dict) -> str | None:
             parts.append(f"股息率 = **{dy:.2f}%**")
         return " · ".join(parts) if parts else None
     if hint_id == "checklist_roe":
+        # ① 修复:lynch loader 实际写 gross_margin_self / net_margin_5y_mean,
+        # 旧 key gross_margin / net_margin 恒为 None,毛利率/净利率从不显示。
         roe = (m.get("roe") or 0) * 100
-        gm = (m.get("gross_margin") or 0) * 100
-        nm = (m.get("net_margin") or 0) * 100
+        gm = (m.get("gross_margin_self") or m.get("gross_margin") or 0) * 100
+        nm = (m.get("net_margin_5y_mean") or m.get("net_margin") or 0) * 100
         parts = []
         if roe:
             parts.append(f"ROE = **{roe:.1f}%**")
@@ -346,7 +348,8 @@ def _data_hint_for(hint_id: str | None, m: dict) -> str | None:
             parts.append(f"净利率 = **{nm:.1f}%**")
         return " · ".join(parts) if parts else None
     if hint_id == "checklist_peg":
-        peg = m.get("peg")
+        # ① 修复:lynch loader 写 peg_lixinger(理杏仁口径),无 peg 键 → 旧值恒 None。
+        peg = m.get("peg_lixinger") if m.get("peg_lixinger") is not None else m.get("peg")
         pe = m.get("pe_ttm")
         if peg:
             return f"PEG ≈ **{peg:.2f}** · PE-TTM = {pe:.1f}" if pe else f"PEG ≈ **{peg:.2f}**"
