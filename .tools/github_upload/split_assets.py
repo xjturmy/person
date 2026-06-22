@@ -156,13 +156,45 @@ def apply_split(
     return len(entries)
 
 
+def data_duckdb_files() -> list[Path]:
+    """data/ 下全部 *.duckdb（相对 ROOT），无视大小。
+
+    用于 --include-data：把 7 个库统一纳入 blob 分片通道。preson 仍按
+    chunk_bytes 切多片（刷新旧快照），<chunk_bytes 的小库各成 1 片。
+    只匹配 data/*.duckdb，不全树扫描，避免误收公司财报 PDF 等。
+    """
+    data_dir = ROOT / "data"
+    if not data_dir.is_dir():
+        return []
+    return sorted(
+        p.relative_to(ROOT) for p in data_dir.glob("*.duckdb")
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="拆分超大文件供 GitHub 上传")
     parser.add_argument("--scan", action="store_true", help="仅扫描")
     parser.add_argument("--apply", action="store_true", help="执行拆分")
+    parser.add_argument(
+        "--include-data",
+        action="store_true",
+        help="强制把 data/*.duckdb 全部(无视大小)纳入分片+manifest",
+    )
     parser.add_argument("--min-mb", type=int, default=90, help="超过此大小才拆分")
     parser.add_argument("--workers", type=int, default=4, help="并行 worker 数")
     args = parser.parse_args()
+
+    if args.include_data:
+        libs = data_duckdb_files()
+        if not libs:
+            print("data/ 下无 *.duckdb")
+            return
+        print("强制纳入(--include-data):")
+        for p in libs:
+            sz = (ROOT / p).stat().st_size / (1024 * 1024)
+            print(f"  {p}  ({sz:.1f} MB)")
+        apply_split(libs, workers=args.workers, chunk_bytes=CHUNK_BYTES)
+        return
 
     min_bytes = args.min_mb * 1024 * 1024
     large = scan_large_files(min_bytes)

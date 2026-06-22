@@ -48,16 +48,29 @@ else
 fi
 
 # ─── Step 2: 还原 DuckDB ─────────────────────────────────────
-if [ -f data/preson.duckdb ]; then
-  log "data/preson.duckdb 已存在,跳过还原"
-else
-  if [ -f .tools/github_upload/merge_assets.py ] && [ -d .github_blob_store ]; then
-    log "还原 DuckDB (从 .github_blob_store/ 分片合并)"
+# 基于 manifest 判断: 只要 manifest 里任一库在 data/ 缺失就 --restore-all
+# (旧逻辑只看 preson 在不在,会漏掉 6 个小库 macro/etf/gold/turnover/market/decisions)
+if [ -f .tools/github_upload/merge_assets.py ] && [ -f .github_blob_store/manifest.json ]; then
+  MISSING=$(python3 - <<'PY'
+import json, os
+m = json.load(open(".github_blob_store/manifest.json"))
+missing = [e["original"] for e in m.get("files", []) if not os.path.exists(e["original"])]
+print(len(missing))
+for o in missing:
+    print(o)
+PY
+)
+  N_MISSING=$(echo "$MISSING" | head -1)
+  if [ "${N_MISSING:-0}" -gt 0 ]; then
+    log "还原 DuckDB (manifest 中 $N_MISSING 个库缺失 → 从 .github_blob_store/ 分片合并)"
+    echo "$MISSING" | tail -n +2 | sed 's/^/    缺: /'
     python3 .tools/github_upload/merge_assets.py --restore-all
   else
-    warn "找不到 .github_blob_store/,跳过 DuckDB 还原"
-    warn "Dashboard 会进入 CSV 兜底模式 (功能受限)"
+    log "manifest 中全部库已存在,跳过还原"
   fi
+else
+  warn "找不到 .github_blob_store/manifest.json,跳过 DuckDB 还原"
+  warn "Dashboard 会进入 CSV 兜底模式 (功能受限)"
 fi
 
 # ─── Step 3: Python 虚拟环境 ─────────────────────────────────

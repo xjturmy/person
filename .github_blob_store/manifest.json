@@ -3,14 +3,68 @@
   "chunk_bytes": 94371840,
   "files": [
     {
+      "original": "data/decisions.duckdb",
+      "sha256": "70e4d9480e1005152b79ad8f688712870df089f20643700ef66ea046af27a049",
+      "size": 274432,
+      "chunk_bytes": 94371840,
+      "parts": [
+        ".github_blob_store/data/decisions.duckdb/part000"
+      ]
+    },
+    {
+      "original": "data/etf.duckdb",
+      "sha256": "bd75d90c32728ed55037eccc8b41f2e4ba1a59814e821a9832dc527d27cfc212",
+      "size": 5779456,
+      "chunk_bytes": 94371840,
+      "parts": [
+        ".github_blob_store/data/etf.duckdb/part000"
+      ]
+    },
+    {
+      "original": "data/gold.duckdb",
+      "sha256": "72aafcd8d858f0fe51ea27b3de61ce920b15de4f46cc436a171e24a4f63a24af",
+      "size": 12333056,
+      "chunk_bytes": 94371840,
+      "parts": [
+        ".github_blob_store/data/gold.duckdb/part000"
+      ]
+    },
+    {
+      "original": "data/macro.duckdb",
+      "sha256": "7ee300b163516dd436ae82b9e9d1ba36aa7af2661ea7fa8d5908b09936dc1cb9",
+      "size": 1585152,
+      "chunk_bytes": 94371840,
+      "parts": [
+        ".github_blob_store/data/macro.duckdb/part000"
+      ]
+    },
+    {
+      "original": "data/market.duckdb",
+      "sha256": "1d48113223d014c29a48d05e86c94968cbb2e9f095f5f4635a41e6260520c900",
+      "size": 1060864,
+      "chunk_bytes": 94371840,
+      "parts": [
+        ".github_blob_store/data/market.duckdb/part000"
+      ]
+    },
+    {
       "original": "data/preson.duckdb",
-      "sha256": "8718b5fc32809f3a070725247e5f5d543fae0f19a4dda910105dfecc558f6744",
-      "size": 224407552,
+      "sha256": "d9bbf765e0fa22cc2b9adc9dfc0474702378bd513a240223c1368ae028fb24a8",
+      "size": 225193984,
       "chunk_bytes": 94371840,
       "parts": [
         ".github_blob_store/data/preson.duckdb/part000",
         ".github_blob_store/data/preson.duckdb/part001",
         ".github_blob_store/data/preson.duckdb/part002"
+      ]
+    },
+    {
+      "original": "data/turnover.duckdb",
+      "sha256": "ff767c1e07106d1bbb9e556e40e18e2b6f7e5d68f781f96db8996ccf667aac51",
+      "size": 4468736,
+      "chunk_bytes": 94371840,
+      "parts": [
+        ".github_blob_store/data/turnover.duckdb/part000"
       ]
     }
   ]
