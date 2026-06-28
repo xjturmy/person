@@ -16,4 +16,4 @@
 - [关键约定](./docs/architecture/08-conventions.md)
 - [ADR 决策记录](./docs/architecture/adr/)
 
-最后同步：2026-06-18
+最后同步：2026-06-28

@@ -1,12 +1,14 @@
 # 模块 6 优化记录:🌱 彼得林奇分析法 · 五步框架
 
-> 新建文件:`.tools/dashboard/tabs/lynch_analysis.py`(规划)
-> 数据驱动:既有 [.tools/rules/lynch.yaml](../rules/lynch.yaml) + [lynch_classifier.py](lynch_classifier.py) + DuckDB 各 metric
-> 知识库引用:[01_六类公司分类法.md](../../01_knowledge/03_投资策略与选股/02_彼得林奇投资法/01_六类公司分类法.md)
+> **状态**:✅ 已交付 — 五步框架已落地为 [tabs/lynch_analysis/](../../.tools/dashboard/tabs/lynch_analysis/) 包
+> (`step1_classify` 六类分类 / `step2_growth` 成长核查 / `step3_guardrails` 财务护栏 /
+> `step4_peg` PEG 估值 / `step5_story` 故事更新 / `step6_abcd` + `summary`)。
+> v2.9 起接入两处:「🔍 选股 → 🌱 林奇选股」与「🏢 公司研究 → 🌱 林奇」子 Tab。
+> 本文档保留为原始设计记录。
 >
-> **创建**:2026-05-05
-> **状态**:📋 文档齐 · 待动手
-> **预计工作量**:8-10 小时(1 天)
+> 数据驱动:[.tools/rules/lynch.yaml](../../.tools/rules/lynch.yaml) + lynch_classifier + DuckDB 各 metric
+> 知识库引用:[01_六类公司分类法.md](../../01_knowledge/03_投资策略与选股/02_彼得林奇投资法/01_六类公司分类法.md)
+> **创建**:2026-05-05 · **工作量**:8-10 小时(1 天)
 
 ---
 

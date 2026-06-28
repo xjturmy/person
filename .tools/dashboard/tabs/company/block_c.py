@@ -36,14 +36,25 @@ def render() -> None:
     }
     sub_labels = [f"{(score.dims[k].badge if score and score.dims.get(k) else '⚪') or '⚪'} {sc.DIM_LABEL.get(k, k)}"
                   for k in SCORE_DIM_ORDER]
+    # 惰性渲染:st.tabs 会一次性构建全部 6 维的图(用户只看 1 个),改 radio +
+    # 只渲染选中维度 → 进页面只画 1 张图。维度间切换走 rerun,但每次只建当前 1 张。
+    _dim_labels = dict(zip(SCORE_DIM_ORDER, sub_labels))
+    if st.session_state.get("company_dim_subtab") not in SCORE_DIM_ORDER:
+        st.session_state["company_dim_subtab"] = SCORE_DIM_ORDER[0]
     with detail_expander:
-        sub_tabs = st.tabs(sub_labels)
+        active_dim = st.radio(
+            "数据深挖维度", SCORE_DIM_ORDER,
+            format_func=lambda k: _dim_labels.get(k, k),
+            horizontal=True, key="company_dim_subtab", label_visibility="collapsed",
+        )
     last_module = None
     last_picked: list = []
     last_window = None
 
     for idx, dim_key in enumerate(SCORE_DIM_ORDER):
-        with sub_tabs[idx]:
+        if dim_key != active_dim:
+            continue
+        with detail_expander:
             d = score.dims.get(dim_key) if score else None
             sl, sr = st.columns([1, 3])
             with sl:

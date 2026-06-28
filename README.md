@@ -3,7 +3,7 @@
 > 个股分析 · 行业研究 · 投资决策跟踪 · Streamlit Dashboard  
 > **换机后先看本文**，5 分钟恢复开发环境；细节见 [docs/README.md](./docs/README.md)
 
-**最后更新**：2026-06-20 · **当前版本**：Dashboard v2.9 · **公司库**：100 家
+**最后更新**：2026-06-28 · **当前版本**：Dashboard v2.9 · **公司库**：100 家
 
 ---
 
@@ -56,7 +56,7 @@ pip install akshare requests pyyaml openpyxl
 
 | 模块 | 状态 | 说明 |
 |------|:----:|------|
-| 数据层 | ✅ | 8 个 DuckDB 库 · 100 家公司 · 573k+ 行主库 |
+| 数据层 | ✅ | 8 个 DuckDB 库（当前 data/ 实存 7 个，peers 待还原）· 100 家公司 · 573k+ 行主库 |
 | 抓数/整合 | ✅ | 理杏仁 pipeline + `data_consolidator` 端到端 |
 | Dashboard v2.9 | ✅ | 投资漏斗五导航 · 四子 Tab · 配置迁移 |
 | 大师评分 | ✅ | 林奇 / 巴菲特 / 格雷厄姆 / 芒格 / 黄金范式 |
@@ -69,6 +69,7 @@ pip install akshare requests pyyaml openpyxl
 
 | 项 | 优先级 | 说明 |
 |----|:------:|------|
+| `peers.duckdb` 待还原 | 🔴 | data/ 现有 7 库，同行对标库未还原；跑 `.tools/db/fetch_peers.py` 重建 |
 | 进展看板同步 | 🟡 | [docs/plans/PROGRESS.md](./docs/plans/PROGRESS.md) 部分条目滞后于代码 |
 | 金融业字典 | 🔴 P3 | NPL/CET1/EV·NBV 等需外部数据源 |
 | 月报 PDF 输出 | 🟡 | 数据层 OK，PDF/邮件待做 |
@@ -77,10 +78,11 @@ pip install akshare requests pyyaml openpyxl
 ### 最近 Git 里程碑
 
 ```
-af620fd  GitHub blob store 大文件分片上传
-709ba2a  Dashboard v2.9 投资漏斗四子 Tab
-033d588  100 家公司数据更新 + 代码重构
-632c8e5  当前进度封板
+e6e6692  完成数据库数据的补充
+6ad2fc8  完成初步的数据抓取
+ff248ab  安全瘦身 — untrack .backup/ 与备份残留，补 .gitignore
+cb77b67  完成所有信息的基本的备份
+00bd34d  develop: 11 个分片合并为单一工作树（blob store plan B）
 ```
 
 ---
@@ -227,6 +229,7 @@ cd .tools/dashboard && python -m pytest tests/ -q
 | 现象 | 处理 |
 |------|------|
 | Dashboard 显示「CSV 兜底模式」 | 跑 `merge_assets.py --restore-all` 或 `ingest.py` |
+| 同行对标无数据 / 报 `peers.duckdb` 缺失 | 跑 `python3 .tools/db/fetch_peers.py` 重建该库 |
 | `ModuleNotFoundError` | `source .venv/bin/activate` + 装 requirements |
 | Token 过期 | 理杏仁官网重新获取，更新 `credentials.md` |
 | 端口 8501 被占 | `./restart_dashboard.sh` 会自动清理 |

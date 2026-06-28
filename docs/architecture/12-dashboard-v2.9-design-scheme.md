@@ -1,7 +1,7 @@
 # Dashboard v2.9 设计方案
 
-> **状态**：Proposed（文档已定，代码未动）  
-> **日期**：2026-06-18  
+> **状态**：Partially Implemented — P0（市场&行业）+ P1（选股）已落地（`tabs/industry/`、`tabs/screener/`、`funnel/`）；P2 公司研究 / P3 决策中心 / P4 黄金 仍为 v2.8 结构，待实施（见第九节）  
+> **日期**：2026-06-18（设计）/ 2026-06-28（进度校准）  
 > **关联**：[10-子单元规范](./10-dashboard-investment-flow-plan.md) · [11-数据漏斗](./11-dashboard-data-funnel.md) · [ADR-0003](./adr/0003-dashboard-investment-flow.md)
 
 ---
@@ -246,14 +246,14 @@ SUB_GOLD_CONFIRM       = "黄金确定"
 
 ## 九、实施分期
 
-| 期 | 范围 | 交付 |
-|----|------|------|
-| P0 | 市场 & 行业 | `funnel/` 骨架 + 4 sub-tab + 行业确定（含删除与孤立警告） |
-| P1 | 选股 | 4 sub-tab + watchlist 确定/删除 |
-| P2 | 公司研究 | 持仓确定 |
-| P3 | 决策中心 | 4 sub-tab |
-| P4 | 黄金 | 7→4 收敛 |
-| P5 | 全局 | navigation + goto 串联 + 冒烟测试 |
+| 期 | 范围 | 交付 | 状态 |
+|----|------|------|------|
+| P0 | 市场 & 行业 | `funnel/` 骨架 + 4 sub-tab + 行业确定（含删除与孤立警告） | ✅ 已落地 |
+| P1 | 选股 | 4 sub-tab + watchlist 确定/删除 | ✅ 已落地 |
+| P2 | 公司研究 | 持仓确定 | ⏳ 未实施 |
+| P3 | 决策中心 | 4 sub-tab | ⏳ 未实施 |
+| P4 | 黄金 | 多 sub-tab→4 收敛 | ⏳ 未实施 |
+| P5 | 全局 | navigation + goto 串联 + 冒烟测试 | ⏳ 部分（market/screener 常量已建） |
 
 ---
 

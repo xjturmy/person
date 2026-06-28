@@ -8,6 +8,16 @@ owner: renmingyang@proton.me
 
 # v2.5 · 行业分析与聚焦(标准版)
 
+> **状态:已交付(历史任务记录,2026-06-28 核对)**
+> 6 任务包全部落地,「🏭 行业分析」已并入 v2.9「🌡️ 市场 & 行业」导航(4 sub-tab)。
+> 后续重构后代码路径变更,文中路径为当时快照:
+> - E1 估值分位 → `.tools/dashboard/industry/percentile_engine.py`(原 `industry_percentile_engine.py`)
+> - E2 周期判定 → `.tools/dashboard/industry/cycle.py`
+> - E3 ETF 推荐 → `.tools/dashboard/screening/etf_recommender.py`
+> - E4 Top 7 选优 → `.tools/dashboard/tabs/industry/`(preselect / analysis / confirm 等)
+> - yaml 产出仍在:`.config/industry_master.yaml`、`.config/focus_industries.yaml`、`.tools/rules/industry_etf_mapping.yaml`
+> ⚠️ 定位代码请以现结构为准。
+>
 > 一次性把 v2.5 TODO #2 标准版 + v2.4 候选 ⑪ 全部做完,6 任务包并行,3 波依赖。
 
 ---

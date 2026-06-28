@@ -31,4 +31,4 @@ NNNN-简短英文标题.md
 |-----|------|------|
 | [0001](./0001-portfolio-config-migration.md) | 持仓配置迁移至 .config/portfolio.yaml | Accepted |
 | [0002](./0002-decision-center-modularization.md) | 决策中心子模块拆分 | Accepted |
-| [0003](./0003-dashboard-investment-flow.md) | Dashboard 投资流程流水线重构 | Proposed |
+| [0003](./0003-dashboard-investment-flow.md) | Dashboard 投资流程流水线重构 | Accepted（部分实施 P0+P1） |

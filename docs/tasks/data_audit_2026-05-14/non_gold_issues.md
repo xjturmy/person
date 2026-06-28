@@ -3,6 +3,13 @@
 > 来源：4 个 agent 并行检查 + 主对话亲验。本次只修黄金类问题,非黄金类待修。
 > 黄金类已处理结果见 `PROGRESS.md` / 本目录其他文件。
 > 共 16 条待修问题 + 1 条误报归档 = 17 条全部记录。
+>
+> **复核更新(2026-06-28)** — 各条 `状态:` 行为本次核对结果(部分已修/已重构):
+> - #1 peers 过期 → 现状变化:`data/peers.duckdb` **整张库已不存在**(项目仅 7 个 duckdb,无 peers)。`industry/percentile_engine.py` 已改为以 `preson.duckdb.valuation` 算 10y 分位 + `self_only`/`no_data` 降级,不再硬依赖 peers 快照。原"过期"问题被架构变更替代,但 peers 池子数据源已退役需留意。
+> - #2 美的 PEG fallback → **已修**:`valuation/peg_curve.py:198-199` 落地"扣非落后 GAAP > 540 天即切 GAAP"逻辑,注释明确点名 000333。
+> - #4 industry_pe 只 2 天 → **部分缓解**:`industry_pe` 已扩到 2026-04-29~06-18(2760 行),非完整 10y;percentile_engine 已直接吃 preson.valuation 时序。
+> - #5~#16 评分体系/UI 各项:本次未逐条复跑代码,维持原状态待亲验;拿不准的保留原文。
+> 文中旧路径(如 `tabs/industry_focus.py`、`industry_percentile_engine.py`)多已随 v2.7~v2.9 重构迁移到 `industry/`、`valuation/`、`screening/` 等子包,定位以现结构为准。
 
 ---
 

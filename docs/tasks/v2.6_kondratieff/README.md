@@ -8,6 +8,11 @@ owner: renmingyang@proton.me
 
 # v2.6 · 康波周期 ETF 配置任务包
 
+> **状态:⏳ 未交付 / 计划中(2026-06-28 核对,与根 README v2.6 行 ⏳ 一致)**
+> 本任务包的 4 个模块均**未实施**:`kondratieff_loader.py`(KondratieffConfig)、`etf_compare.py`(`pick_top_etf`/`rank_etfs`)、`tabs/kondratieff.py`(独立 ETF 配置 Tab)、`fetch_etf_meta_extra.py` 都不存在。
+> ⚠️ **易混淆**:现存的 `.tools/dashboard/tabs/market/kondratieff.py` 是 v2.1/v2.5「市场周期定位卡」(静态 yaml 驱动的康波定位 card,`_section_kondratieff_card`),**不是**本任务包要做的「康波 → ETF 推荐组合 → 同行业 N 选 1」配置 Tab。两者同名不同物。
+> 下文为待执行规格,保留备用。
+>
 > **目标**:打造「康波周期 → 推荐组合 → 同行业 N 选 1」自顶向下视角的 ETF 配置 Tab,在 v2.5「单行业」视角之上补一层「全康波组合」入口。
 >
 > **范围**:推荐版(阶段 1 + 阶段 2),**不做** 阶段 3 信号自动化 + 组合优化器(留 v2.7)。

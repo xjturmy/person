@@ -1,10 +1,11 @@
 # 模块 1 优化记录:📊 市场周期 Tab
 
-> 文件:[tabs/market.py](tabs/market.py) + [header_thermometer.py](header_thermometer.py)
+> **状态**:✅ 已交付 — 综合结论 banner / 康波周期定位卡 / 格雷厄姆指数 / 宏观信号含义说明均已落地。
+> 当前实现已从单文件重构为 [tabs/market/](../../.tools/dashboard/tabs/market/) 包
+> (`banner.py` · `kondratieff.py` · `graham.py` · `thermometer.py` · `valuation_band.py` · `industry.py`);
+> v2.9 起市场页与行业分析合并为「🌡️ 市场 & 行业」导航。本文档保留为原始设计记录。
 >
-> **创建**:2026-05-04
-> **状态**:📋 待开工
-> **预计工作量**:7-8 小时(1 天)
+> **创建**:2026-05-04 · **工作量**:7-8 小时(1 天)
 
 ---
 

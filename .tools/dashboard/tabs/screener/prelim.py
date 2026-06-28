@@ -18,6 +18,14 @@ from . import _universe
 
 @st.cache_data(ttl=300)
 def _load_screener_data(db_mtime: float, year: int) -> pd.DataFrame:
+    # 优先读预计算 screener_wide(load_all 的超集,<30ms);未覆盖降级 live。
+    try:
+        import analytics_store as _store
+        pre = _store.wide_table_for(year)
+        if pre is not None:
+            return pre
+    except Exception:
+        pass
     return _scr.load_all(fscore_year=year)
 
 

@@ -1,1 +1,33 @@
-draft: []
+draft:
+- industry: 中药
+  type: stalwart
+  weight: 1.0
+  note: 全景·医药生物
+- industry: 化学制药
+  type: fast_grower
+  weight: 1.0
+  note: 全景·医药生物
+- industry: 医药控股
+  type: stalwart
+  weight: 1.0
+  note: 全景·医药生物
+- industry: 啤酒
+  type: stalwart
+  weight: 1.0
+  note: 全景·食品饮料
+- industry: 生物制品
+  type: fast_grower
+  weight: 1.0
+  note: 全景·医药生物
+- industry: 白酒
+  type: stalwart
+  weight: 1.0
+  note: 全景·食品饮料
+- industry: 肉制品
+  type: stalwart
+  weight: 1.0
+  note: 全景·食品饮料
+- industry: 饮料乳品
+  type: stalwart
+  weight: 1.0
+  note: 全景·食品饮料

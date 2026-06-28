@@ -1,10 +1,12 @@
 # 模块 2 优化记录:🔍 公司筛选 Tab
 
-> 文件:[tabs/screener.py](tabs/screener.py) + [screener.py](screener.py) + [presets.yaml](presets.yaml)
+> **状态**:✅ 已交付(2026-05-05;详见 auto-memory `project_dimension3_m2_delivered`)
+> 大师评分接入 + 候选清单 checkbox + 方法论说明卡 + 散点轴改分数均已落地。
+> 当前实现已重构为 [tabs/screener/](../../.tools/dashboard/tabs/screener/) 包,v2.9 起「🔍 选股」分 4 子 Tab
+> (初步筛选 `prelim.py` / 林奇选股 `lynch_pick.py` / 格雷厄姆选股 `graham_pick.py` / 选股确定 `confirm.py`)。
+> 本文档保留为原始设计记录。
 >
-> **创建**:2026-05-04
-> **状态**:📋 待开工
-> **预计工作量**:8-10 小时(1-1.5 天)
+> **创建**:2026-05-04 · **工作量**:8-10 小时(1-1.5 天)
 
 ---
 

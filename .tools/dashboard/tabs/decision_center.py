@@ -34,6 +34,31 @@ from decision import holdings_table as _table  # noqa: E402
 from decision import holding_actions as _actions  # noqa: E402
 
 COMPANIES_CSV = ROOT / ".config" / "companies.csv"
+PRESON_DB = ROOT / "data" / "preson.duckdb"
+DECISIONS_DB = ROOT / "data" / "decisions.duckdb"
+PORTFOLIO_YAML = ROOT / ".tools" / "portfolio" / "portfolio.yaml"
+
+
+def _mtime(p: Path) -> float:
+    try:
+        return p.stat().st_mtime
+    except OSError:
+        return 0.0
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _cached_snapshot(preson_mtime: float, decisions_mtime: float,
+                     portfolio_mtime: float) -> HoldingsSnapshot:
+    """决策中心持仓快照,按 (preson/decisions.duckdb + portfolio.yaml) mtime 失效。
+
+    build_snapshot 无内建缓存,实测每次进决策中心固定 ~630ms。
+    """
+    return build_snapshot()
+
+
+def cached_snapshot() -> HoldingsSnapshot:
+    return _cached_snapshot(_mtime(PRESON_DB), _mtime(DECISIONS_DB), _mtime(PORTFOLIO_YAML))
+
 
 REVIEW_DIR_TEMP = ROOT / ".temp"
 REVIEW_DIR_KNOWLEDGE = ROOT / "01_knowledge" / "05_实战案例与持仓" / "持仓统计与复盘"
@@ -814,7 +839,7 @@ def render(companies, selected, db_mtime, decisions_db, decisions_snapshot,
       folder_to_ticker_fn: 现成的 dict(folder -> ticker)
     """
     try:
-        snap = build_snapshot()
+        snap = cached_snapshot()
     except Exception as e:
         st.error(f"持仓快照装配失败:{e}")
         return

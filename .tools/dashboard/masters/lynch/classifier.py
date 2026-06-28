@@ -43,6 +43,7 @@ CLI:
 from __future__ import annotations
 
 import argparse
+import functools
 import sys
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -1287,7 +1288,7 @@ def _dividend_continuous_years(con, ticker: str) -> int | None:
     return cnt
 
 
-def load_metrics_from_db(ticker: str, db_path: Path | str = DB_PATH,
+def _load_metrics_uncached(ticker: str, db_path: Path | str = DB_PATH,
                         industry_csv: Path | str = COMPANIES_CSV) -> dict[str, Any]:
     """从 DuckDB + companies.csv 装配单家公司的彼得林奇判断输入。"""
     m: dict[str, Any] = {"ticker": ticker}
@@ -1437,6 +1438,47 @@ def load_metrics_from_db(ticker: str, db_path: Path | str = DB_PATH,
         pass
 
     return m
+
+
+def _db_mtime_of(p: Path | str) -> float:
+    try:
+        return Path(p).stat().st_mtime
+    except OSError:
+        return 0.0
+
+
+@functools.lru_cache(maxsize=256)
+def _load_metrics_cached(ticker: str, db_mtime: float) -> dict[str, Any]:
+    return _load_metrics_uncached(ticker)
+
+
+def load_metrics_from_db(ticker: str, db_path: Path | str = DB_PATH,
+                        industry_csv: Path | str = COMPANIES_CSV) -> dict[str, Any]:
+    """装配单家公司的林奇判断输入。
+
+    默认数据源走 (ticker, db_mtime) lru_cache(公司页一次 render 会被调多次,
+    实测未缓存 ~190ms/次)。返回浅拷贝,防调用方变异污染缓存。
+    """
+    if str(db_path) == str(DB_PATH) and str(industry_csv) == str(COMPANIES_CSV):
+        return dict(_load_metrics_cached(ticker, _db_mtime_of(db_path)))
+    return _load_metrics_uncached(ticker, db_path, industry_csv)
+
+
+@functools.lru_cache(maxsize=256)
+def _classify_ticker_cached(ticker: str, db_mtime: float) -> ClassificationResult:
+    """按 (ticker, db_mtime) 缓存单家分类;db_mtime 变即失效(配合 cron 增量)。"""
+    return classify_ticker(ticker)
+
+
+def lynch_type_of(ticker: str, db_mtime: float = 0.0) -> str | None:
+    """单家公司的林奇分类 id(cls_id)。
+
+    供单公司详情页用 — 避免为取一家 lynch_type 而对全市场跑 classify。
+    """
+    try:
+        return _classify_ticker_cached(ticker, db_mtime).cls_id or None
+    except Exception:
+        return None
 
 
 def classify_ticker(ticker: str, **kwargs) -> ClassificationResult:

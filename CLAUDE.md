@@ -1,10 +1,12 @@
 # preson 项目空间
 
-> 理财资料档案库：个股分析、行业研究、投资决策跟踪
+> 理财资料档案库 + 投研 Dashboard：个股分析、行业研究、投资决策跟踪
 >
 > 位于 `/Users/gongyong/Desktop/Keyi/preson/`
 > 
-> **最后更新**：2026-05-02（路径迁移：移除中间 `Ruby/` 目录层级）
+> **最后更新**：2026-06-28 · **公司库** 100 家 · **Dashboard** v2.9（Streamlit 五导航）
+>
+> 📌 项目已从"纯数据档案库"演进为"投研智能体 + Dashboard"。换机上手与日常命令见根目录 [README.md](./README.md)，架构设计见 [docs/architecture/](./docs/architecture/README.md)。本文件聚焦 **AI 会话工作区规则**与**抓数脚本约定**。
 
 ---
 
@@ -43,7 +45,7 @@ preson/
 ├── 02_companies/                    ← 公司档案库（实时数据）
 │   ├── 01_新华保险/
 │   ├── 02_三美股份/
-│   ├── ... (共15家)
+│   ├── ... (核心 16 家 + 候选池，共 100 家)
 │   │   ├── 01_基本面数据/          ├─ 整合后的基本面数据
 │   │   │   ├── 摘要.md             ├─ ⭐核心：Claude 常读此文件
 │   │   │   ├── 历史数据/           ├─ CSV格式，供脚本/分析使用
@@ -109,7 +111,7 @@ python3 .tools/data_consolidator/update_pipeline.py
 ### 2. 跨公司对比分析
 
 ```bash
-# 生成 15 家公司全景对比（估值/盈利/规模/安全性）
+# 生成全部公司全景对比（估值/盈利/规模/安全性）
 python3 .tools/data_consolidator/cross_analysis.py
 ```
 
@@ -183,7 +185,9 @@ python3 .tools/batch_broker_analysis.py
 
 ### 公司清单
 
-当前管理 **15 家公司**：
+当前管理 **100 家公司**（核心持仓 16 家 + 候选池扩展），权威清单见 `.config/companies.csv`（列：`folder,stock,name,category,industry`）。
+
+核心持仓 16 家：
 ```
 01_新华保险    05_中国中车    09_三花智控    13_伊利股份
 02_三美股份    06_贵州茅台    10_比亚迪      14_中际旭创
@@ -191,7 +195,7 @@ python3 .tools/batch_broker_analysis.py
               08_立讯精密    12_招商银行    16_宁德时代
 ```
 
-**注意**：无编号 04（历史占位，不单独建文件夹）
+**注意**：无编号 04（历史占位，不单独建文件夹）；其余 84 家为候选池，不一定建完整 5 层目录。
 
 ### 数据来源
 
@@ -229,6 +233,11 @@ python3 .tools/batch_broker_analysis.py
 ---
 
 ## 📝 更新记录
+
+- **2026-06-28**：文档校准
+  - 公司库 15 → **100 家**（核心 16 + 候选池），清单以 `.config/companies.csv` 为准
+  - 标注项目已演进为 **Dashboard v2.9（Streamlit 五导航）**，详见根 README 与 docs/
+  - ⚠️ `data/` 实存 7 个 DuckDB，**peers.duckdb 缺失**，需跑 `.tools/db/fetch_peers.py` 重建
 
 - **2026-04-23**：完整迁移项目结构
   - 创建 `.tools/` 集中管理脚本

@@ -24,14 +24,30 @@ _MASTER_LABELS = {
 
 @st.cache_data(ttl=300)
 def _load_screener_data(db_mtime: float, year: int) -> pd.DataFrame:
+    try:
+        import analytics_store as _store
+        pre = _store.wide_table_for(year)
+        if pre is not None:
+            return pre
+    except Exception:
+        pass
     return _scr.load_all(fscore_year=year)
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def _value_scored(db_mtime: float, year: int, tickers_key: str,
                   master_id: str) -> pd.DataFrame:
+    want = set(tickers_key.split(","))
+    # 优先读预计算 value_scored_{master}(全市场,含 graham 四类),过滤即可。
+    try:
+        import analytics_store as _store
+        pre = _store.value_scored_for(master_id, year)
+        if pre is not None:
+            return pre[pre["ticker"].astype(str).str.zfill(6).isin(want)].copy()
+    except Exception:
+        pass
     df = _load_screener_data(db_mtime, year)
-    df = df[df["ticker"].astype(str).str.zfill(6).isin(set(tickers_key.split(",")))]
+    df = df[df["ticker"].astype(str).str.zfill(6).isin(want)]
     if df.empty:
         return df
     return _scr.score_with_master(df, master_id, year)
@@ -113,10 +129,12 @@ def render(companies=None, db_mtime: float = 0.0) -> None:
         return
 
     if master_id == "graham":
-        with st.spinner("格雷厄姆四类判定..."):
-            cls_rows = [_classify_one(t) for t in scored["ticker"].astype(str)]
-        scored["graham_class"] = [c[0] for c in cls_rows]
-        scored["价值类型"] = [f"{c[2]} {c[1]}" for c in cls_rows]
+        # 预计算表已带 graham_class / 价值类型 → 跳过逐家 live 判定(实测 3.8s/41 家)。
+        if "graham_class" not in scored.columns or "价值类型" not in scored.columns:
+            with st.spinner("格雷厄姆四类判定..."):
+                cls_rows = [_classify_one(t) for t in scored["ticker"].astype(str)]
+            scored["graham_class"] = [c[0] for c in cls_rows]
+            scored["价值类型"] = [f"{c[2]} {c[1]}" for c in cls_rows]
         type_counts = scored["价值类型"].value_counts()
         if not type_counts.empty:
             badges = " · ".join(f"{k} **{v}**" for k, v in type_counts.items())

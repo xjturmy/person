@@ -115,24 +115,31 @@ def render() -> None:
 
 def _render_price_range_card(ticker: str, name: str) -> None:
     """渲染下季度合理价格区间卡:三模型公允价 + 区间标尺 + verdict。"""
+    # 优先读预计算 bundle.price_range(<5ms);缺失降级 live 计算。
+    pr = None
     try:
-        from valuation.price_range import compute_next_quarter_range
-    except Exception as e:
-        st.caption(f"⚠️ price_range 加载失败:{e}")
-        return
-
-    # 取 lynch_type(从 screener 缓存)用于权重
-    lynch_type = None
-    try:
-        from screening.screener import load_all, score_lynch_classifier_all
-        _df = score_lynch_classifier_all(load_all())
-        _row = _df[_df["ticker"] == ticker]
-        if not _row.empty:
-            lynch_type = str(_row.iloc[0].get("lynch_type") or "") or None
+        import analytics_store as _store
+        pr = _store.price_range(ticker)
     except Exception:
-        pass
+        pr = None
 
-    pr = compute_next_quarter_range(ticker, name=name, lynch_type=lynch_type)
+    # lynch_type 在 if 块外(下方 caption)也会引用,必须无条件初始化,
+    # 否则走预计算分支(pr 非 None)时 lynch_type 未定义 → UnboundLocalError。
+    lynch_type = None
+    if pr is None:
+        try:
+            from valuation.price_range import compute_next_quarter_range
+        except Exception as e:
+            st.caption(f"⚠️ price_range 加载失败:{e}")
+            return
+        # 取 lynch_type 用于权重 — 只算当前这一家(按 mtime 缓存),
+        # 不再对全市场跑 score_lynch_classifier_all(load_all())(实测 17.5s)。
+        try:
+            from masters.lynch.classifier import lynch_type_of
+            lynch_type = lynch_type_of(ticker, DB_MTIME)
+        except Exception:
+            pass
+        pr = compute_next_quarter_range(ticker, name=name, lynch_type=lynch_type)
 
     st.markdown("---")
     st.markdown("### 🎯 下季度合理价格区间")

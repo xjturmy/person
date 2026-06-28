@@ -367,9 +367,21 @@ def master_score(ticker: str, master: str, year: int, mtime: float) -> tuple[int
 # ─── V8: SWS 风格 6 维评分 + 雪花图 + 评分卡 ───────────────────────────
 @st.cache_data(ttl=600)
 def company_score(ticker: str, mtime: float, pct_window: str = "10y", year: int | None = None):
-    """返回 score_card.CompanyScore;失败返回 None。"""
+    """返回 score_card.CompanyScore;失败返回 None。
+
+    优先读 analytics.duckdb 预计算(<5ms);仅默认参数(10y / 去年)走预计算,
+    非默认参数或库缺失/未覆盖时降级 live 计算(sc.compute_dimensions ~0.5s)。
+    """
     if not ticker:
         return None
+    if pct_window == "10y" and year is None:
+        try:
+            import analytics_store as _store
+            pre = _store.company_score(ticker)
+            if pre is not None:
+                return pre
+        except Exception:
+            pass
     try:
         return sc.compute_dimensions(ticker, db_path=DUCKDB_PATH, pct_window=pct_window, strategies_year=year)
     except Exception as e:
@@ -487,12 +499,21 @@ def peer_scores(self_ticker: str, mtime: float, max_n: int = 4) -> list:
     try:
         peers = pr.peer_pool(self_ticker, db_path=DUCKDB_PATH, max_n=max_n)
         all_t = [self_ticker] + [t for t, _ in peers]
+        # 优先读预计算 CompanyScore(每家 <5ms);未覆盖的降级 live。
+        try:
+            import analytics_store as _store
+        except Exception:
+            _store = None
         out = []
         for t in all_t:
-            try:
-                out.append(sc.compute_dimensions(t, db_path=DUCKDB_PATH))
-            except Exception:
-                pass
+            s = _store.company_score(t) if _store is not None else None
+            if s is None:
+                try:
+                    s = sc.compute_dimensions(t, db_path=DUCKDB_PATH)
+                except Exception:
+                    s = None
+            if s is not None:
+                out.append(s)
         return out
     except Exception:
         return []
@@ -504,7 +525,15 @@ def render_master_matrix(self_ticker: str, peer_tickers: list[str], year: int | 
         st.info("缺 ticker,跳过大师矩阵")
         return
     tickers = [self_ticker] + [t for t in peer_tickers if t != self_ticker]
-    matrix = sc.master_matrix(tickers, year=year)
+    matrix = None
+    if year is None:
+        try:
+            import analytics_store as _store
+            matrix = _store.master_matrix_from_store(tickers)
+        except Exception:
+            matrix = None
+    if matrix is None:
+        matrix = sc.master_matrix(tickers, year=year)
     if not matrix:
         st.info("multi_master 无可用数据")
         return

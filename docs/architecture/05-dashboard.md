@@ -13,26 +13,28 @@ app.py                    # 路由 + 侧边栏 + 全局状态
     ├── watchlist.py           # 观察池
     └── tabs/                  # 页面
             ├── market/        # 市场周期
-            ├── industry_focus.py / industry_overview.py
-            ├── screener.py
-            ├── company/       # 公司研究（已拆包）
+            ├── industry/      # v2.9：analysis / preselect / confirm（旧 industry_focus.py 降级 legacy）
+            ├── screener/      # v2.9：prelim / lynch_pick / graham_pick / confirm（旧入口 screener_legacy.py）
+            ├── company/       # 公司研究（已拆包，仍 v2.8 4-tab 结构）
             ├── decision_center.py + decision/
-            ├── gold_analysis/
+            ├── gold_analysis.py + gold_analysis/   # 仍 v2.8 多 sub-tab，待 P4 收敛
             └── lynch_analysis/ 等大师 Tab
+    └── funnel/                # v2.9 漏斗：layers / orphans / session
 ```
 
-## 五大顶级页面（v2.7 导航 → v2.9 子单元规划）
+## 五大顶级页面（v2.9 子单元，每导航 3～4 格、**末格=确定**）
 
-| 常量 | 标签 | v2.8 现状 | v2.9 目标（每导航 3～4 格，**末格=确定**） |
-|------|------|-----------|---------------------------------------------|
-| `PAGE_MARKET_HUB` | 🌡️ 市场 & 行业 | 市场周期 · 行业分析 | 市场研判 · 行业分析 · 行业预选 · **行业确定** |
-| `PAGE_SCREENER` | 🔍 选股 | 单页 | 初步筛选 · 林奇选股 · 格雷厄姆选股 · **选股确定** |
-| `PAGE_COMPANY` | 🏢 公司研究 | 详情 · 林奇 · 格雷厄姆 · 芒格 | 公司研判 · 林奇分析 · 格雷厄姆分析 · **持仓确定** |
-| `PAGE_GOLD` | 🥇 黄金 | 7 个 sub-tab | 范式研判 · 过热回溯 · ETF与杠杆 · **黄金确定** |
-| `PAGE_DC` | 💼 决策中心 | 三段垂直布局 | 持仓检视 · 行动建议 · 决策录入 · **决策确定** |
+| 常量 | 标签 | 子单元 | 落地状态 |
+|------|------|--------|----------|
+| `PAGE_MARKET_HUB` | 🌡️ 市场 & 行业 | 市场研判 · 行业分析 · 行业预选 · **行业确定** | ✅ 已落地（`tabs/industry/`） |
+| `PAGE_SCREENER` | 🔍 选股 | 初步筛选 · 林奇选股 · 格雷厄姆选股 · **选股确定** | ✅ 已落地（`tabs/screener/`） |
+| `PAGE_COMPANY` | 🏢 公司研究 | 概览 · 林奇 · 格雷厄姆 · 芒格 | ⏳ 仍 v2.8 4-tab；目标改为 公司研判·林奇·格雷厄姆·**持仓确定**（P2） |
+| `PAGE_GOLD` | 🥇 黄金 | 多个 sub-tab（范式/指标/过热/回溯/ETF/杠杆/持仓建议） | ⏳ 仍 v2.8；目标收敛为 4 格末格 **黄金确定**（P4） |
+| `PAGE_DC` | 💼 决策中心 | 持仓总览 · 持仓跟踪 · 决策日志 · 月报历史 | ⏳ 仍 v2.8 4 段；目标改为 持仓检视·行动建议·决策录入·**决策确定**（P3） |
 
-> **v2.9 子单元规范**（未实现）：详见 [12-dashboard-v2.9-design-scheme.md](./12-dashboard-v2.9-design-scheme.md) · [11-dashboard-data-funnel.md](./11-dashboard-data-funnel.md)。  
-> 原则：先分析 → 再选择 → **末格确定落盘**；跨导航 **层次递进漏斗**（全市场 → 行业 → 股票 → 持仓）。
+> **v2.9 子单元规范**：详见 [12-dashboard-v2.9-design-scheme.md](./12-dashboard-v2.9-design-scheme.md) · [11-dashboard-data-funnel.md](./11-dashboard-data-funnel.md)。  
+> 原则：先分析 → 再选择 → **末格确定落盘**；跨导航 **层次递进漏斗**（全市场 → 行业 → 股票 → 持仓）。  
+> **进度**：市场&行业、选股两导航（P0+P1）已落地 4-subtab + `funnel/`；公司研究、决策中心、黄金（P2–P4）仍为 v2.8 结构。
 
 ## 数据漏斗（v2.9 摘要）
 
@@ -74,6 +76,8 @@ focus_industries.yaml → (推导股票池) → watchlist.yaml → portfolio.yam
 |------|------|
 | `holdings_table.py` | 持仓全景表格 |
 | `holding_actions.py` | 单持仓抽屉（4 sub-tab） |
+| `holding_tracker.py` | 单股决策卡片视图（持仓跟踪 sub-tab） |
+| `holding_guide.py` | 持仓操作指引 |
 | `action_inbox.py` | 行动收件箱 |
 
 数据依赖：

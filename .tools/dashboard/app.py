@@ -305,7 +305,16 @@ with st.sidebar:
         # 快捷入口(v2.7 简化:MCP/缺口移除 — 日常不看,需要时跑 validate 脚本即可)
         col_a, col_b = st.columns(2)
         with col_a:
-            if st.button("🔄 刷新数据", use_container_width=True, key="refresh_cache"):
+            if st.button("🔄 刷新数据", use_container_width=True, key="refresh_cache",
+                         help="重跑分析预计算(analytics.duckdb)+ 清缓存。约 20-30s。"):
+                with st.spinner("重算预计算(评分/分类/价格区间)…"):
+                    try:
+                        subprocess.run(
+                            [sys.executable, str(TOOLS_DIR / "analytics" / "precompute.py")],
+                            check=False, timeout=300, cwd=ROOT,
+                        )
+                    except Exception as _pc_e:
+                        st.warning(f"预计算刷新失败(降级 live):{_pc_e}")
                 st.cache_data.clear()
                 st.rerun()
         with col_b:
@@ -447,6 +456,15 @@ if page == PAGE_SCREENER:
 def _company_score(ticker: str, window: str, mtime: float) -> dict | None:
     if not ticker:
         return None
+    # 默认 10y 窗口走预计算 bundle(<5ms);其它窗口或未覆盖降级 live。
+    if window == "10y":
+        try:
+            import analytics_store as _store
+            pre = _store.company_score(ticker)
+            if pre is not None:
+                return pre.to_dict()
+        except Exception:
+            pass
     try:
         return sc.compute_dimensions(ticker, pct_window=window).to_dict()
     except Exception:

@@ -2,6 +2,10 @@
 
 路径：`data/*.duckdb`
 
+> **现状（2026-06-28）**：设计上 8 个库，`data/` 目前实存 **7 个**。
+> **`peers.duckdb` 缺失** —— 代码仍引用（peers 雷达、行业横评、graham peer_radar 等），需跑
+> `python .tools/db/fetch_peers.py` 重建。其余 7 库（preson / gold / decisions / market / etf / macro / turnover）齐全。
+
 ## 数据库一览
 
 | DB | 核心表 | 写入方 | 读取方 |
@@ -9,7 +13,7 @@
 | `preson.duckdb` | valuation / profitability / growth / safety / cashflow / prices / companies / macro | `db/ingest.py` 全量重建；`fetch_akshare` 增量价 | masters / valuation / screening / industry / MCP |
 | `gold.duckdb` | gold_paradigm_history / gold_overheat_history / gold_etf_metrics / gold_metrics | `gold/paradigm.py --write`；`gold/overheat.py` | 🥇 黄金 Tab |
 | `decisions.duckdb` | decisions | 决策中心 UI、`decisions/db.py` | 决策中心 / 公司 block_d |
-| `peers.duckdb` | peers / self_metrics | `db/fetch_peers.py` | peers 引擎 / 同行雷达 |
+| `peers.duckdb` ⚠️缺失 | peers / self_metrics | `db/fetch_peers.py`（重建） | peers 引擎 / 同行雷达 |
 | `market.duckdb` | L1 全 A 快照 | `db/fetch_market_spot.py` | 选股 Tab |
 | `etf.duckdb` | ETF 行情 + 份额 | `db/fetch_etf*.py` | ETF 对标叠加图 |
 | `macro.duckdb` | 宏观指标 | `db/fetch_macro.py` | 市场温度计 |

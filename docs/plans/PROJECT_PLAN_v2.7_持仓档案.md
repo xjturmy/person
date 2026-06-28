@@ -11,6 +11,8 @@ owner: renmingyang@proton.me
 
 # 📐 preson v2.7 · 持仓档案(基础版)
 
+> 状态:已交付(2026-06-03),归档于 docs/plans/。portfolio.yaml 15 家 + fair_price.py 5 档 Graham + 公司详情持仓卡 + 2 expander + 23 测试已落地(frontmatter 的「待拍板」为起草时状态,保留作历史)。
+>
 > **范围(就这两件事)**:
 > 1. 持仓清单 + 一句话买入依据 → 静态 yaml
 > 2. 每只持仓季度合理价格区间 → 复用 Graham Number 现成函数

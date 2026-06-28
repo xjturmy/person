@@ -1,8 +1,8 @@
 # Dashboard 子单元设计规范（v2.9）
 
-> **状态**：Proposed  
-> **日期**：2026-06-18  
-> **前置**：[05-dashboard.md](./05-dashboard.md)（v2.8 现状）· [ADR-0003](./adr/0003-dashboard-investment-flow.md)
+> **状态**：Partially Implemented — P0（市场&行业）+ P1（选股）已落地；P2–P4 待实施（见第八节）  
+> **日期**：2026-06-18（规范）/ 2026-06-28（进度校准）  
+> **前置**：[05-dashboard.md](./05-dashboard.md) · [ADR-0003](./adr/0003-dashboard-investment-flow.md)
 
 ---
 
@@ -251,14 +251,14 @@ SUB_GOLD_CONFIRM     = "黄金确定"
 
 ## 八、实施分期（更新）
 
-| 期 | 导航 | 交付 |
-|----|------|------|
-| P0 | 市场 & 行业 | 4 sub-tab 骨架 + 行业确定写 focus.yaml |
-| P1 | 选股 | 4 sub-tab + 选股确定写 watchlist.yaml |
-| P2 | 公司研究 | 4 sub-tab + 持仓确定写 portfolio |
-| P3 | 决策中心 | 4 sub-tab + 决策确定批量落盘 |
-| P4 | 黄金 | 7→4 收敛 + 黄金确定 |
-| P5 | 全局 | navigation 常量 + 跨导航 goto + 冒烟测试 |
+| 期 | 导航 | 交付 | 状态 |
+|----|------|------|------|
+| P0 | 市场 & 行业 | 4 sub-tab 骨架 + 行业确定写 focus.yaml | ✅ 已落地（`tabs/industry/` + `funnel/`） |
+| P1 | 选股 | 4 sub-tab + 选股确定写 watchlist.yaml | ✅ 已落地（`tabs/screener/`） |
+| P2 | 公司研究 | 4 sub-tab + 持仓确定写 portfolio | ⏳ 未实施（仍 v2.8 概览/林奇/格雷厄姆/芒格） |
+| P3 | 决策中心 | 4 sub-tab + 决策确定批量落盘 | ⏳ 未实施（仍 v2.8 总览/跟踪/日志/月报） |
+| P4 | 黄金 | 多 sub-tab→4 收敛 + 黄金确定 | ⏳ 未实施 |
+| P5 | 全局 | navigation 常量 + 跨导航 goto + 冒烟测试 | ⏳ 部分（market/screener 常量已建） |
 
 ---
 

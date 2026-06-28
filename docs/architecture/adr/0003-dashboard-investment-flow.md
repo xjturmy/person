@@ -1,7 +1,7 @@
 # ADR-0003: Dashboard 投资流程流水线重构
 
-- **Status**: Proposed
-- **Date**: 2026-06-18
+- **Status**: Accepted（部分实施 — 2026-06-28 进度：P0 市场&行业 + P1 选股已落地，`funnel/` 模块已建；P2 公司研究 / P3 决策中心 / P4 黄金 待实施）
+- **Date**: 2026-06-18（决策）/ 2026-06-28（实施进度更新）
 - **Deciders**: 用户拍板（架构文档先行）
 
 ## Context
@@ -67,6 +67,7 @@ focus_industries.yaml → (推导股票池) → watchlist.yaml → portfolio.yam
 - [12-dashboard-v2.9-design-scheme.md](../12-dashboard-v2.9-design-scheme.md)
 - [11-dashboard-data-funnel.md](../11-dashboard-data-funnel.md)
 - [10-dashboard-investment-flow-plan.md](../10-dashboard-investment-flow-plan.md)
-- `.tools/dashboard/tabs/industry_focus.py`
-- `.tools/dashboard/tabs/screener.py`
+- `.tools/dashboard/tabs/industry/`（P0 落地；旧 `industry_focus.py` 降级 legacy）
+- `.tools/dashboard/tabs/screener/`（P1 落地；旧入口 `screener_legacy.py`）
+- `.tools/dashboard/funnel/`（漏斗模块 layers/orphans/session）
 - `.tools/dashboard/app.py`

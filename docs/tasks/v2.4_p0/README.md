@@ -7,6 +7,14 @@ owner: renmingyang@proton.me
 
 # v2.4 P0+P1 · 4 任务平行执行包
 
+> **状态:已交付(历史任务记录,2026-06-28 核对)**
+> 4 个 step 全部落地。代码经后续版本(至 v2.9)重构,文中路径已变更但功能保留:
+> - step-A 全市场快照 → `.tools/db/fetch_market_spot.py` 仍在;独立 market_scan Tab 已并入「🌡️ 市场 & 行业」导航
+> - step-B 全局搜索栏 → `.tools/dashboard/components/search_bar.py`(app.py 注释仍标「候选 ⑩ v2.4 step-B」)
+> - step-C 行业聚焦 → 由 v2.5「行业分析」标准版接续落地(见 ../v2.5_industry/)
+> - step-D 黄金过热引擎 → `.tools/dashboard/gold/overheat.py` + `tabs/gold_analysis/overheat.py`(原 `overheat_engine.py` 已迁移)
+> ⚠️ 下文路径为当时快照,定位代码请以现结构为准。
+>
 > 把 v2.4 Phase 0 + Phase 1 拆成 4 个独立窗口可并行的任务包,每个含交付物清单 + 边界 + 完成判定 + 启动 prompt。
 
 ---

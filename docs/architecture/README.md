@@ -2,8 +2,10 @@
 
 > 个人投研工作台 — 数据抓取 + 整合 + Streamlit Dashboard + 决策日志
 >
-> **版本基准**：v2.8（2026-06-18）  
+> **版本基准**：v2.9（2026-06-28）  
 > **用途**：后续所有功能修改、重构、新模块开发，均以此文件夹为设计基准。
+>
+> **实施状态**：v2.9 投资流水线已落地 P0+P1（市场&行业、选股两导航 4-subtab + `funnel/` 模块）；公司研究、决策中心、黄金三导航仍为 v2.8 结构，待 P2–P4 迁移。详见 10/11/12 文档与 ADR-0003。
 
 ---
 
@@ -26,7 +28,7 @@
 | [03-fetch-layer.md](./03-fetch-layer.md) | 抓数层：数据源、脚本、编排 |
 | [04-consolidation-layer.md](./04-consolidation-layer.md) | 整合层：CSV → 摘要/历史数据 |
 | [05-dashboard.md](./05-dashboard.md) | Dashboard：Tab 路由、引擎、子模块 |
-| [10-dashboard-investment-flow-plan.md](./10-dashboard-investment-flow-plan.md) | v2.9 子单元规范（末格确定） |
+| [10-dashboard-investment-flow-plan.md](./10-dashboard-investment-flow-plan.md) | v2.9 子单元规范（末格=确定） |
 | [11-dashboard-data-funnel.md](./11-dashboard-data-funnel.md) | **v2.9 数据漏斗**：跨导航共享、层次递进、组内删除 |
 | [12-dashboard-v2.9-design-scheme.md](./12-dashboard-v2.9-design-scheme.md) | **v2.9 完整设计方案**（五导航详表 + 实施分期） |
 | [06-config-and-state.md](./06-config-and-state.md) | 配置、持仓、观察池、导航、session |
@@ -52,6 +54,7 @@
 
 | 日期 | 变更 |
 |------|------|
+| 2026-06-28 | 校准事实基线：公司库 100 家、Dashboard v2.9、`data/` 实存 7 库（peers.duckdb 缺失待重建）；标注 v2.9 P0+P1 已落地 |
 | 2026-06-18 | v2.9 数据漏斗文档（11/12）：跨导航共享、层次递进、warn_only 删除 |
 | 2026-06-18 | v2.9 子单元规范：5 导航各 3～4 格，末格必为确定 |
 | 2026-06-18 | 迁入 `docs/` 目录；v2.8 决策中心拆分、portfolio 迁移、navigation/watchlist |

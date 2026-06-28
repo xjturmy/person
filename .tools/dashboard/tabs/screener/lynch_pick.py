@@ -23,6 +23,13 @@ _SORT_OPTIONS = {
 
 @st.cache_data(ttl=300)
 def _load_screener_data(db_mtime: float, year: int) -> pd.DataFrame:
+    try:
+        import analytics_store as _store
+        pre = _store.wide_table_for(year)
+        if pre is not None:
+            return pre
+    except Exception:
+        pass
     return _scr.load_all(fscore_year=year)
 
 
@@ -31,6 +38,10 @@ def _lynch_scored(db_mtime: float, year: int, tickers_key: str) -> pd.DataFrame:
     df = _load_screener_data(db_mtime, year)
     df = df[df["ticker"].astype(str).str.zfill(6).isin(set(tickers_key.split(",")))]
     if df.empty:
+        return df
+    # 预计算 wide 表已含 lynch 评分列(score/lynch_type/...),直接用;
+    # 否则(降级 live 路径)再跑分类器。
+    if "lynch_type" in df.columns and "score" in df.columns:
         return df
     return _scr.score_lynch_classifier_all(df)
 

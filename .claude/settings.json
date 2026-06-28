@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(timeout 300 .venv/bin/python .tools/dashboard/bench_nav_switch.py)",
+      "Bash(.venv/bin/python .tools/dashboard/verify_refactor.py)",
+      "Bash(.venv/bin/python -m pytest .tools/dashboard/tests/smoke -q)",
+      "Bash(.venv/bin/python -m pytest .tools/dashboard/tests -q)",
+      "Bash(.venv/bin/python -m pytest .tools/dashboard/tests/masters/test_buffett_classifier.py -q)",
+      "Bash(.venv/bin/python -m pytest .tools/dashboard/tests -q --continue-on-collection-errors)",
+      "Bash(.venv/bin/python -c ' *)",
+      "Bash(.venv/bin/python -m pytest .tools/dashboard/tests/industry/test_screener.py .tools/dashboard/tests/valuation/test_price_range.py .tools/dashboard/tests/ui/test_company_search.py::test_hk_ticker .tools/dashboard/tests/test_app.py::test_global_search_syncs_subtab_company_keys -q --continue-on-collection-errors)",
+      "Bash(.venv/bin/python .tools/dashboard/bench_nav_switch.py)",
+      "Bash(.venv/bin/python -c \"import sys; sys.path.insert\\(0,'.'\\); from masters.buffett.classifier import classify; print\\('OK classifier import works'\\)\")",
+      "Bash(.venv/bin/python -c \"import sys; sys.path.insert\\(0,'.tools/dashboard'\\); from masters.buffett.classifier import classify; print\\('OK classifier \\(dir-package\\) import works'\\)\")",
+      "Bash(.venv/bin/python -c \"import sys; sys.path.insert\\(0,'.tools/dashboard'\\); from masters.buffett import compute_owner_earnings; print\\('OK buffett.py module import works'\\)\")",
+      "Bash(git mv *)",
+      "Bash(.venv/bin/python -m pytest .tools/dashboard/tests/masters -q)",
+      "Bash(.venv/bin/python -m pytest .tools/dashboard/tests/valuation/test_price_range.py .tools/dashboard/tests/ui/test_company_search.py::test_hk_ticker -x -q)",
+      "Bash(.venv/bin/python -m pytest .tools/dashboard/tests/ -k \"screener or lynch or classif or decision or portfolio or holding or master or funnel\" -q)",
+      "Bash(.venv/bin/python -m pytest .tools/dashboard/tests/valuation/test_price_range.py -q)",
+      "Bash(.venv/bin/python -m pytest .tools/dashboard/tests/industry/test_screener.py .tools/dashboard/tests/industry/test_focus_tab.py -q)",
+      "Bash(grep -vE \"WARNING|MemoryCache|ScriptRunContext|use_container_width|width=|^$\")",
+      "Bash(.venv/bin/python -m pytest .tools/dashboard/tests/industry/test_screener.py::test_screen_all_focus_returns_dict -q)",
+      "Bash(.venv/bin/python -m pytest .tools/dashboard/tests/industry_v29/test_confirm_add.py .tools/dashboard/tests/test_app.py::test_global_search_syncs_subtab_company_keys .tools/dashboard/tests/ui/test_company_search.py::test_hk_ticker -q)",
+      "Bash(grep -vE \"WARNING|MemoryCache|ScriptRunContext|use_container_width|width=|^$|pypinyin|codecs|with open|Docs:|warnings summary|DeprecationWarning\")",
+      "Bash(.venv/bin/python -m pytest .tools/dashboard/tests/industry/test_screener.py -q)",
+      "Bash(.venv/bin/python -m pytest .tools/dashboard/tests/industry_v29/test_confirm_add.py -q)",
+      "Bash(.venv/bin/python -c \"import sys; sys.path.insert\\(0,'.'\\); from tickers import normalize_ticker as n; print\\(repr\\(n\\('02097'\\)\\)\\)\")",
+      "Bash(.venv/bin/python -c \"import sys; sys.path.insert\\(0,'.tools/dashboard'\\); from tickers import normalize_ticker as n; print\\('02097 →', repr\\(n\\('02097'\\)\\)\\); print\\('2097 →', repr\\(n\\('2097'\\)\\)\\)\")",
+      "Bash(.venv/bin/python -m pytest .tools/dashboard/tests/ui/test_company_search.py -q)",
+      "Bash(time .venv/bin/python .tools/analytics/precompute.py)",
+      "Bash(.venv/bin/python -m pytest .tools/dashboard/tests/test_app.py::test_six_subtabs_present -q)",
+      "Bash(.venv/bin/python -m pytest .tools/dashboard/tests/test_app.py -q)",
+      "Bash(.venv/bin/python .tools/analytics/precompute.py)",
+      "Bash(.venv/bin/python -m pytest .tools/dashboard/tests/ -k \"screener or lynch or classif or decision or portfolio or holding or master or company or price_range\" -q)",
+      "Bash(.venv/bin/python -m pytest .tools/dashboard/tests/ -k \"\\(screener or lynch or classif or decision or portfolio or holding or company or price_range\\) and not buffett\" -q -p no:cacheprovider --ignore=.tools/dashboard/tests/masters/test_buffett_classifier.py --ignore=.tools/dashboard/tests/masters/test_buffett_extras.py)",
+      "Bash(.venv/bin/python -m pytest .tools/dashboard/tests/valuation/test_price_range.py::test_all_three_models_produce_range .tools/dashboard/tests/test_app.py::test_global_search_syncs_subtab_company_keys -q -p no:cacheprovider)"
+    ]
+  }
+}

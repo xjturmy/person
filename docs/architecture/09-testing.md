@@ -18,7 +18,7 @@
 └── ui/
 ```
 
-根目录可能还有 `tests/`（历史布局），以 `dashboard/tests/` 为主。
+测试统一集中在 `.tools/dashboard/tests/`（已无项目根 `tests/` 历史布局）。
 
 ## 运行
 

@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import argparse
+import functools
 import sys
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
@@ -23,6 +24,28 @@ DB_PATH = ROOT / "data" / "preson.duckdb"
 REPORT = ROOT / "02_companies" / "_汇总" / "评分_全大师矩阵.md"
 
 ENGINE = SourceFileLoader("engine", str(Path(__file__).parent / "engine.py")).load_module()
+
+
+# ─── mtime-aware 缓存(性能优化)─────────────────────────────────────────
+# 单公司详情页一次 render 会对同一 ticker 重复跑 7 大师,每次重新 safe_load
+# 规则 YAML + 重新 load_duckdb_data → 实测 411 次 safe_load / 8.8s。
+# 用 lru_cache 按 (路径, mtime) / (ticker, db_mtime) 去重;mtime 变即自动失效
+# (配合周日 cron 增量更新),CLI 与 streamlit 进程内均生效,无 streamlit 依赖。
+def _path_mtime(p: Path) -> float:
+    try:
+        return p.stat().st_mtime
+    except OSError:
+        return 0.0
+
+
+@functools.lru_cache(maxsize=64)
+def _safe_load_cached(path_str: str, mtime: float) -> dict:
+    return yaml.safe_load(Path(path_str).read_text(encoding="utf-8"))
+
+
+@functools.lru_cache(maxsize=256)
+def _load_data_cached(ticker: str, db_mtime: float):
+    return ENGINE.load_duckdb_data(ticker)
 
 # 大师 → 风格归类(v2.0 验收"价值/成长双维度")
 MASTER_STYLE = {
@@ -38,7 +61,8 @@ MASTER_STYLE = {
 
 def load_rules_doc(path: Path) -> dict:
     """加载 yaml 并兼容 garp_rules / rules 双键(lynch 用 garp_rules)。"""
-    doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+    # 浅拷贝缓存结果:下方可能新增 "rules" 别名键,不应污染共享缓存。
+    doc = dict(_safe_load_cached(str(path), _path_mtime(path)))
     if "rules" not in doc:
         for alt in ("garp_rules", "core_rules"):
             if alt in doc:
@@ -47,18 +71,23 @@ def load_rules_doc(path: Path) -> dict:
     return doc
 
 
-def list_executable_yamls() -> list[Path]:
-    """返回有 rules / garp_rules 的 yaml 文件(跳过 piotroski_bank/insurance,这些通过行业自动切换)。"""
+@functools.lru_cache(maxsize=8)
+def _list_executable_yamls(dir_mtime: float) -> tuple[Path, ...]:
     out = []
     for p in sorted(RULES_DIR.glob("*.yaml")):
         if p.name.startswith("_"):
             continue
         if p.stem in ("piotroski_bank", "piotroski_insurance"):
             continue  # 由 engine.run_score 自动切换
-        doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+        doc = _safe_load_cached(str(p), _path_mtime(p))
         if isinstance(doc, dict) and ("rules" in doc or "garp_rules" in doc):
             out.append(p)
-    return out
+    return tuple(out)
+
+
+def list_executable_yamls() -> list[Path]:
+    """返回有 rules / garp_rules 的 yaml 文件(跳过 piotroski_bank/insurance,这些通过行业自动切换)。"""
+    return list(_list_executable_yamls(_path_mtime(RULES_DIR)))
 
 
 def list_all_tickers() -> list[tuple[str, str]]:
@@ -73,7 +102,7 @@ def list_all_tickers() -> list[tuple[str, str]]:
 def run_one(rules_path: Path, ticker: str, year: int) -> tuple[float, int, int] | None:
     """返回 (得分, 有效项数, 总规则数);失败返回 None。"""
     try:
-        data = ENGINE.load_duckdb_data(ticker)
+        data = _load_data_cached(ticker, _path_mtime(DB_PATH))
     except Exception:
         return None
 

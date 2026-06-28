@@ -1,8 +1,12 @@
 # M5 优化:🤖 Claude 终端 Tab + 浮窗
 
+> **状态**:⚰️ 已下线 — 本模块 D1-D9 当年全部交付,但 v2.7 起 Claude 终端 Tab + 右下浮窗整体移除
+> (ttyd 嵌入转方案 B「VS Code 旁挂」,功能等价;浮窗低频)。
+> 当前导航无独立终端项,`tabs/claude.py` 仅留 ttyd 生命周期 helper 作历史残留。
+> 本文档保留为已下线模块的设计/交付记录,不再维护。
+>
 > 优化窗口:2026-05-05 起
-> 涉及文件:`tabs/claude.py` · `floating_widget.py` · `launch_terminal.sh` · `app.py`(ttyd_* helper)
-> 与 M1-M4 的边界:本模块只改"终端启停 / 状态展示 / 浮窗快捷开关"。**不动** 决策中心跳转(M4)、市场温度计读取(M1)、筛选预设(M2)、单公司面板(M3)。
+> 涉及文件(历史):`tabs/claude.py` · `floating_widget.py` · `launch_terminal.sh` · `app.py`(ttyd_* helper)
 
 ---
 

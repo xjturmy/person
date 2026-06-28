@@ -20,6 +20,7 @@ ROOT = Path("/Users/gongyong/Desktop/Keyi/preson")
 SCRIPTS = ROOT / ".tools"
 CONSOLIDATOR = SCRIPTS / "data_consolidator" / "consolidate.py"
 FETCH_PIPELINE = SCRIPTS / "lixinger-archiver" / "run_full_pipeline.py"
+PRECOMPUTE = SCRIPTS / "analytics" / "precompute.py"
 
 
 def run(cmd: list[str]) -> None:
@@ -38,6 +39,7 @@ def main() -> None:
     p.add_argument("--token", default="", help="理杏仁 token（可省略，从 credentials 解析）")
     p.add_argument("--skip-fetch", action="store_true", help="跳过数据抓取，仅整合")
     p.add_argument("--skip-consolidate", action="store_true", help="跳过整合，仅抓取")
+    p.add_argument("--skip-precompute", action="store_true", help="跳过分析预计算刷新")
     p.add_argument("--only", default="", help="仅处理特定公司（按名称过滤）")
     args = p.parse_args()
 
@@ -78,6 +80,16 @@ def main() -> None:
         run(consolidate_cmd)
     else:
         print("⏩ 跳过数据整合")
+
+    # 步骤 3：刷新 Dashboard 分析预计算(analytics.duckdb)
+    # 让公司页/选股页评分、分类、价格区间秒开(读预算好的表,不再 live 算)。
+    if not getattr(args, "skip_precompute", False) and PRECOMPUTE.exists():
+        print("\n" + "=" * 60)
+        print("📊 步骤 3/3:刷新分析预计算(analytics.duckdb)")
+        print("=" * 60)
+        run([py, str(PRECOMPUTE)])
+    else:
+        print("⏩ 跳过分析预计算")
 
     print("\n✅ 管道执行完成")
 

@@ -18,6 +18,7 @@ CLI:
 from __future__ import annotations
 
 import argparse
+import functools
 import sys
 from datetime import date, timedelta
 from importlib.machinery import SourceFileLoader
@@ -116,9 +117,9 @@ def _pe_percentile_10y(con, ticker: str) -> float | None:
 def _fscore(ticker: str, year: int) -> int | None:
     """跑 Piotroski 9 项,返回 0-9 整数得分。失败返回 None。"""
     try:
-        engine = SourceFileLoader("engine", str(SCORE_DIR / "engine.py")).load_module()
+        engine = _engine_module()
         rules_path = RULES_DIR / "piotroski.yaml"
-        data = engine.load_duckdb_data(ticker)
+        data = _load_duckdb_data_cached(ticker, _db_mtime())
         result = engine.run_score(rules_path, data, year)
         return int(result.total_score) if result is not None else None
     except Exception:
@@ -231,9 +232,24 @@ def format_rating(score: float | None, thresholds: dict, valid_rules: int = 1) -
     return "🔴 不及格"
 
 
+@functools.lru_cache(maxsize=1)
 def _engine_module():
-    """复用 _fscore 同款加载方式,避免每行公司重复 import。"""
+    """engine.py 单例,避免每行公司重复 SourceFileLoader().load_module()
+    (load_all 对 100 家各重载一次,实测占首屏一半成本)。"""
     return SourceFileLoader("engine", str(SCORE_DIR / "engine.py")).load_module()
+
+
+@functools.lru_cache(maxsize=256)
+def _load_duckdb_data_cached(ticker: str, db_mtime: float):
+    """按 (ticker, db_mtime) 缓存 engine.load_duckdb_data;mtime 变即失效。"""
+    return _engine_module().load_duckdb_data(ticker)
+
+
+def _db_mtime() -> float:
+    try:
+        return DB_PATH.stat().st_mtime
+    except OSError:
+        return 0.0
 
 
 def _score_one_master(engine, rules_doc: dict, rules_path: Path,
@@ -319,7 +335,7 @@ def score_lynch_classifier_all(df: pd.DataFrame) -> pd.DataFrame:
     if sys_path_dash not in sys.path:
         sys.path.insert(0, sys_path_dash)
     from masters.lynch.classifier import (  # noqa: E402
-        classify_ticker, compute_lynch_dims, load_metrics_from_db, overall_lynch,
+        classify, compute_lynch_dims, load_metrics_from_db, overall_lynch,
     )
 
     out = df.copy()
@@ -331,8 +347,10 @@ def score_lynch_classifier_all(df: pd.DataFrame) -> pd.DataFrame:
 
     for ticker in out["ticker"]:
         try:
-            cls = classify_ticker(ticker)
+            # 每家只读一次 metrics,复用给 classify + compute_lynch_dims
+            # (旧代码 classify_ticker 内部已 load 一次,循环又 load 一次 → 2×)。
             m = load_metrics_from_db(ticker)
+            cls = classify(m)
             dims = compute_lynch_dims(m, cls.cls_id)
             overall, _badge = overall_lynch(dims)
 
