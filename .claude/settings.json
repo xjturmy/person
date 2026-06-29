@@ -34,7 +34,10 @@
       "Bash(.venv/bin/python .tools/analytics/precompute.py)",
       "Bash(.venv/bin/python -m pytest .tools/dashboard/tests/ -k \"screener or lynch or classif or decision or portfolio or holding or master or company or price_range\" -q)",
       "Bash(.venv/bin/python -m pytest .tools/dashboard/tests/ -k \"\\(screener or lynch or classif or decision or portfolio or holding or company or price_range\\) and not buffett\" -q -p no:cacheprovider --ignore=.tools/dashboard/tests/masters/test_buffett_classifier.py --ignore=.tools/dashboard/tests/masters/test_buffett_extras.py)",
-      "Bash(.venv/bin/python -m pytest .tools/dashboard/tests/valuation/test_price_range.py::test_all_three_models_produce_range .tools/dashboard/tests/test_app.py::test_global_search_syncs_subtab_company_keys -q -p no:cacheprovider)"
+      "Bash(.venv/bin/python -m pytest .tools/dashboard/tests/valuation/test_price_range.py::test_all_three_models_produce_range .tools/dashboard/tests/test_app.py::test_global_search_syncs_subtab_company_keys -q -p no:cacheprovider)",
+      "Bash(lsof -ti:8501)",
+      "Bash(xargs ps -o pid,etime,command)",
+      "Bash(echo \"启动中 PID=$!\")"
     ]
   }
 }
