@@ -1,0 +1,8 @@
+# preson Dashboard 配置
+# 开发回路:存盘即自动 rerun(L1 热重载),无需手动重启。
+# 仅在改 import / 全局缓存 / 顶层常量时才需 ./restart_dashboard.sh。
+
+[server]
+runOnSave = true
+headless = true
+port = 8501

@@ -11,6 +11,18 @@ cd /Users/gongyong/Desktop/Keyi/preson
 
 浏览器自动打开 `http://localhost:8501`。
 
+> ⚡ **热重载已开**（`.streamlit/config.toml` 的 `runOnSave=true`）：改完渲染文件存盘，浏览器自动 rerun，无需重启。仅改 import / 全局缓存 / 顶层常量时才需 `./restart_dashboard.sh`。
+
+## 🧪 子单元隔离台（开发用）
+
+只渲染**一个**子单元，配热重载秒级看效果，跑在 8502、与主 app 并存：
+
+```bash
+bash .tools/dashboard/dev_harness.sh        # → http://localhost:8502
+```
+
+子单元清单见 [dev/units.py](dev/units.py)。开发回路：说「我在改 `peg_curve`」→ 隔离台选它看效果 → `pytest <test_path>` 验回归 → `verify_refactor.py` 确认没碰坏别页 → CHANGELOG 记一行。强耦合整 tab（芒格/格雷厄姆/决策中心）标 ⛔，走主 app + `verify_refactor.py`。
+
 ## 🤖 嵌入 Claude 终端
 
 ```bash

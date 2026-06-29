@@ -10,9 +10,9 @@
 | 子目录 | 内容 |
 |--------|------|
 | [architecture/](./architecture/README.md) | 架构设计基准（五层架构、约定、ADR） |
-| [plans/](./plans/README.md) | 版本计划、进展看板、项目总览 |
+| [plans/](./plans/README.md) | 1.0 立项 + 进展看板；历史版本计划已归入 `plans/_archive/` |
 | [dashboard/](./dashboard/README.md) | Dashboard 优化方案（M0–M6） |
-| [tasks/](./tasks/) | 各版本任务拆解（v2.4 / v2.5 / v2.6） |
+| [tasks/](./tasks/) | 当前任务（v2.6 康波 / 数据稽核）；已交付的 v2.4 / v2.5 已归入 `tasks/_archive/` |
 | [tools/](./tools/) | 工具脚本文档（如理杏仁字段清单） |
 
 ---

@@ -1,39 +1,30 @@
 # 版本计划与进展
 
-> 本目录是项目计划与进展的**历史看板归档**。多数版本计划(v2.3~v2.7)均已交付，
-> 作为决策脉络存档保留，不再更新。当前权威进展看板为 [PROGRESS.md](./PROGRESS.md)。
+> 系统已统一为 **preson v1.0**（2026-06-28）。版本史见根目录 [CHANGELOG.md](../../CHANGELOG.md)。
 >
-> 最新已交付版本：**v2.9**（五导航：市场&行业 / 选股 / 公司研究 / 决策中心 / 黄金；公司库已扩至 100 家）。
-> v2.8 及之后的迭代记录主要落在 `.claude/.../memory/` 的项目记忆里，未在本目录单独建计划文档。
+> 活跃区只保留当前该看的文档；历史版本计划（v1~v2.7）已归档到 [`_archive/`](./_archive/)，作为决策脉络存档保留、不再更新。
 
-## 当前关注
+## 活跃区
 
 | 文档 | 说明 |
 |------|------|
-| [PROGRESS.md](./PROGRESS.md) | 进展看板（权威，最后更新 2026-05-10，仅覆盖到 v2.5） |
-| [PROJECT_PLAN_v2.7_持仓档案.md](./PROJECT_PLAN_v2.7_持仓档案.md) | 本目录内最新版本计划（已交付） |
+| [PROJECT_PLAN_v1.0.md](./PROJECT_PLAN_v1.0.md) | **1.0 立项文档（当前权威）** — 版本统一 + 资料整理 + 后续迭代建议 |
+| [PROGRESS.md](./PROGRESS.md) | 进展看板（与 CHANGELOG 并列为仅有的两个活文档） |
+| [共享计划.md](./共享计划.md) | 公网部署计划（已规划，未动手） |
 
-## 版本计划（按时间）
+## 历史归档（`_archive/`）
+
+已交付或已被超越的版本计划，按版本倒序：
 
 | 版本 | 文档 |
 |------|------|
-| v2.7 | [PROJECT_PLAN_v2.7_持仓档案.md](./PROJECT_PLAN_v2.7_持仓档案.md) |
-| v2.6 | [PROJECT_PLAN_v2.6.md](./PROJECT_PLAN_v2.6.md) |
-| v2.5 | [PROJECT_PLAN_v2.5_TODO.md](./PROJECT_PLAN_v2.5_TODO.md) |
-| v2.4 | [PROJECT_PLAN_v2.4_候选.md](./PROJECT_PLAN_v2.4_候选.md) |
-| v2.3 | [PROJECT_PLAN_v2.3.md](./PROJECT_PLAN_v2.3.md) |
-| v2.x | [PROJECT_PLAN_v2.md](./PROJECT_PLAN_v2.md) |
-| v1 | [PROJECT_PLAN.md](./PROJECT_PLAN.md) |
-
-## 其他
-
-| 文档 | 说明 |
-|------|------|
-| [PROJECT_OVERVIEW.md](./PROJECT_OVERVIEW.md) | 项目总览 |
-| [PROGRESS_v2.md](./PROGRESS_v2.md) | v2 阶段进展（历史） |
-| [PROJECT_PLAN_peer.md](./PROJECT_PLAN_peer.md) | 同行对标专项 |
-| [共享计划.md](./共享计划.md) | 公网部署计划（已规划，未动手） |
-
-> 注：早期版本计划 `PROJECT_PLAN_v2.1_dashboard.md`（Dashboard M0-M6）曾被引用为
-> `.archive/` 下的归档文件，但该归档目录当前不存在于 `docs/plans/` 下；其内容已由
-> v2.3 计划承接（v2.3 frontmatter 标注「基于 PROJECT_PLAN_v2.1_dashboard.md」）。
+| v2.7 | [PROJECT_PLAN_v2.7_持仓档案.md](./_archive/PROJECT_PLAN_v2.7_持仓档案.md) |
+| v2.6 | [PROJECT_PLAN_v2.6.md](./_archive/PROJECT_PLAN_v2.6.md) |
+| v2.5 | [PROJECT_PLAN_v2.5_TODO.md](./_archive/PROJECT_PLAN_v2.5_TODO.md) |
+| v2.4 | [PROJECT_PLAN_v2.4_候选.md](./_archive/PROJECT_PLAN_v2.4_候选.md) |
+| v2.3 | [PROJECT_PLAN_v2.3.md](./_archive/PROJECT_PLAN_v2.3.md) |
+| v2.x | [PROJECT_PLAN_v2.md](./_archive/PROJECT_PLAN_v2.md) |
+| v1 | [PROJECT_PLAN.md](./_archive/PROJECT_PLAN.md) |
+| 专项 | [PROJECT_PLAN_peer.md](./_archive/PROJECT_PLAN_peer.md)（同行对标） |
+| 总览 | [PROJECT_OVERVIEW.md](./_archive/PROJECT_OVERVIEW.md)（早期 v1.0 档案库口径） |
+| 进展 | [PROGRESS_v2.md](./_archive/PROGRESS_v2.md)（v2 阶段历史快照） |

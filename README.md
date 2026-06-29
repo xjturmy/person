@@ -3,7 +3,7 @@
 > 个股分析 · 行业研究 · 投资决策跟踪 · Streamlit Dashboard  
 > **换机后先看本文**，5 分钟恢复开发环境；细节见 [docs/README.md](./docs/README.md)
 
-**最后更新**：2026-06-28 · **当前版本**：Dashboard v2.9 · **公司库**：100 家
+**最后更新**：2026-06-28 · **当前版本**：preson v1.0 · **公司库**：100 家 · 版本史见 [CHANGELOG.md](./CHANGELOG.md)
 
 ---
 
@@ -56,9 +56,9 @@ pip install akshare requests pyyaml openpyxl
 
 | 模块 | 状态 | 说明 |
 |------|:----:|------|
-| 数据层 | ✅ | 8 个 DuckDB 库（当前 data/ 实存 7 个，peers 待还原）· 100 家公司 · 573k+ 行主库 |
+| 数据层 | ✅ | 8 个 DuckDB 库（含 analytics 预计算库；设计中的 peers 待还原）· 100 家公司 · 573k+ 行主库 |
 | 抓数/整合 | ✅ | 理杏仁 pipeline + `data_consolidator` 端到端 |
-| Dashboard v2.9 | ✅ | 投资漏斗五导航 · 四子 Tab · 配置迁移 |
+| Dashboard | ✅ | 投资漏斗五导航 · 四子 Tab · 配置迁移 |
 | 大师评分 | ✅ | 林奇 / 巴菲特 / 格雷厄姆 / 芒格 / 黄金范式 |
 | 行业分析 | ✅ | 分位引擎 · 周期判定 · ETF 推荐 · 行业聚焦 Tab |
 | 同行对标 | ✅ | peers 引擎 + 决策中心 vs 同行 |
@@ -73,7 +73,7 @@ pip install akshare requests pyyaml openpyxl
 | 进展看板同步 | 🟡 | [docs/plans/PROGRESS.md](./docs/plans/PROGRESS.md) 部分条目滞后于代码 |
 | 金融业字典 | 🔴 P3 | NPL/CET1/EV·NBV 等需外部数据源 |
 | 月报 PDF 输出 | 🟡 | 数据层 OK，PDF/邮件待做 |
-| v2.6 康波 Tab | ⏳ | 计划见 [PROJECT_PLAN_v2.6.md](./docs/plans/PROJECT_PLAN_v2.6.md) |
+| 康波 Tab | ⏳ | 计划见 [PROJECT_PLAN_v2.6.md](./docs/plans/_archive/PROJECT_PLAN_v2.6.md)（已归档） |
 
 ### 最近 Git 里程碑
 
@@ -149,7 +149,10 @@ preson/
 ```bash
 ./restart_dashboard.sh              # 重启（杀旧进程 + 后台启动）
 tail -f .temp/dashboard.log         # 看日志
+bash .tools/dashboard/dev_harness.sh  # 🧪 子单元隔离台(8502)：只渲染一个子单元，配热重载秒级迭代
 ```
+
+> ⚡ 热重载已开（`.streamlit/config.toml`）：改完渲染文件存盘，浏览器自动 rerun，无需重启。
 
 Dashboard 五导航：**🌡️ 市场&行业** · **🔍 选股** · **🏢 公司研究** · **💼 决策中心** · **🥇 黄金**
 
@@ -208,8 +211,9 @@ cd .tools/dashboard && python -m pytest tests/ -q
 | 文档 | 用途 |
 |------|------|
 | **[docs/README.md](./docs/README.md)** | 文档总入口 |
-| [docs/plans/PROGRESS.md](./docs/plans/PROGRESS.md) | 进展看板（任务/阻塞/版本日志） |
-| [docs/plans/PROJECT_PLAN_v2.7_持仓档案.md](./docs/plans/PROJECT_PLAN_v2.7_持仓档案.md) | 最新版本计划 |
+| [CHANGELOG.md](./CHANGELOG.md) | 版本日志（1.0 基线 + Pre-1.0 迭代史） |
+| [docs/plans/PROGRESS.md](./docs/plans/PROGRESS.md) | 进展看板（任务/阻塞） |
+| [docs/plans/PROJECT_PLAN_v1.0.md](./docs/plans/PROJECT_PLAN_v1.0.md) | 1.0 立项文档（当前权威） |
 | [docs/architecture/](./docs/architecture/README.md) | 五层架构 · ADR 决策记录 |
 | [docs/architecture/12-dashboard-v2.9-design-scheme.md](./docs/architecture/12-dashboard-v2.9-design-scheme.md) | Dashboard v2.9 设计 |
 | [.tools/dashboard/README.md](./.tools/dashboard/README.md) | Dashboard 启动/故障排查 |

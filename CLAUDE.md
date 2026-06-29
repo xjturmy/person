@@ -4,7 +4,7 @@
 >
 > 位于 `/Users/gongyong/Desktop/Keyi/preson/`
 > 
-> **最后更新**：2026-06-28 · **公司库** 100 家 · **Dashboard** v2.9（Streamlit 五导航）
+> **最后更新**：2026-06-28 · **公司库** 100 家 · **当前版本** preson v1.0（Streamlit 五导航 Dashboard，版本史见 [CHANGELOG.md](./CHANGELOG.md)）
 >
 > 📌 项目已从"纯数据档案库"演进为"投研智能体 + Dashboard"。换机上手与日常命令见根目录 [README.md](./README.md)，架构设计见 [docs/architecture/](./docs/architecture/README.md)。本文件聚焦 **AI 会话工作区规则**与**抓数脚本约定**。
 
@@ -234,10 +234,16 @@ python3 .tools/batch_broker_analysis.py
 
 ## 📝 更新记录
 
+- **2026-06-28**：系统版本统一为 **preson v1.0**
+  - 建立单一版本真源根目录 `VERSION`（值 `1.0`）+ `CHANGELOG.md`（收编 v2.x 迭代史）
+  - 校准 README/CLAUDE/architecture 的「当前版本」锚点；Dashboard v2.x 内部计数归零
+  - 历史 `docs/plans/`、`docs/tasks/` 已交付文档归档到各自 `_archive/`
+  - 新增 1.0 开发验证脚手架：`.streamlit/config.toml`（热重载）+ 子单元隔离台 `dev_harness.py`
+
 - **2026-06-28**：文档校准
   - 公司库 15 → **100 家**（核心 16 + 候选池），清单以 `.config/companies.csv` 为准
-  - 标注项目已演进为 **Dashboard v2.9（Streamlit 五导航）**，详见根 README 与 docs/
-  - ⚠️ `data/` 实存 7 个 DuckDB，**peers.duckdb 缺失**，需跑 `.tools/db/fetch_peers.py` 重建
+  - 项目已演进为五导航 Streamlit Dashboard，详见根 README 与 docs/
+  - ⚠️ `data/` 现有 8 个 DuckDB（含 analytics 预计算库），**peers.duckdb 仍缺失**，需跑 `.tools/db/fetch_peers.py` 重建
 
 - **2026-04-23**：完整迁移项目结构
   - 创建 `.tools/` 集中管理脚本

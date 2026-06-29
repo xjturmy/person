@@ -166,7 +166,7 @@ class ETFCandidate:
 
 ## ✅ 全部完成判定
 
-详见 [PROJECT_PLAN_v2.6.md](../../plans/PROJECT_PLAN_v2.6.md)「全部完成判定」段。
+详见 [PROJECT_PLAN_v2.6.md](../../plans/_archive/PROJECT_PLAN_v2.6.md)「全部完成判定」段。
 
 ---
 

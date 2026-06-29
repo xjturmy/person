@@ -219,6 +219,13 @@ with st.sidebar:
     st.markdown("**🧭 导航**")
     page = st.radio("页面", PAGES, key="nav", label_visibility="collapsed")
 
+    # 版本真源:读根目录 VERSION 文件(统一为 preson 1.0)
+    try:
+        _ver = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+    except OSError:
+        _ver = "?"
+    st.caption(f"preson v{_ver}")
+
     # M0 #4:选股 + 设置合并为一段(去掉 divider,改名"当前公司")
     st.markdown("### 🎯 当前公司")
     companies = list_companies(DB_MTIME)
