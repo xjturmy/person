@@ -34,18 +34,16 @@ def _merge_draft_hits() -> pd.DataFrame:
         prelim = set(_session.get_draft(_session.FUNNEL_SCREENER_PRELIM, []) or [])
         lynch  = set(_session.get_draft(_session.FUNNEL_SCREENER_LYNCH, []) or [])
         graham = set(_session.get_draft(_session.FUNNEL_SCREENER_GRAHAM, []) or [])
-        buffett = set(_session.get_draft(_session.FUNNEL_SCREENER_BUFFETT, []) or [])
     except Exception:
-        prelim = lynch = graham = buffett = set()
+        prelim = lynch = graham = set()
 
-    all_tickers = prelim | lynch | graham | buffett
+    all_tickers = prelim | lynch | graham
     rows = []
     for t in sorted(all_tickers):
         tags = []
         if t in prelim: tags.append("P")
         if t in lynch:  tags.append("L")
         if t in graham: tags.append("G")
-        if t in buffett: tags.append("B")
         rows.append({"ticker": t, "sources": "+".join(tags)})
     return pd.DataFrame(rows, columns=["ticker", "sources"])
 
@@ -128,7 +126,7 @@ def _section_existing_watchlist() -> None:
 
 
 def _section_merged_drafts(universe_df: pd.DataFrame | None) -> None:
-    st.markdown("### ② 四路命中合并草稿(初筛 ∪ 林奇 ∪ 格雷厄姆 ∪ 巴菲特)")
+    st.markdown("### ② 三路命中合并草稿(初筛 ∪ 林奇 ∪ 格雷厄姆)")
     merged = _merge_draft_hits()
     if merged.empty:
         st.info("草稿为空 — 到「初步筛选」/「林奇选股」/「格雷厄姆选股」勾选命中。")
@@ -154,7 +152,7 @@ def _section_merged_drafts(universe_df: pd.DataFrame | None) -> None:
         disabled=[c for c in show.columns if c != "加入观察池"],
         column_config={
             "加入观察池": st.column_config.CheckboxColumn(default=True, width="small"),
-            "sources": st.column_config.TextColumn(help="P=初筛 L=林奇 G=格雷厄姆 B=巴菲特"),
+            "sources": st.column_config.TextColumn(help="P=初筛 L=林奇 G=格雷厄姆"),
         },
         key="confirm_merged_table",
     )
@@ -176,7 +174,6 @@ def _section_merged_drafts(universe_df: pd.DataFrame | None) -> None:
             _session.clear_draft(_session.FUNNEL_SCREENER_PRELIM)
             _session.clear_draft(_session.FUNNEL_SCREENER_LYNCH)
             _session.clear_draft(_session.FUNNEL_SCREENER_GRAHAM)
-            _session.clear_draft(_session.FUNNEL_SCREENER_BUFFETT)
         except Exception:
             pass
         st.rerun()

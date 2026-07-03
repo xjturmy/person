@@ -89,7 +89,7 @@ def wide_table_for(year: int) -> pd.DataFrame | None:
 @st.cache_data(ttl=600, show_spinner=False)
 def _value_scored(master_id: str, mtime: float) -> pd.DataFrame:
     con = _conn(mtime)
-    if con is None or master_id not in ("graham", "buffett"):
+    if con is None or master_id != "graham":
         return pd.DataFrame()
     try:
         return con.execute(f"SELECT * FROM value_scored_{master_id}").fetchdf()
@@ -98,7 +98,7 @@ def _value_scored(master_id: str, mtime: float) -> pd.DataFrame:
 
 
 def value_scored_for(master_id: str, year: int) -> pd.DataFrame | None:
-    """格雷厄姆/巴菲特价值评分全市场表;年份不符/库缺失/空 → None(降级 live)。"""
+    """格雷厄姆价值评分全市场表;年份不符/库缺失/空 → None(降级 live)。"""
     if wide_year() != year:
         return None
     df = _value_scored(master_id, analytics_mtime())

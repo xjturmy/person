@@ -12,6 +12,7 @@ import pandas as pd
 import streamlit as st
 
 from screening import screener as _scr
+from dashboard_helpers import latest_annual_year, latest_financial_period
 
 from . import _universe
 
@@ -84,7 +85,9 @@ def render(companies=None, db_mtime: float = 0.0) -> None:
         n_focus = 0
     st.info(f"universe: **{len(df_universe)}** 只(来自 **{n_focus}** 个 focus 行业)")
 
-    fscore_year = pd.Timestamp.now().year - 1
+    latest_period = latest_financial_period(db_mtime).get("label", "—")
+    fscore_year = latest_annual_year(db_mtime) or (pd.Timestamp.now().year - 1)
+    st.caption(f"财务指标最新到 {latest_period}; F-Score 使用 {fscore_year} 完整年报口径。")
     with st.spinner("加载指标 + F-Score..."):
         try:
             df_all = _load_screener_data(db_mtime, fscore_year).copy()

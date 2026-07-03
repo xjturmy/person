@@ -3,7 +3,7 @@
 四个子 Tab 由 ``render()`` 内 ``st.tabs`` 分发(与 spec 一致):
   prelim       → 初步筛选 (多维度过滤,结果写 FUNNEL_SCREENER_PRELIM)
   lynch_pick   → 林奇选股 (六类分类器)
-  graham_pick  → 格雷厄姆选股 (四类 + 可选 Buffett 引擎)
+  graham_pick  → 格雷厄姆选股 (四类价值评分)
   confirm      → 选股确定 (三路命中合并草稿 + 写 watchlist)
 
 公共 universe: ``_universe.get_or_block`` — focus 为空时阻断 + 跳转引导。

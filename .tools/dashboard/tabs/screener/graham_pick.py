@@ -1,10 +1,9 @@
-"""tabs.screener.graham_pick · 格雷厄姆 / 巴菲特价值选股.
+"""tabs.screener.graham_pick · 格雷厄姆价值选股.
 
 对 universe(可继承初筛草稿)运行 ``score_with_master``:
   - 格雷厄姆:四类判定 + 多规则评分
-  - 巴菲特:护城河规则评分
 
-命中(score ≥ 阈值)分别写入 FUNNEL_SCREENER_GRAHAM / FUNNEL_SCREENER_BUFFETT 草稿。
+命中(score ≥ 阈值)写入 FUNNEL_SCREENER_GRAHAM 草稿。
 """
 from __future__ import annotations
 
@@ -12,13 +11,13 @@ import pandas as pd
 import streamlit as st
 
 from screening import screener as _scr
+from dashboard_helpers import latest_annual_year, latest_financial_period
 
 from . import _universe
 from ._ui_helpers import count_excellent, preset_for_master, render_methodology_card, render_scatter
 
 _MASTER_LABELS = {
     "graham": "格雷厄姆",
-    "buffett": "巴菲特",
 }
 
 
@@ -67,21 +66,15 @@ def _classify_one(ticker: str) -> tuple[str, str, str]:
 def render(companies=None, db_mtime: float = 0.0) -> None:
     st.markdown("## 📐 格雷厄姆选股")
     st.caption(
-        "切换格雷厄姆(四类价值)或巴菲特(护城河)评分流派。"
-        "命中项写入草稿,在「✅ 选股确定」汇总入观察池。"
+        "用格雷厄姆四类价值框架评分。命中项写入草稿,"
+        "在「✅ 选股确定」汇总入观察池。"
     )
 
     df_universe = _universe.get_or_block()
     if df_universe is None:
         return
 
-    master_id = st.radio(
-        "评分流派",
-        list(_MASTER_LABELS.keys()),
-        format_func=lambda x: _MASTER_LABELS[x],
-        horizontal=True,
-        key="value_pick_master",
-    )
+    master_id = "graham"
 
     try:
         from funnel import session as _session
@@ -110,13 +103,15 @@ def render(companies=None, db_mtime: float = 0.0) -> None:
     label = _MASTER_LABELS[master_id]
     value_preset = preset_for_master(master_id) or {
         "name": label,
-        "tagline": "深度价值 / 护城河评分",
+        "tagline": "深度价值评分",
         "rules_yaml": master_id,
     }
     render_methodology_card(value_preset)
 
     tickers_key = ",".join(sorted(df_in["ticker"].astype(str).str.zfill(6).tolist()))
-    year = pd.Timestamp.now().year - 1
+    latest_period = latest_financial_period(db_mtime).get("label", "—")
+    year = latest_annual_year(db_mtime) or (pd.Timestamp.now().year - 1)
+    st.caption(f"财务指标最新到 {latest_period}; 格雷厄姆规则使用 {year} 完整年报口径。")
     with st.spinner(f"运行{label}评分..."):
         try:
             scored = _value_scored(db_mtime, year, tickers_key, master_id)
@@ -128,17 +123,16 @@ def render(companies=None, db_mtime: float = 0.0) -> None:
         st.warning("评分结果为空(可能本地数据不覆盖这些 ticker)。")
         return
 
-    if master_id == "graham":
-        # 预计算表已带 graham_class / 价值类型 → 跳过逐家 live 判定(实测 3.8s/41 家)。
-        if "graham_class" not in scored.columns or "价值类型" not in scored.columns:
-            with st.spinner("格雷厄姆四类判定..."):
-                cls_rows = [_classify_one(t) for t in scored["ticker"].astype(str)]
-            scored["graham_class"] = [c[0] for c in cls_rows]
-            scored["价值类型"] = [f"{c[2]} {c[1]}" for c in cls_rows]
-        type_counts = scored["价值类型"].value_counts()
-        if not type_counts.empty:
-            badges = " · ".join(f"{k} **{v}**" for k, v in type_counts.items())
-            st.caption(f"📊 四类分布:{badges}")
+    # 预计算表已带 graham_class / 价值类型 → 跳过逐家 live 判定(实测 3.8s/41 家)。
+    if "graham_class" not in scored.columns or "价值类型" not in scored.columns:
+        with st.spinner("格雷厄姆四类判定..."):
+            cls_rows = [_classify_one(t) for t in scored["ticker"].astype(str)]
+        scored["graham_class"] = [c[0] for c in cls_rows]
+        scored["价值类型"] = [f"{c[2]} {c[1]}" for c in cls_rows]
+    type_counts = scored["价值类型"].value_counts()
+    if not type_counts.empty:
+        badges = " · ".join(f"{k} **{v}**" for k, v in type_counts.items())
+        st.caption(f"📊 四类分布:{badges}")
 
     threshold = st.slider(
         "命中阈值(评分 ≥)", min_value=0, max_value=20, value=5, step=1,
@@ -167,8 +161,7 @@ def render(companies=None, db_mtime: float = 0.0) -> None:
         axis=1,
     )
     cols = ["命中", "name", "ticker", "评分", "rating", "pe", "pe_pct_10y", "roe"]
-    if master_id == "graham":
-        cols.insert(4, "价值类型")
+    cols.insert(4, "价值类型")
     rename = {
         "name": "公司", "ticker": "代码", "rating": "评级",
         "pe": "PE-TTM", "pe_pct_10y": "PE 10y 分位", "roe": "ROE",
@@ -194,12 +187,7 @@ def render(companies=None, db_mtime: float = 0.0) -> None:
     )
     try:
         from funnel import session as _session
-        draft_key = (
-            _session.FUNNEL_SCREENER_GRAHAM
-            if master_id == "graham"
-            else _session.FUNNEL_SCREENER_BUFFETT
-        )
-        _session.set_draft(draft_key, list(hit_codes))
+        _session.set_draft(_session.FUNNEL_SCREENER_GRAHAM, list(hit_codes))
     except Exception:
         pass
 

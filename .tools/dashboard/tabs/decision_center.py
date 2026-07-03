@@ -523,65 +523,69 @@ def _render_manual_add() -> None:
 
 # ─── 段 1:持仓总览 ─────────────────────────────────────────────────
 def _render_holdings_overview(snap: HoldingsSnapshot) -> None:
-    """v2.8 重构:首屏待办 → 统一持仓表 → 动作面板,概况/再平衡/审计折叠。"""
+    """v2.8 重构:把持仓总览拆成任务型子单元,避免首屏一次铺满。"""
 
-    # 段 1:🚨 待办动作(首屏黄金位)
-    _inbox.render(snap)
-    st.divider()
+    tab_actions, tab_table, tab_rebalance, tab_intake, tab_risk = st.tabs([
+        "① 今日动作",
+        "② 持仓表",
+        "③ 再平衡",
+        "④ 智能录入",
+        "⑤ 风险提示",
+    ])
 
-    # 段 2:📋 持仓 / 观察池 单表(active + watch 同列)
-    _table.render(snap, include_watch=True)
-    st.divider()
+    with tab_actions:
+        _inbox.render(snap)
 
-    # 段 3:动作面板(清仓 / 取消 / 硬删)— 常驻可见,watch 也能用
-    _actions.render(snap)
+    with tab_table:
+        _table.render(snap, include_watch=True)
 
-    # 段 4 起:折叠区
-    with st.expander("📥 智能录入持仓(从券商导出文本一键解析)", expanded=False):
+    with tab_rebalance:
+        actives = [r for r in snap.rows if r.status == "active"]
+        if actives:
+            with st.expander("📊 持仓分布 · 权重饼图 + 行业集中度", expanded=True):
+                col_pie, col_industry = st.columns(2)
+                with col_pie:
+                    st.markdown("**🥧 持仓权重饼图**")
+                    df_pie = pd.DataFrame([
+                        {"name": r.name, "actual_weight": r.actual_weight,
+                         "target_weight": r.target_weight, "deviation": r.deviation}
+                        for r in actives
+                    ])
+                    fig = px.pie(df_pie, names="name", values="actual_weight", hole=0.45,
+                                 hover_data=["target_weight", "deviation"])
+                    fig.update_traces(textposition="inside", textinfo="percent+label")
+                    fig.update_layout(height=320, margin=dict(t=10, b=10, l=10, r=10),
+                                      showlegend=False)
+                    st.plotly_chart(fig, width="stretch")
+
+                with col_industry:
+                    st.markdown("**🏭 行业集中度(按 portfolio.yaml tags[0])**")
+                    if snap.industry_agg:
+                        df_ind = pd.DataFrame([
+                            {"行业": a.tag, "持仓数": a.n_holdings,
+                             "权重": a.weight, "F-Score 均值": a.avg_fscore}
+                            for a in snap.industry_agg
+                        ])
+                        fig = px.bar(df_ind, x="行业", y="权重", color="F-Score 均值",
+                                     color_continuous_scale="RdYlGn", range_color=[3, 9])
+                        fig.update_layout(height=320, margin=dict(t=10, b=10, l=10, r=10))
+                        fig.update_yaxes(tickformat=".0%")
+                        st.plotly_chart(fig, width="stretch")
+                    else:
+                        st.caption("(无 active 持仓或缺 tags)")
+        _render_rebalance_panel(snap)
+
+    with tab_intake:
         _render_smart_intake()
 
-    actives = [r for r in snap.rows if r.status == "active"]
-    if actives:
-        with st.expander("📊 持仓分布 · 权重饼图 + 行业集中度", expanded=False):
-            col_pie, col_industry = st.columns(2)
-            with col_pie:
-                st.markdown("**🥧 持仓权重饼图**")
-                df_pie = pd.DataFrame([
-                    {"name": r.name, "actual_weight": r.actual_weight,
-                     "target_weight": r.target_weight, "deviation": r.deviation}
-                    for r in actives
-                ])
-                fig = px.pie(df_pie, names="name", values="actual_weight", hole=0.45,
-                             hover_data=["target_weight", "deviation"])
-                fig.update_traces(textposition="inside", textinfo="percent+label")
-                fig.update_layout(height=320, margin=dict(t=10, b=10, l=10, r=10),
-                                  showlegend=False)
-                st.plotly_chart(fig, width="stretch")
-
-            with col_industry:
-                st.markdown("**🏭 行业集中度(按 portfolio.yaml tags[0])**")
-                if snap.industry_agg:
-                    df_ind = pd.DataFrame([
-                        {"行业": a.tag, "持仓数": a.n_holdings,
-                         "权重": a.weight, "F-Score 均值": a.avg_fscore}
-                        for a in snap.industry_agg
-                    ])
-                    fig = px.bar(df_ind, x="行业", y="权重", color="F-Score 均值",
-                                 color_continuous_scale="RdYlGn", range_color=[3, 9])
-                    fig.update_layout(height=320, margin=dict(t=10, b=10, l=10, r=10))
-                    fig.update_yaxes(tickformat=".0%")
-                    st.plotly_chart(fig, width="stretch")
-                else:
-                    st.caption("(无 active 持仓或缺 tags)")
-
-    # 再平衡建议(active=0 时函数自身会跳过)
-    _render_rebalance_panel(snap)
-
-    # 审计提示
-    if snap.audit_alerts:
-        with st.expander(f"⏰ 决策审计提示({len(snap.audit_alerts)} 项)", expanded=False):
-            for a in snap.audit_alerts:
-                st.markdown(f"- {a.msg}")
+    with tab_risk:
+        _actions.render(snap)
+        if snap.audit_alerts:
+            with st.expander(f"⏰ 决策审计提示({len(snap.audit_alerts)} 项)", expanded=True):
+                for a in snap.audit_alerts:
+                    st.markdown(f"- {a.msg}")
+        else:
+            st.success("✅ 暂无决策审计提示")
 
 
 # ─── 段 3:决策日志(沿用原 tab_decisions)─────────────

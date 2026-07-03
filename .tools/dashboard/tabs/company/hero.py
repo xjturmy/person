@@ -34,6 +34,55 @@ from ._helpers import (
     _lynch_radar,
     _viewpoint_placeholder_html,
 )
+from ui.invest_ui import (
+    inject_invest_ui_css,
+    render_metric_card,
+    render_section_header,
+)
+
+
+def _score_status(score: float | None) -> str:
+    if score is None:
+        return "disabled"
+    if score >= 75:
+        return "success"
+    if score >= 60:
+        return "fair"
+    if score >= 45:
+        return "warning"
+    return "risk"
+
+
+def _valuation_status(raw: float | None) -> str:
+    if raw is None:
+        return "disabled"
+    try:
+        pct = float(raw)
+    except (TypeError, ValueError):
+        return "disabled"
+    if pct < 0.30:
+        return "undervalued"
+    if pct <= 0.70:
+        return "fair"
+    return "overvalued"
+
+
+def _score_value(score: float | None) -> str:
+    if score is None:
+        return "—"
+    try:
+        return f"{float(score):.0f}/100"
+    except (TypeError, ValueError):
+        return "—"
+
+
+def _percentile_value(raw: float | None) -> str:
+    if raw is None:
+        return "—"
+    try:
+        return f"{float(raw) * 100:.0f}%"
+    except (TypeError, ValueError):
+        return "—"
 
 
 def _peg_label(peg: float | None) -> str | None:
@@ -159,6 +208,7 @@ def _render_locator_badge(ticker: str, score_dict: dict) -> None:
 def render() -> None:
     # ─── 段 1:SWS 风格 Hero + 雷达 + 五维 + Piotroski ─────────────
     st.markdown(_SWS_CSS, unsafe_allow_html=True)
+    inject_invest_ui_css()
     folder_to_ticker_home = _folder_to_ticker(DB_MTIME)
     ticker = folder_to_ticker_home.get(selected, "")
     # ─── PE 分位口径(统一为 10y 全周期) ────────────────────────────
@@ -167,6 +217,8 @@ def render() -> None:
     # 5y/3y/1y 仅作"近 N 年"对照参考,显示在 expander 内,不影响主评分。
     home_window = "10y"
     st.session_state["home_window"] = home_window
+    _latest_period = latest_financial_period(DB_MTIME, ticker)
+    _annual_year = latest_annual_year(DB_MTIME, ticker)
     with st.expander("📐 PE 分位口径说明(默认 10y 全周期,可查看近 N 年对照)", expanded=False):
         st.markdown(
             "**主口径**:PE-TTM 10 年全周期分位(自算,与理杏仁内置 `PE-TTM_分位点` 差异 < 1pp)。\n\n"
@@ -209,281 +261,319 @@ def render() -> None:
         except Exception as _badge_exc:
             st.caption(f"(💡 当前定位 渲染失败:{_badge_exc})")
 
-        # ─── 观察池徽章(若 ticker 在 .config/watchlist.yaml 的 pending 中)─
-        try:
-            _wl_entry = _wl.get_entry(ticker) if ticker else None
-        except Exception:
-            _wl_entry = None
-        if _wl_entry is not None and _wl_entry.status == "pending":
-            _src = _wl_entry.preset or "—"
-            _at = _wl_entry.added_at or "—"
-            st.markdown(
-                f"<div style='display:inline-block;background:#fef3c7;color:#92400e;"
-                f"padding:0.35rem 0.75rem;border-radius:6px;border-left:3px solid #f59e0b;"
-                f"font-size:0.85rem;margin:0.4rem 0;'>"
-                f"🔔 <b>在观察池中</b> · 来源:{_src} · 加入:{_at}</div>",
-                unsafe_allow_html=True,
-            )
-
-        # ─── 持仓确认开关:勾选 → 写入 .config/portfolio.yaml.positions ──
-        #     决策中心「📌 已宣告持仓」段会自动读这份 yaml 显示。
-        if ticker:
-            try:
-                _fp_mod = SourceFileLoader(
-                    "fair_price", str(_THIS.parent / "fair_price.py")
-                ).load_module()
-                _is_held = _fp_mod.is_in_portfolio(ticker)
-                _toggle_key = f"position_toggle_{ticker}"
-                _new = st.toggle(
-                    "📌 确认持仓(纳入决策中心持仓概览)",
-                    value=_is_held, key=_toggle_key,
-                    help="勾选 → 写入 .config/portfolio.yaml.positions(自动 .bak 备份);"
-                         "取消 → 移除。该清单驱动「公司详情持仓卡」与「决策中心 · 已宣告持仓」。",
-                )
-                if _new and not _is_held:
-                    if _fp_mod.add_to_portfolio(ticker, score_dict["name"]):
-                        st.success(f"✅ 已加入持仓:{score_dict['name']} ({ticker})  ·  备份 portfolio.yaml.bak")
-                        st.rerun()
-                elif (not _new) and _is_held:
-                    if _fp_mod.remove_from_portfolio(ticker):
-                        st.info(f"📤 已移出持仓:{score_dict['name']} ({ticker})")
-                        st.rerun()
-            except Exception as _e:
-                st.caption(f"⚠️ 持仓开关不可用:{_e}")
-
-        # ─── v2.7 持仓档案卡(仅持仓股渲染)─────────────────────────
-        _render_position_card(ticker, st)
-
-        # ─── A1+A3:投资视角切换 + 彼得林奇分类卡片 ────────────────
-        VIEW_GENERIC = "⚪ 通用"
-        VIEW_LYNCH   = "🔍 彼得林奇"
-        VIEW_BUFFETT = "💎 巴菲特"
-        VIEW_GRAHAM  = "🛡️ 格雷厄姆"
-        viewpoint = st.radio(
-            "投资视角",
-            [VIEW_GENERIC, VIEW_LYNCH, VIEW_BUFFETT, VIEW_GRAHAM],
-            index=0, horizontal=True, key="home_viewpoint",
-            help="不同大师视角下,公司分类与五维口径不同。当前已支持通用 + 彼得林奇。",
+        render_section_header(
+            "投研速览",
+            subtitle="先看结论,再下钻指标。评分与估值统一使用 10 年全周期口径。",
+            eyebrow="Overview",
         )
+        _valuation_dim = score_dict["dims"].get("valuation", {})
+        _safety_dim = score_dict["dims"].get("safety", {})
+        _valuation_raw = _valuation_dim.get("raw")
+        _valuation_note = _valuation_dim.get("note") or "PE-TTM 10y 分位反向"
+        _safety_note = _safety_dim.get("note") or "负债率 / 风险指标"
+        _valuation_value = _percentile_value(_valuation_raw)
+        _safety_score = _safety_dim.get("score")
+        _quick_cols = st.columns(4)
+        with _quick_cols[0]:
+            render_metric_card("综合评分", f"{ov:.0f}/100", ov_label, _score_status(ov))
+        with _quick_cols[1]:
+            render_metric_card("估值分位", _valuation_value, _valuation_note, _valuation_status(_valuation_raw))
+        with _quick_cols[2]:
+            render_metric_card("安全性", _score_value(_safety_score), _safety_note, _score_status(_safety_score))
+        with _quick_cols[3]:
+            _period_note = f"年报评分按 {_annual_year} 完整年报" if _annual_year else "年报评分按完整年报"
+            render_metric_card("最新财报", _latest_period.get("label", "—"), _period_note, "info")
 
-        if viewpoint == VIEW_LYNCH:
+        unit_position, unit_view, unit_health, unit_dims, unit_fscore = st.tabs([
+            "① 持仓状态",
+            "② 投资视角",
+            "③ 健康风险",
+            "④ 五维评分",
+            "⑤ 年报评分",
+        ])
+
+        with unit_position:
             try:
-                lc = SourceFileLoader(
-                    "lynch_classifier", str(_THIS.parent / "lynch_classifier.py")
-                ).load_module()
-                metrics = lc.load_metrics_from_db(ticker)
-                lr = lc.classify(metrics)
-            except Exception as _e:
-                st.info(f"⚠️ 彼得林奇分类引擎调用失败:{_e}")
-                lr = None
-
-            if lr is not None:
-                # 1) 分类卡片
-                st.markdown(_lynch_card_html(lr), unsafe_allow_html=True)
-
-                # 2) A4:专属 5 维 雷达 + 卡片 + 综合分
-                lynch_dims = lc.compute_lynch_dims(metrics, lr.cls_id)
-                lynch_overall, lynch_badge = lc.overall_lynch(lynch_dims)
-
-                col_l, col_r = st.columns([3, 2], gap="medium")
-                with col_l:
-                    st.plotly_chart(
-                        _lynch_radar(lynch_dims, score_dict["name"]),
-                        width="stretch",
-                        config={"displayModeBar": False},
-                    )
-                with col_r:
-                    st.markdown(
-                        f'<div style="background:white;border:1px solid #E5E7EB;'
-                        f'border-radius:14px;padding:12px 16px;'
-                        f'font-family:-apple-system,Inter,PingFang SC,sans-serif;">'
-                        f'<div style="font-size:11px;color:#6B7280;font-weight:600;'
-                        f'letter-spacing:0.06em;text-transform:uppercase;'
-                        f'margin-bottom:4px;line-height:1.2;">'
-                        f'{lr.cls_emoji} {lr.cls_name} · 专属 5 维</div>'
-                        f'<div style="font-size:38px;font-weight:800;color:#111827;'
-                        f'line-height:1.1;">{lynch_badge} {lynch_overall:.0f}'
-                        f'<span style="font-size:14px;color:#9CA3AF;'
-                        f'font-weight:500;"> /100</span></div>'
-                        f'<div style="font-size:12px;color:#6B7280;margin-top:4px;line-height:1.4;">'
-                        f'按 <b>{lr.cls_name}</b> 类别加权;权重见每维详情</div>'
-                        f'</div>',
-                        unsafe_allow_html=True,
-                    )
-
-                # 3) 5 张评分卡(横向)
-                cols = st.columns(5)
-                for i, d in enumerate(lynch_dims):
-                    with cols[i]:
-                        st.markdown(_lynch_dim_card_html(d), unsafe_allow_html=True)
-
-                # 4) A5:每维下钻 expander
+                _wl_entry = _wl.get_entry(ticker) if ticker else None
+            except Exception:
+                _wl_entry = None
+            if _wl_entry is not None and _wl_entry.status == "pending":
+                _src = _wl_entry.preset or "—"
+                _at = _wl_entry.added_at or "—"
                 st.markdown(
-                    '<div style="font-size:11px;color:#6B7280;font-weight:600;'
-                    'letter-spacing:0.08em;text-transform:uppercase;'
-                    'margin:8px 0 2px 0;">📐 每维评分明细(展开看公式)</div>',
+                    f"<div style='display:inline-block;background:#fef3c7;color:#92400e;"
+                    f"padding:0.35rem 0.75rem;border-radius:6px;border-left:3px solid #f59e0b;"
+                    f"font-size:0.85rem;margin:0.4rem 0;'>"
+                    f"🔔 <b>在观察池中</b> · 来源:{_src} · 加入:{_at}</div>",
                     unsafe_allow_html=True,
                 )
-                for d in lynch_dims:
-                    s_str = f"{d.score:.0f}" if d.score is not None else "—"
-                    title = (
-                        f"{d.badge} {d.label} · {s_str}/100 · "
-                        f"权重 {int(d.weight*100)}% · {d.note}"
+            else:
+                st.caption("当前不在观察池 pending 清单中。")
+
+            if ticker:
+                try:
+                    _fp_mod = SourceFileLoader(
+                        "fair_price", str(_THIS.parent / "fair_price.py")
+                    ).load_module()
+                    _is_held = _fp_mod.is_in_portfolio(ticker)
+                    _toggle_key = f"position_toggle_{ticker}"
+                    _new = st.toggle(
+                        "📌 确认持仓(纳入决策中心持仓概览)",
+                        value=_is_held, key=_toggle_key,
+                        help="勾选 → 写入 .config/portfolio.yaml.positions(自动 .bak 备份);"
+                             "取消 → 移除。该清单驱动「公司详情持仓卡」与「决策中心 · 已宣告持仓」。",
                     )
-                    with st.expander(title, expanded=False):
+                    if _new and not _is_held:
+                        if _fp_mod.add_to_portfolio(ticker, score_dict["name"]):
+                            st.success(f"✅ 已加入持仓:{score_dict['name']} ({ticker})  ·  备份 portfolio.yaml.bak")
+                            st.rerun()
+                    elif (not _new) and _is_held:
+                        if _fp_mod.remove_from_portfolio(ticker):
+                            st.info(f"📤 已移出持仓:{score_dict['name']} ({ticker})")
+                            st.rerun()
+                except Exception as _e:
+                    st.caption(f"⚠️ 持仓开关不可用:{_e}")
+
+            _render_position_card(ticker, st)
+
+        with unit_view:
+            VIEW_GENERIC = "⚪ 通用"
+            VIEW_LYNCH   = "🔍 彼得林奇"
+            VIEW_BUFFETT = "💎 巴菲特"
+            VIEW_GRAHAM  = "🛡️ 格雷厄姆"
+            viewpoint = st.radio(
+                "投资视角",
+                [VIEW_GENERIC, VIEW_LYNCH, VIEW_BUFFETT, VIEW_GRAHAM],
+                index=0, horizontal=True, key="home_viewpoint",
+                help="不同大师视角下,公司分类与五维口径不同。当前已支持通用 + 彼得林奇。",
+            )
+
+            if viewpoint == VIEW_LYNCH:
+                try:
+                    lc = SourceFileLoader(
+                        "lynch_classifier", str(_THIS.parent / "lynch_classifier.py")
+                    ).load_module()
+                    metrics = lc.load_metrics_from_db(ticker)
+                    lr = lc.classify(metrics)
+                except Exception as _e:
+                    st.info(f"⚠️ 彼得林奇分类引擎调用失败:{_e}")
+                    lr = None
+
+                if lr is not None:
+                    st.markdown(_lynch_card_html(lr), unsafe_allow_html=True)
+                    lynch_dims = lc.compute_lynch_dims(metrics, lr.cls_id)
+                    lynch_overall, lynch_badge = lc.overall_lynch(lynch_dims)
+
+                    col_l, col_r = st.columns([3, 2], gap="medium")
+                    with col_l:
+                        st.plotly_chart(
+                            _lynch_radar(lynch_dims, score_dict["name"]),
+                            width="stretch",
+                            config={"displayModeBar": False},
+                        )
+                    with col_r:
                         st.markdown(
-                            f'<div style="font-size:13px;color:#374151;line-height:1.5;">'
-                            f'<div style="margin-bottom:3px;">'
-                            f'<b>📊 输入</b>'
-                            + "".join(
-                                f'<div style="margin-left:14px;">'
-                                f'<span style="color:#6B7280;">{k}</span>'
-                                f' = <span style="color:#111827;font-weight:600;">{v}</span>'
-                                f'</div>' for k, v in d.inputs.items()
-                            )
-                            + f'</div>'
-                            f'<div style="margin-bottom:3px;"><b>🧮 公式</b>'
-                            f'<div style="margin-left:14px;color:#6B7280;'
-                            f'font-family:ui-monospace,SFMono-Regular,monospace;'
-                            f'font-size:12px;">{d.formula}</div></div>'
-                            f'<div><b>🎯 结果</b>'
-                            f'<div style="margin-left:14px;">'
-                            f'<span style="font-size:18px;font-weight:700;color:#111827;">'
-                            f'{s_str}/100</span> '
-                            f'<span style="color:#6B7280;">— {d.note}</span></div></div>'
+                            f'<div style="background:white;border:1px solid #E5E7EB;'
+                            f'border-radius:14px;padding:12px 16px;'
+                            f'font-family:-apple-system,Inter,PingFang SC,sans-serif;">'
+                            f'<div style="font-size:11px;color:#6B7280;font-weight:600;'
+                            f'letter-spacing:0.06em;text-transform:uppercase;'
+                            f'margin-bottom:4px;line-height:1.2;">'
+                            f'{lr.cls_emoji} {lr.cls_name} · 专属 5 维</div>'
+                            f'<div style="font-size:38px;font-weight:800;color:#111827;'
+                            f'line-height:1.1;">{lynch_badge} {lynch_overall:.0f}'
+                            f'<span style="font-size:14px;color:#9CA3AF;'
+                            f'font-weight:500;"> /100</span></div>'
+                            f'<div style="font-size:12px;color:#6B7280;margin-top:4px;line-height:1.4;">'
+                            f'按 <b>{lr.cls_name}</b> 类别加权;权重见每维详情</div>'
                             f'</div>',
                             unsafe_allow_html=True,
                         )
 
-        elif viewpoint in (VIEW_BUFFETT, VIEW_GRAHAM):
-            st.markdown(
-                _viewpoint_placeholder_html(viewpoint.split(" ", 1)[-1]),
-                unsafe_allow_html=True,
-            )
+                    cols = st.columns(5)
+                    for i, d in enumerate(lynch_dims):
+                        with cols[i]:
+                            st.markdown(_lynch_dim_card_html(d), unsafe_allow_html=True)
 
-        # ─── v2.0 知识体系迭代:综合健康度卡片(Altman + Greenblatt + 中国警示)
-        try:
-            health = sc.health_score(ticker)
-            verdict_color = {
-                "🟢": "#10B981", "🟡": "#F59E0B",
-                "🟠": "#F97316", "🔴": "#EF4444",
-            }.get(health["badge"], "#9CA3AF")
-            cmp = health["components"]
-            warns = health["warnings"]["items"]
-            alt = health["altman"]
-            grb = health["greenblatt"]
+                    st.markdown(
+                        '<div style="font-size:11px;color:#6B7280;font-weight:600;'
+                        'letter-spacing:0.08em;text-transform:uppercase;'
+                        'margin:8px 0 2px 0;">📐 每维评分明细(展开看公式)</div>',
+                        unsafe_allow_html=True,
+                    )
+                    for d in lynch_dims:
+                        s_str = f"{d.score:.0f}" if d.score is not None else "—"
+                        title = (
+                            f"{d.badge} {d.label} · {s_str}/100 · "
+                            f"权重 {int(d.weight*100)}% · {d.note}"
+                        )
+                        with st.expander(title, expanded=False):
+                            st.markdown(
+                                f'<div style="font-size:13px;color:#374151;line-height:1.5;">'
+                                f'<div style="margin-bottom:3px;">'
+                                f'<b>📊 输入</b>'
+                                + "".join(
+                                    f'<div style="margin-left:14px;">'
+                                    f'<span style="color:#6B7280;">{k}</span>'
+                                    f' = <span style="color:#111827;font-weight:600;">{v}</span>'
+                                    f'</div>' for k, v in d.inputs.items()
+                                )
+                                + f'</div>'
+                                f'<div style="margin-bottom:3px;"><b>🧮 公式</b>'
+                                f'<div style="margin-left:14px;color:#6B7280;'
+                                f'font-family:ui-monospace,SFMono-Regular,monospace;'
+                                f'font-size:12px;">{d.formula}</div></div>'
+                                f'<div><b>🎯 结果</b>'
+                                f'<div style="margin-left:14px;">'
+                                f'<span style="font-size:18px;font-weight:700;color:#111827;">'
+                                f'{s_str}/100</span> '
+                                f'<span style="color:#6B7280;">— {d.note}</span></div></div>'
+                                f'</div>',
+                                unsafe_allow_html=True,
+                            )
 
-            warns_html = ""
-            if warns:
-                rows = "".join(
-                    f'<div style="margin:4px 0;font-size:12px;">'
-                    f'<span style="font-size:14px;">{w["level"]}</span> '
-                    f'<b>{w["title"]}</b> · '
-                    f'<span style="color:#6B7280;">{w["detail"]}</span>'
+            elif viewpoint in (VIEW_BUFFETT, VIEW_GRAHAM):
+                st.markdown(
+                    _viewpoint_placeholder_html(viewpoint.split(" ", 1)[-1]),
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.caption("通用视角使用顶部投研速览与「④ 五维评分」;切换到彼得林奇可查看分类与专属评分。")
+
+        with unit_health:
+            try:
+                health = sc.health_score(ticker)
+                verdict_color = {
+                    "🟢": "#10B981", "🟡": "#F59E0B",
+                    "🟠": "#F97316", "🔴": "#EF4444",
+                }.get(health["badge"], "#9CA3AF")
+                cmp = health["components"]
+                warns = health["warnings"]["items"]
+                alt = health["altman"]
+                grb = health["greenblatt"]
+
+                warns_html = ""
+                if warns:
+                    rows = "".join(
+                        f'<div style="margin:4px 0;font-size:12px;">'
+                        f'<span style="font-size:14px;">{w["level"]}</span> '
+                        f'<b>{w["title"]}</b> · '
+                        f'<span style="color:#6B7280;">{w["detail"]}</span>'
+                        f'</div>'
+                        for w in warns
+                    )
+                    warns_html = (
+                        f'<div style="margin-top:12px;padding:10px 12px;'
+                        f'background:#FEF3C7;border-left:3px solid #F59E0B;border-radius:6px;">'
+                        f'<div style="font-size:12px;color:#92400E;font-weight:600;'
+                        f'margin-bottom:4px;">⚠️ 中国本土暴雷警示 · {len(warns)} 项</div>'
+                        f'{rows}</div>'
+                    )
+
+                comp_html = "".join(
+                    f'<div style="display:flex;justify-content:space-between;'
+                    f'font-size:12px;padding:3px 0;">'
+                    f'<span style="color:#6B7280;">{k}</span>'
+                    f'<span style="font-weight:600;color:'
+                    f'{("#EF4444" if v < 0 else "#111827")};">{v:+.2f}</span>'
                     f'</div>'
-                    for w in warns
-                )
-                warns_html = (
-                    f'<div style="margin-top:12px;padding:10px 12px;'
-                    f'background:#FEF3C7;border-left:3px solid #F59E0B;border-radius:6px;">'
-                    f'<div style="font-size:12px;color:#92400E;font-weight:600;'
-                    f'margin-bottom:4px;">⚠️ 中国本土暴雷警示 · {len(warns)} 项</div>'
-                    f'{rows}</div>'
+                    for k, v in cmp.items()
                 )
 
-            comp_html = "".join(
-                f'<div style="display:flex;justify-content:space-between;'
-                f'font-size:12px;padding:3px 0;">'
-                f'<span style="color:#6B7280;">{k}</span>'
-                f'<span style="font-weight:600;color:'
-                f'{("#EF4444" if v < 0 else "#111827")};">{v:+.2f}</span>'
-                f'</div>'
-                for k, v in cmp.items()
+                st.markdown(
+                    f'<div style="margin:18px 0;padding:18px 22px;'
+                    f'background:linear-gradient(135deg,#F9FAFB 0%,#F3F4F6 100%);'
+                    f'border-radius:14px;border:1px solid #E5E7EB;">'
+                    f'  <div style="display:flex;align-items:center;justify-content:space-between;">'
+                    f'    <div>'
+                    f'      <div style="font-size:11px;color:#6B7280;letter-spacing:1px;">'
+                    f'🏥 综合健康度 v2.0</div>'
+                    f'      <div style="font-size:32px;font-weight:800;color:{verdict_color};'
+                    f'line-height:1.2;margin-top:4px;">{health["score"]:.1f}<span style="font-size:18px;color:#9CA3AF;font-weight:500;">/10</span></div>'
+                    f'      <div style="font-size:13px;color:{verdict_color};font-weight:600;'
+                    f'margin-top:2px;">{health["badge"]} {health["verdict"]}</div>'
+                    f'    </div>'
+                    f'    <div style="display:flex;gap:18px;align-items:flex-end;">'
+                    f'      <div style="text-align:center;">'
+                    f'        <div style="font-size:11px;color:#6B7280;">Altman 风险</div>'
+                    f'        <div style="font-size:20px;">{alt["badge"]} {alt["score"]}/{alt["max"]}</div>'
+                    f'        <div style="font-size:11px;color:#9CA3AF;">{alt["rating"]}</div>'
+                    f'      </div>'
+                    f'      <div style="text-align:center;">'
+                    f'        <div style="font-size:11px;color:#6B7280;">Greenblatt</div>'
+                    f'        <div style="font-size:20px;">{grb["badge"]} {grb["score"]:.0f}</div>'
+                    f'        <div style="font-size:11px;color:#9CA3AF;">好生意+便宜</div>'
+                    f'      </div>'
+                    f'    </div>'
+                    f'  </div>'
+                    f'  <div style="margin-top:14px;padding-top:12px;border-top:1px dashed #D1D5DB;">'
+                    f'    <div style="font-size:11px;color:#6B7280;margin-bottom:4px;">'
+                    f'分项构成(满分 10):</div>'
+                    f'    {comp_html}'
+                    f'  </div>'
+                    f'  {warns_html}'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+            except Exception as _hs_exc:
+                st.caption(f"(综合健康度加载失败:{_hs_exc})")
+
+        with unit_dims:
+            left, right = st.columns([3, 2], gap="medium")
+            with left:
+                st.plotly_chart(
+                    _radar_chart(score_dict["dims"], score_dict["name"]),
+                    width="stretch",
+                    config={"displayModeBar": False},
+                )
+            with right:
+                summary_lines = []
+                for k in SWS_DIM_KEYS:
+                    d = score_dict["dims"][k]
+                    color = SWS_COLORS[k]
+                    icon = SWS_ICONS[k]
+                    score_str = f"{d['score']:.0f}" if d["score"] is not None else "—"
+                    note = d["note"] or ""
+                    summary_lines.append(
+                        f'<div class="sws-summary-line">'
+                        f'  <span class="sws-summary-icon">{icon}</span>'
+                        f'  <span class="sws-summary-name">{d["label"]}</span>'
+                        f'  <span class="sws-summary-note">{note}</span>'
+                        f'  <span class="sws-summary-score" style="color:{color};">{score_str}</span>'
+                        f'</div>'
+                    )
+                st.markdown(
+                    f'<div class="sws-card">'
+                    f'  <div class="sws-summary-title">📌 五维速读</div>'
+                    f'  {"".join(summary_lines)}'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+            st.markdown('<div class="sws-section-header">五维详细</div>', unsafe_allow_html=True)
+            cards_html = "".join(
+                _sws_dim_card_html(k, score_dict["dims"][k]) for k in SWS_DIM_KEYS
             )
-
+            st.markdown(cards_html, unsafe_allow_html=True)
             st.markdown(
-                f'<div style="margin:18px 0;padding:18px 22px;'
-                f'background:linear-gradient(135deg,#F9FAFB 0%,#F3F4F6 100%);'
-                f'border-radius:14px;border:1px solid #E5E7EB;">'
-                f'  <div style="display:flex;align-items:center;justify-content:space-between;">'
-                f'    <div>'
-                f'      <div style="font-size:11px;color:#6B7280;letter-spacing:1px;">'
-                f'🏥 综合健康度 v2.0</div>'
-                f'      <div style="font-size:32px;font-weight:800;color:{verdict_color};'
-                f'line-height:1.2;margin-top:4px;">{health["score"]:.1f}<span style="font-size:18px;color:#9CA3AF;font-weight:500;">/10</span></div>'
-                f'      <div style="font-size:13px;color:{verdict_color};font-weight:600;'
-                f'margin-top:2px;">{health["badge"]} {health["verdict"]}</div>'
-                f'    </div>'
-                f'    <div style="display:flex;gap:18px;align-items:flex-end;">'
-                f'      <div style="text-align:center;">'
-                f'        <div style="font-size:11px;color:#6B7280;">Altman 风险</div>'
-                f'        <div style="font-size:20px;">{alt["badge"]} {alt["score"]}/{alt["max"]}</div>'
-                f'        <div style="font-size:11px;color:#9CA3AF;">{alt["rating"]}</div>'
-                f'      </div>'
-                f'      <div style="text-align:center;">'
-                f'        <div style="font-size:11px;color:#6B7280;">Greenblatt</div>'
-                f'        <div style="font-size:20px;">{grb["badge"]} {grb["score"]:.0f}</div>'
-                f'        <div style="font-size:11px;color:#9CA3AF;">好生意+便宜</div>'
-                f'      </div>'
-                f'    </div>'
-                f'  </div>'
-                f'  <div style="margin-top:14px;padding-top:12px;border-top:1px dashed #D1D5DB;">'
-                f'    <div style="font-size:11px;color:#6B7280;margin-bottom:4px;">'
-                f'分项构成(满分 10):</div>'
-                f'    {comp_html}'
-                f'  </div>'
-                f'  {warns_html}'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-        except Exception as _hs_exc:
-            st.caption(f"(综合健康度加载失败:{_hs_exc})")
-
-        # ─── 雷达 + 五维速读 ─────────────────────────────────
-        left, right = st.columns([3, 2], gap="medium")
-        with left:
-            st.plotly_chart(
-                _radar_chart(score_dict["dims"], score_dict["name"]),
-                width="stretch",
-                config={"displayModeBar": False},
-            )
-        with right:
-            summary_lines = []
-            for k in SWS_DIM_KEYS:
-                d = score_dict["dims"][k]
-                color = SWS_COLORS[k]
-                icon = SWS_ICONS[k]
-                score_str = f"{d['score']:.0f}" if d["score"] is not None else "—"
-                note = d["note"] or ""
-                summary_lines.append(
-                    f'<div class="sws-summary-line">'
-                    f'  <span class="sws-summary-icon">{icon}</span>'
-                    f'  <span class="sws-summary-name">{d["label"]}</span>'
-                    f'  <span class="sws-summary-note">{note}</span>'
-                    f'  <span class="sws-summary-score" style="color:{color};">{score_str}</span>'
-                    f'</div>'
-                )
-            st.markdown(
-                f'<div class="sws-card">'
-                f'  <div class="sws-summary-title">📌 五维速读</div>'
-                f'  {"".join(summary_lines)}'
-                f'</div>',
+                '<div class="sws-mini-cap">'
+                '映射规则:估值=PE 全周期分位反向 · 盈利=ROE · 成长=营收 YoY · '
+                '现金流=CFO/NI · 安全=负债率反向 '
+                '(详见 <a href="score_card.py" style="color:#6366F1;">score_card.py</a>)'
+                '</div>',
                 unsafe_allow_html=True,
             )
 
-        # ─── 五维详细卡片(图标 + 分数 + Pill + 进度条)───────
-        st.markdown('<div class="sws-section-header">五维详细</div>', unsafe_allow_html=True)
-        cards_html = "".join(
-            _sws_dim_card_html(k, score_dict["dims"][k]) for k in SWS_DIM_KEYS
-        )
-        st.markdown(cards_html, unsafe_allow_html=True)
-
-        # ─── Piotroski 子项展开 ─────────────────────────────
-        with st.expander("🔬 Piotroski F-Score 9 项明细", expanded=False):
+        with unit_fscore:
             from datetime import datetime as _dt
             _cur_year = _dt.now().year
+            _default_year = _annual_year or (_cur_year - 1)
+            st.caption(
+                f"财务指标最新到 {_latest_period.get('label', '—')}; "
+                f"F-Score 是完整年报模型,默认使用 {_default_year} 年报。"
+            )
             year = st.number_input("评估年份", min_value=2018, max_value=_cur_year,
-                                   value=_cur_year - 1,
+                                   value=_default_year,
                                    step=1, key="home_fscore_year")
             fs, details = _fscore_for(ticker, year, DB_MTIME)
             if fs is None:
@@ -499,14 +589,5 @@ def render() -> None:
                 for d in details:
                     icon = "✅" if d["passed"] else ("❌" if d["passed"] is False else "⚪")
                     st.markdown(f"- {icon} `{d['id']}` {d['name']} · {d['score']:.0f} 分")
-
-        st.markdown(
-            '<div class="sws-mini-cap">'
-            '映射规则:估值=PE 全周期分位反向 · 盈利=ROE · 成长=营收 YoY · '
-            '现金流=CFO/NI · 安全=负债率反向 '
-            '(详见 <a href="score_card.py" style="color:#6366F1;">score_card.py</a>)'
-            '</div>',
-            unsafe_allow_html=True,
-        )
 
     write_context(selected)

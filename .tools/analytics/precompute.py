@@ -68,7 +68,7 @@ def _classify_graham_one(ticker: str) -> tuple[str, str, str]:
 
 
 def _build_value_scored(wide_df, year: int) -> dict:
-    """格雷厄姆选股页:graham / buffett 价值评分全市场表(+ graham 四类判定)。
+    """格雷厄姆选股页:graham 价值评分全市场表(+ graham 四类判定)。
 
     复用 wide_df 作为 load_all 基表(同列),对全市场跑 score_with_master,
     与 graham_pick 的 _value_scored 逐 ticker 过滤等价。
@@ -76,7 +76,7 @@ def _build_value_scored(wide_df, year: int) -> dict:
     from screening import screener as scr
     out: dict = {}
     base = wide_df.copy()
-    for master_id in ("graham", "buffett"):
+    for master_id in ("graham",):
         try:
             scored = scr.score_with_master(base.copy(), master_id, year)
         except Exception as e:  # noqa: BLE001
@@ -159,8 +159,8 @@ def main() -> int:
     print("  → screener_wide …", flush=True)
     wide = _build_screener_wide(year)
 
-    # 1b) 格雷厄姆/巴菲特价值评分表
-    print("  → value_scored(graham/buffett) …", flush=True)
+    # 1b) 格雷厄姆价值评分表
+    print("  → value_scored(graham) …", flush=True)
     value = _build_value_scored(wide, year)
 
     # 2) 公司 bundle

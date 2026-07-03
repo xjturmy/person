@@ -9,6 +9,7 @@ import pandas as pd
 import streamlit as st
 
 from screening import screener as _scr
+from dashboard_helpers import latest_annual_year, latest_financial_period
 
 from . import _universe
 from ._ui_helpers import count_excellent, preset_for_master, render_methodology_card, render_scatter
@@ -108,7 +109,9 @@ def render(companies=None, db_mtime: float = 0.0) -> None:
     render_methodology_card(lynch_preset)
 
     tickers_key = ",".join(sorted(df_in["ticker"].astype(str).str.zfill(6).tolist()))
-    year = pd.Timestamp.now().year - 1
+    latest_period = latest_financial_period(db_mtime).get("label", "—")
+    year = latest_annual_year(db_mtime) or (pd.Timestamp.now().year - 1)
+    st.caption(f"财务指标最新到 {latest_period}; 年报型规则使用 {year} 完整年报口径。")
     with st.spinner("运行林奇六类分类器..."):
         try:
             scored = _lynch_scored(db_mtime, year, tickers_key)

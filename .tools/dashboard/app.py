@@ -94,6 +94,7 @@ PERCENTILE_TRIPLES = {
 from dashboard_helpers import (  # noqa: E402
     _db_mtime, _duckdb_conn, _folder_to_ticker, list_companies,
     load_metric, load_prices, list_industries, load_industry_pe,
+    latest_financial_period, latest_annual_year,
 )
 
 # ─── 全局搜索:候选 ⑩ v2.4 step-B ────────────────────────────────────
