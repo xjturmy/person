@@ -1,9 +1,11 @@
 """黄金分析 Tab 共享 helpers:imports / 缓存层 / 数据时效 / 拉新 / banner。"""
 from __future__ import annotations
 
+from contextlib import contextmanager
 import sys
 from pathlib import Path
 
+import duckdb
 import pandas as pd
 import streamlit as st
 
@@ -102,6 +104,20 @@ OVERHEAT_GRADIENT_YELLOW = "linear-gradient(90deg, #b45309 0%, #f59e0b 100%)"
 OVERHEAT_GRADIENT_GREEN = "linear-gradient(90deg, #065f46 0%, #10b981 100%)"
 
 
+# ─── gold.duckdb 只读连接 ───────────────────────────────────────────────
+
+
+@contextmanager
+def _gold_read_conn():
+    """Open a short-lived read-only connection to gold.duckdb."""
+    from gold.data import GOLD_DB
+    con = duckdb.connect(str(GOLD_DB), read_only=True)
+    try:
+        yield con
+    finally:
+        con.close()
+
+
 # ─── 缓存层(随 db_mtime 失效)──────────────────────────────────────────
 
 
@@ -169,11 +185,11 @@ def _overheat_cached(db_mtime: float) -> dict | None:
 @st.cache_data(ttl=600, show_spinner=False)
 def _stock_etf_master_cached(db_mtime: float) -> pd.DataFrame:
     """v2.6 板块 F · 金股 ETF 静态信息(4 只)。"""
-    from gold.data import GOLD_DB, gold_conn
+    from gold.data import GOLD_DB
     if not GOLD_DB.exists():
         return pd.DataFrame()
     try:
-        with gold_conn() as con:
+        with _gold_read_conn() as con:
             return con.execute(
                 "SELECT etf_code, etf_name, exchange, manager, tracking_index, "
                 "fee_rate, listing_date FROM gold_stock_etf_master "
@@ -184,11 +200,11 @@ def _stock_etf_master_cached(db_mtime: float) -> pd.DataFrame:
 @st.cache_data(ttl=600, show_spinner=False)
 def _stock_etf_prices_cached(db_mtime: float, days: int = 365) -> pd.DataFrame:
     """v2.6 板块 F · 金股 ETF 日 K。"""
-    from gold.data import GOLD_DB, gold_conn
+    from gold.data import GOLD_DB
     if not GOLD_DB.exists():
         return pd.DataFrame()
     try:
-        with gold_conn() as con:
+        with _gold_read_conn() as con:
             return con.execute(
                 "SELECT etf_code, date, open, close, high, low, volume, "
                 "turnover, pct_change "
@@ -218,10 +234,10 @@ def _stock_betas_cached(db_mtime: float) -> list[dict]:
 @st.cache_data(ttl=600, show_spinner=False)
 def _overheat_history_cached(db_mtime: float, days: int = 365) -> pd.DataFrame:
     """读 gold_overheat_history(用于历史回看时序图)。"""
-    from gold.data import GOLD_DB, gold_conn  # 局部导入避免循环
+    from gold.data import GOLD_DB  # 局部导入避免循环
     if not GOLD_DB.exists():
         return pd.DataFrame()
-    with gold_conn() as con:
+    with _gold_read_conn() as con:
         return con.execute(
             "SELECT date, red_count, yellow_count, green_count, "
             "verdict_id, verdict_label "
@@ -247,8 +263,7 @@ def _freshness_cached(db_mtime: float) -> dict:
     except Exception:
         pass
     try:
-        from gold.data import gold_conn
-        with gold_conn() as con:
+        with _gold_read_conn() as con:
             for col, table in (("etf_date", "gold_etf_prices"),
                                ("metric_date", "gold_metrics"),
                                ("overheat_date", "gold_overheat_history")):
