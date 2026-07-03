@@ -34,6 +34,10 @@ for _p in (MCP_DIR, SCORE_DIR):
         sys.path.insert(0, str(_p))
 
 import ui.score_card as sc
+from data_context import (
+    latest_annual_year as _context_latest_annual_year,
+    latest_financial_period as _context_latest_financial_period,
+)
 
 try:
     import peers.radar as pr
@@ -80,62 +84,16 @@ def _duckdb_conn(mtime: float):
         return None
 
 
-def _period_label(d: object) -> str:
-    if d is None:
-        return "—"
-    ts = pd.Timestamp(d)
-    quarter = ((ts.month - 1) // 3) + 1
-    if ts.month == 12 and ts.day == 31:
-        return f"{ts.year} 年报"
-    return f"{ts.year}Q{quarter}"
-
-
 @st.cache_data(ttl=600, show_spinner=False)
 def latest_financial_period(mtime: float, ticker: str = "") -> dict:
     """Return latest financial statement period from core statement tables."""
-    con = _duckdb_conn(mtime)
-    if con is None:
-        return {"date": None, "label": "—"}
-    tables = ("profitability", "growth", "cashflow", "safety")
-    parts = []
-    params: list[str] = []
-    for table in tables:
-        if ticker:
-            parts.append(f"SELECT max(date) AS date FROM {table} WHERE ticker = ?")
-            params.append(ticker)
-        else:
-            parts.append(f"SELECT max(date) AS date FROM {table}")
-    query = "SELECT max(date) FROM (" + " UNION ALL ".join(parts) + ")"
-    try:
-        row = con.execute(query, params).fetchone()
-        latest = row[0] if row else None
-    except Exception:
-        latest = None
-    return {"date": latest, "label": _period_label(latest)}
+    return _context_latest_financial_period(DUCKDB_PATH, ticker=ticker)
 
 
 @st.cache_data(ttl=600, show_spinner=False)
 def latest_annual_year(mtime: float, ticker: str = "") -> int | None:
     """Return latest complete annual report year available in statement tables."""
-    con = _duckdb_conn(mtime)
-    if con is None:
-        return None
-    tables = ("profitability", "growth", "cashflow", "safety")
-    parts = []
-    params: list[str] = []
-    for table in tables:
-        where = "month(date) = 12 AND day(date) = 31"
-        if ticker:
-            where += " AND ticker = ?"
-            params.append(ticker)
-        parts.append(f"SELECT max(date) AS date FROM {table} WHERE {where}")
-    query = "SELECT max(date) FROM (" + " UNION ALL ".join(parts) + ")"
-    try:
-        row = con.execute(query, params).fetchone()
-        latest = row[0] if row else None
-    except Exception:
-        latest = None
-    return int(pd.Timestamp(latest).year) if latest is not None else None
+    return _context_latest_annual_year(DUCKDB_PATH, ticker=ticker)
 
 
 @st.cache_resource
