@@ -125,7 +125,7 @@ def main() -> int:
         # Phase 2.4 范式引擎:每周记录一次投票快照
         engine_rc = run(
             "paradigm_engine (vote + record snapshot)",
-            [str(PY), str(ROOT / ".tools/dashboard/paradigm_engine.py"), "--write"],
+            [str(PY), str(ROOT / ".tools/dashboard/gold/paradigm.py"), "--write"],
             log_path, args.quiet,
         )
         if engine_rc != 0 and not args.quiet:
@@ -134,7 +134,7 @@ def main() -> int:
         # v2.4 step-D · 短期过热引擎:每周记录一次投票快照
         overheat_rc = run(
             "overheat_engine (gold short-term overheat vote)",
-            [str(PY), str(ROOT / ".tools/dashboard/overheat_engine.py"), "--write"],
+            [str(PY), str(ROOT / ".tools/dashboard/gold/overheat.py"), "--write"],
             log_path, args.quiet,
         )
         if overheat_rc != 0 and not args.quiet:

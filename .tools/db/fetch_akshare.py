@@ -86,10 +86,37 @@ def fetch_one_price(ticker: str, category: str, start: date, end: date,
     数据源策略:
     - A 股:新浪 stock_zh_a_daily(列: date/open/high/low/close/volume/amount/turnover)
             -> 映射 amount->turnover, turnover->turnover_rate, pct_change 留空
-    - 港股:暂不支持(akshare 港股接口走 eastmoney 当前不稳定)
+    - 港股:AkShare stock_hk_hist 单股历史(比全市场港股快照稳定)
     """
     if category == "hk":
-        raise RuntimeError("hk price source unavailable (eastmoney unstable)")
+        last_err = None
+        for attempt in range(retries + 1):
+            try:
+                raw = ak.stock_hk_hist(
+                    symbol=ticker,
+                    period="daily",
+                    start_date=_ymd(start),
+                    end_date=_ymd(end),
+                    adjust="hfq",
+                )
+                if raw is None or raw.empty:
+                    return pd.DataFrame()
+                df = raw.rename(columns={
+                    "日期": "date", "开盘": "open", "收盘": "close",
+                    "最高": "high", "最低": "low",
+                    "成交量": "volume", "成交额": "turnover",
+                    "涨跌幅": "pct_change", "换手率": "turnover_rate",
+                }).copy()
+                df["ticker"] = ticker
+                df["date"] = pd.to_datetime(df["date"]).dt.date
+                df["volume"] = pd.to_numeric(df["volume"], errors="coerce").fillna(0).astype("int64")
+                for c in ("open", "close", "high", "low", "turnover", "turnover_rate", "pct_change"):
+                    df[c] = pd.to_numeric(df[c], errors="coerce")
+                return df[PRICE_OUT_COLS]
+            except Exception as exc:
+                last_err = exc
+                time.sleep(1.5 * (attempt + 1))
+        raise RuntimeError(f"akshare hk fetch failed for {ticker}: {last_err}")
 
     last_err = None
     for attempt in range(retries + 1):
@@ -135,7 +162,7 @@ def merge_and_write(csv_path: Path, new_df: pd.DataFrame) -> int:
     return len(new_df)
 
 
-def fetch_prices(years: int) -> dict:
+def fetch_prices(years: int, allow_today_probe: bool = False) -> dict:
     PRICES_DIR.mkdir(parents=True, exist_ok=True)
     today = date.today()
     default_start = today - timedelta(days=365 * years)
@@ -150,6 +177,10 @@ def fetch_prices(years: int) -> dict:
         start = max_d + timedelta(days=1) if max_d else default_start
         if start > today:
             summary["ok"] += 1
+            continue
+        if start == today and not allow_today_probe:
+            summary["ok"] += 1
+            print(f"  [prices] {ticker} ({row['name']:<8}) {start}~{today}: skip today probe")
             continue
         try:
             df = fetch_one_price(ticker, category, start, today)
@@ -241,11 +272,13 @@ def main() -> int:
                         help="行业 PE 回抓多少天(默认 10)")
     parser.add_argument("--skip-prices", action="store_true")
     parser.add_argument("--skip-industry", action="store_true")
+    parser.add_argument("--allow-today-probe", action="store_true",
+                        help="缓存只差当天时仍请求行情源(盘后强刷用;默认跳过以避免 0 行/卡顿)")
     args = parser.parse_args()
 
     if not args.skip_prices:
         print("== fetch prices ==")
-        s = fetch_prices(args.years)
+        s = fetch_prices(args.years, allow_today_probe=args.allow_today_probe)
         print(f"\n  prices summary: ok={s['ok']}/{s['ok']+len(s['skipped'])} added={s['added']}")
         if s["skipped"]:
             print(f"  skipped: {[t for t,_ in s['skipped']]}")

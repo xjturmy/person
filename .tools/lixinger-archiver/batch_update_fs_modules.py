@@ -48,6 +48,7 @@ _FINANCIAL_EXCLUDED = {"q.m.gp_m.ttm", "q.m.lwi_ta_r.t", "q.m.c_r.t", "q.m.q_r.t
 _NEW_P2_FIELDS = {
     "q.bs.ta.t", "q.bs.tl.t", "q.bs.toe.t",
     "q.bs.ca.t", "q.bs.cl.t", "q.bs.ltl.t",
+    "q.bs.mc.t", "q.bs.ar.t",
     "q.m.roic.ttm",
 }
 CATEGORY_EXCLUDED_METRICS: dict[str, set[str]] = {
@@ -58,7 +59,7 @@ CATEGORY_EXCLUDED_METRICS: dict[str, set[str]] = {
     # 港股 /api/hk/non_financial:支持 19 字段;不支持以下 6 项(2026-05-06 实测)
     "hk": {
         "q.m.roic.ttm", "q.m.fcf.ttm", "q.m.lwi_ta_r.t", "q.m.q_r.t",
-        "q.bs.ca.t", "q.bs.cl.t",
+        "q.bs.ca.t", "q.bs.cl.t", "q.bs.mc.t", "q.bs.ar.t",
     },
 }
 
@@ -69,6 +70,16 @@ class Company:
     stock: str
     name: str
     category: str
+
+
+def normalize_stock_code(raw: str, category: str) -> str:
+    """理杏仁接口要求 A 股 6 位、港股 5 位代码。"""
+    s = str(raw).strip()
+    if not s.isdigit():
+        return s
+    if category == "hk":
+        return s.zfill(5)
+    return s.zfill(6)
 
 
 def read_companies(path: str, default_category: str) -> list[Company]:
@@ -86,6 +97,7 @@ def read_companies(path: str, default_category: str) -> list[Company]:
             name = (row.get("name") or "").strip()
             category = (row.get("category") or default_category).strip() or default_category
             if folder and stock and name:
+                stock = normalize_stock_code(stock, category)
                 out.append(Company(folder=folder, stock=stock, name=name, category=category))
         return out
 
@@ -223,6 +235,8 @@ def update_company_fs(
         ("05_安全性分析", "流动资产合计", "q.bs.ca.t", None, "流动资产合计", None),
         ("05_安全性分析", "流动负债合计", "q.bs.cl.t", None, "流动负债合计", None),
         ("05_安全性分析", "长期负债合计", "q.bs.ltl.t", None, "长期负债合计", None),
+        ("05_安全性分析", "货币资金", "q.bs.mc.t", None, "货币资金", None),
+        ("05_安全性分析", "应收账款", "q.bs.ar.t", None, "应收账款", None),
     ]
 
     # 过滤掉当前分类不支持的指标
@@ -285,6 +299,8 @@ def main() -> None:
     p.add_argument("--end-date", default=None, help="结束日期 YYYY-MM-DD（默认今天）")
     p.add_argument("--default-category", default="non_financial", choices=["non_financial", "bank", "security", "insurance", "other_financial"], help="CSV未提供category时的默认分类")
     p.add_argument("--clean-existing", action="store_true", help="清理旧同类文件后再写入")
+    p.add_argument("--only-folder", action="append", default=[],
+                   help="只更新指定公司目录名,可重复传入")
     args = p.parse_args()
 
     token = resolve_lixinger_token(args.token)
@@ -301,6 +317,9 @@ def main() -> None:
     end = end_d.strftime("%Y-%m-%d")
 
     companies = read_companies(args.companies_csv, args.default_category)
+    if args.only_folder:
+        only = set(args.only_folder)
+        companies = [c for c in companies if c.folder in only]
     if not companies:
         raise SystemExit("companies.csv 无有效公司记录")
 

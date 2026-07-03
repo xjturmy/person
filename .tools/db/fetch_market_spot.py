@@ -30,6 +30,8 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
 DB_PATH = ROOT / "data" / "market.duckdb"
+COMPANIES_CSV = ROOT / ".config" / "companies.csv"
+INDUSTRY_CACHE_CSV = ROOT / ".config" / "companies_industry.csv"
 
 
 # ───── DB schema ───────────────────────────────────────────────────────
@@ -215,6 +217,35 @@ def fetch_industry_mapping(quiet: bool = False) -> pd.DataFrame:
     return df
 
 
+def fallback_industry_mapping() -> pd.DataFrame:
+    """本地行业映射兜底。
+
+    EM 行业接口经常在开市时断连;此时至少用本地公司清单/缓存覆盖自选池,
+    避免 Dashboard 对核心 100 家完全无行业标签。
+    """
+    frames: list[pd.DataFrame] = []
+    if INDUSTRY_CACHE_CSV.exists():
+        cache = pd.read_csv(INDUSTRY_CACHE_CSV, dtype={"ticker": str})
+        if {"ticker", "industry_em"}.issubset(cache.columns):
+            frames.append(cache[["ticker", "industry_em"]].copy())
+    if COMPANIES_CSV.exists():
+        comp = pd.read_csv(COMPANIES_CSV, dtype={"stock": str})
+        if {"stock", "industry_l2"}.issubset(comp.columns):
+            local = comp.rename(columns={"stock": "ticker", "industry_l2": "industry_em"})
+            local["ticker"] = local.apply(
+                lambda r: str(r["ticker"]).zfill(5 if r.get("category") == "hk" else 6),
+                axis=1,
+            )
+            frames.append(local[["ticker", "industry_em"]].copy())
+    if not frames:
+        return pd.DataFrame(columns=["ticker", "industry_em"])
+    df = pd.concat(frames, ignore_index=True)
+    df["ticker"] = df["ticker"].astype(str)
+    df["industry_em"] = df["industry_em"].fillna("").astype(str).str.strip()
+    df = df[df["industry_em"] != ""]
+    return df.drop_duplicates(subset=["ticker"], keep="first").reset_index(drop=True)
+
+
 # ───── write ───────────────────────────────────────────────────────────
 
 def upsert_spot(con: duckdb.DuckDBPyConnection, df: pd.DataFrame) -> int:
@@ -282,6 +313,10 @@ def main() -> int:
             industry_df = fetch_industry_mapping(quiet=args.quiet)
         except Exception as e:
             print(f"  ⚠️  industry 映射失败(non-blocking):{e}", file=sys.stderr)
+        if industry_df.empty:
+            industry_df = fallback_industry_mapping()
+            if not industry_df.empty:
+                print(f"  ✓ 本地行业映射兜底:{len(industry_df)} 只票")
 
     # merge
     if not industry_df.empty:

@@ -51,6 +51,15 @@ def _load_industry_cache() -> dict[str, dict]:
     return out
 
 
+def _boolish(value) -> bool:
+    """CSV 缓存里 true/false 常以字符串保存,避免 bool('False') 误判。"""
+    if isinstance(value, bool):
+        return value
+    if pd.isna(value):
+        return False
+    return str(value).strip().lower() in {"1", "true", "t", "yes", "y", "是"}
+
+
 def _info_for(ticker: str, retries: int = 1) -> dict | None:
     """单家公司的行业 + 市值,SSL 偶发失败重试 retries 次,失败时回退到缓存。"""
     import akshare as ak
@@ -478,7 +487,6 @@ def main() -> int:
             })
             for r in old.itertuples(index=False):
                 d = r._asdict()
-                # 只保留有效字段,新基本面列稍后填
                 all_peers.append({
                     "ticker": str(d["ticker"]).zfill(6),
                     "name": d.get("name", ""),
@@ -490,7 +498,14 @@ def main() -> int:
                     "peer_market_cap": float(d.get("peer_market_cap") or 0),
                     "peer_pe": float(d["peer_pe"]) if pd.notna(d.get("peer_pe")) else None,
                     "peer_pb": float(d["peer_pb"]) if pd.notna(d.get("peer_pb")) else None,
-                    "is_above_self": bool(d.get("is_above_self")),
+                    "is_above_self": _boolish(d.get("is_above_self")),
+                    "peer_roe": float(d["peer_roe"]) if pd.notna(d.get("peer_roe")) else None,
+                    "peer_gross_margin": float(d["peer_gross_margin"]) if pd.notna(d.get("peer_gross_margin")) else None,
+                    "peer_revenue_yoy": float(d["peer_revenue_yoy"]) if pd.notna(d.get("peer_revenue_yoy")) else None,
+                    "peer_ni_yoy": float(d["peer_ni_yoy"]) if pd.notna(d.get("peer_ni_yoy")) else None,
+                    "peer_peg": float(d["peer_peg"]) if pd.notna(d.get("peer_peg")) else None,
+                    "peer_fscore_lite": int(d["peer_fscore_lite"]) if pd.notna(d.get("peer_fscore_lite")) else None,
+                    "peer_latest_year": str(d["peer_latest_year"]) if pd.notna(d.get("peer_latest_year")) else None,
                 })
             print(f"  ✅ 回退加载 {len(all_peers)} 行老 peer", file=sys.stderr)
         except Exception as e:
@@ -574,13 +589,13 @@ def main() -> int:
             r["peer_latest_year"] = fund.get("latest_year")
     else:
         for r in all_peers:
-            r["peer_roe"] = None
-            r["peer_gross_margin"] = None
-            r["peer_revenue_yoy"] = None
-            r["peer_ni_yoy"] = None
-            r["peer_peg"] = None
-            r["peer_fscore_lite"] = None
-            r["peer_latest_year"] = None
+            r.setdefault("peer_roe", None)
+            r.setdefault("peer_gross_margin", None)
+            r.setdefault("peer_revenue_yoy", None)
+            r.setdefault("peer_ni_yoy", None)
+            r.setdefault("peer_peg", None)
+            r.setdefault("peer_fscore_lite", None)
+            r.setdefault("peer_latest_year", None)
 
     df = pd.DataFrame(all_peers)
     df.to_csv(PEERS_CSV, index=False)

@@ -1,11 +1,9 @@
 """v2.4 step-D · ETF 份额时序抓取(资金流入流出信号)。
 
 数据源:
-- AkShare `fund_etf_fund_info_em(symbol, ...)` — 4 只 ETF 的累计净值/份额历史
-  中国 IP 偶发挂,失败时:
-- 备选 1:`.config/gold_etf_share_manual.csv`(列:date,etf_code,share)
-- 备选 2:gold_etf_prices.volume × close 的 5 日均比 60 日均(成交量爆量代理)
-       (此分支不写 gold_etf_share,由 overheat_engine 直接派生信号)
+- 优先 `.config/gold_etf_share_manual.csv`(列:date,etf_code,share)
+- 备选:gold_etf_prices.volume 的 5 日变化(成交量爆量代理)
+- 可选 AkShare `fund_etf_fund_info_em(symbol, ...)`;当前没有稳定份额字段,默认不启用
 
 写入:
 - gold_etf_share(etf_code, date, share, share_change_5d)
@@ -93,6 +91,34 @@ def fetch_share_manual_csv() -> pd.DataFrame:
     return df.dropna(subset=["date", "share"])
 
 
+def derive_share_proxy_from_volume(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    """用 ETF 成交量派生资金流代理。
+
+    AkShare 当前没有稳定的 ETF 历史份额接口。为避免 gold_etf_share 长期空表,
+    用 volume 的 5 日变化近似 share_change_5d;share 字段保存成交量(手)代理值。
+    过热引擎只读取 share_change_5d,所以该代理能让信号 5 进入可判定状态。
+    """
+    try:
+        df = con.execute("""
+            SELECT etf_code, date, volume
+            FROM gold_etf_prices
+            WHERE etf_code IN ('518880', '159937', '159934', '518800')
+              AND volume IS NOT NULL
+            ORDER BY etf_code, date
+        """).df()
+    except Exception:
+        return pd.DataFrame()
+    if df.empty:
+        return pd.DataFrame()
+    out = []
+    for code, sub in df.groupby("etf_code"):
+        sub = sub.sort_values("date").copy()
+        sub["share"] = pd.to_numeric(sub["volume"], errors="coerce")
+        sub["share_change_5d"] = sub["share"].pct_change(periods=5) * 100
+        out.append(sub[["etf_code", "date", "share", "share_change_5d"]])
+    return pd.concat(out, ignore_index=True).dropna(subset=["date", "share"])
+
+
 # ───── 计算 share_change_5d ────────────────────────────────────────────
 
 
@@ -149,6 +175,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--db", default=str(DB_PATH))
     ap.add_argument("--only", help="单只 ETF code(只走手填 CSV)")
     ap.add_argument("--smoke", action="store_true", help="不联网,合成数据")
+    ap.add_argument("--try-akshare", action="store_true",
+                    help="尝试 AkShare 份额接口(当前已知不稳定,默认跳过)")
+    ap.add_argument("--no-volume-proxy", action="store_true",
+                    help="手填 CSV 缺失时不写成交量代理")
     args = ap.parse_args(argv)
 
     db_path = Path(args.db)
@@ -164,35 +194,42 @@ def main(argv: list[str] | None = None) -> int:
         df = smoke_share()
         source = "smoke"
     else:
-        # 1. AkShare(目前 NotImplementedError,直接走 manual)
-        try:
-            akshare_dfs = []
-            targets = [args.only] if args.only else ETF_CODES
-            for code in targets:
-                try:
-                    one = fetch_share_one_akshare(code)
-                    one["etf_code"] = code
-                    akshare_dfs.append(one)
-                except NotImplementedError:
-                    raise  # 一个不支持就全部不支持,fail-fast
-                except Exception as e:
-                    tb = traceback.format_exc().splitlines()[-1]
-                    print(f"   ❌ {code} AkShare {type(e).__name__}: {e} · {tb}",
-                          file=sys.stderr)
-            if akshare_dfs:
-                df = pd.concat(akshare_dfs, ignore_index=True)
-                source = "akshare"
-        except NotImplementedError:
-            print("   ⚪ AkShare 无稳定份额接口(已知)→ 走 manual_csv")
-
-        # 2. manual CSV
+        # 1. manual CSV:明确、可审计的真实份额源
         if df.empty:
             df = fetch_share_manual_csv()
             if not df.empty:
                 source = "manual_csv"
 
+        # 2. AkShare:当前无稳定份额字段,仅显式调试时尝试
+        if df.empty and args.try_akshare:
+            try:
+                akshare_dfs = []
+                targets = [args.only] if args.only else ETF_CODES
+                for code in targets:
+                    try:
+                        one = fetch_share_one_akshare(code)
+                        one["etf_code"] = code
+                        akshare_dfs.append(one)
+                    except NotImplementedError:
+                        raise  # 一个不支持就全部不支持,fail-fast
+                    except Exception as e:
+                        tb = traceback.format_exc().splitlines()[-1]
+                        print(f"   ❌ {code} AkShare {type(e).__name__}: {e} · {tb}",
+                              file=sys.stderr)
+                if akshare_dfs:
+                    df = pd.concat(akshare_dfs, ignore_index=True)
+                    source = "akshare"
+            except NotImplementedError:
+                print("   ⚪ AkShare 无稳定份额接口(已知)→ 走 volume proxy")
+
+        # 3. volume proxy:真实份额源缺失时的稳定可复现兜底
+        if df.empty and not args.no_volume_proxy:
+            df = derive_share_proxy_from_volume(con)
+            if not df.empty:
+                source = "volume_proxy"
+
     if df.empty:
-        print(f"   ⚪ 无份额数据(AkShare 不支持 + 手填 CSV {MANUAL_CSV.name} 缺)")
+        print(f"   ⚪ 无份额数据(AkShare 不支持 + 手填 CSV {MANUAL_CSV.name} 缺 + volume proxy 不可用)")
         print(f"      手填示例(亿份):date,etf_code,share")
         print(f"      过热引擎将自动走 volume 派生分支(成交量爆量代理 信号 5)")
         con.close()

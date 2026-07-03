@@ -3,7 +3,7 @@
 > 个股分析 · 行业研究 · 投资决策跟踪 · Streamlit Dashboard  
 > **换机后先看本文**，5 分钟恢复开发环境；细节见 [docs/README.md](./docs/README.md)
 
-**最后更新**：2026-06-28 · **当前版本**：preson v1.0 · **公司库**：100 家 · 版本史见 [CHANGELOG.md](./CHANGELOG.md)
+**最后更新**：2026-07-03 · **当前版本**：preson v1.0 · **公司库**：100 家 · 版本史见 [CHANGELOG.md](./CHANGELOG.md)
 
 ---
 
@@ -198,6 +198,14 @@ python3 .tools/db/ingest.py
 python3 .tools/data_consolidator/cross_analysis.py
 ```
 
+**数据抓取经验索引**
+
+| 文档 | 什么时候看 |
+|------|------------|
+| [docs/architecture/03-fetch-layer.md](./docs/architecture/03-fetch-layer.md) | 抓数入口、脚本顺序、常见源故障与兜底 |
+| [docs/tools/数据抓取经验_2026-07-03.md](./docs/tools/数据抓取经验_2026-07-03.md) | 本次缺失数据修复、根因和验收口径 |
+| [docs/tools/待抓取字段清单.md](./docs/tools/待抓取字段清单.md) | Lynch/Graham 相关 BS 字段、理杏仁字段白/黑名单 |
+
 ### 测试
 
 ```bash
@@ -216,6 +224,9 @@ cd .tools/dashboard && python -m pytest tests/ -q
 | [docs/plans/PROJECT_PLAN_v1.0.md](./docs/plans/PROJECT_PLAN_v1.0.md) | 1.0 立项文档（当前权威） |
 | [docs/architecture/](./docs/architecture/README.md) | 五层架构 · ADR 决策记录 |
 | [docs/architecture/12-dashboard-v2.9-design-scheme.md](./docs/architecture/12-dashboard-v2.9-design-scheme.md) | Dashboard v2.9 设计 |
+| [docs/architecture/03-fetch-layer.md](./docs/architecture/03-fetch-layer.md) | 数据抓取层：数据源、编排、兜底经验 |
+| [docs/tools/数据抓取经验_2026-07-03.md](./docs/tools/数据抓取经验_2026-07-03.md) | 本次数据缺失修复经验 |
+| [docs/tools/待抓取字段清单.md](./docs/tools/待抓取字段清单.md) | 理杏仁字段缺口与修复记录 |
 | [.tools/dashboard/README.md](./.tools/dashboard/README.md) | Dashboard 启动/故障排查 |
 | [CLAUDE.md](./CLAUDE.md) | AI 会话配置与脚本约定 |
 
