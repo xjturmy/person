@@ -500,7 +500,7 @@ def render(app_globals: dict) -> None:
                 with col_l:
                     st.plotly_chart(
                         _lynch_radar(lynch_dims, score_dict["name"]),
-                        use_container_width=True,
+                        width="stretch",
                         config={"displayModeBar": False},
                     )
                 with col_r:
@@ -655,7 +655,7 @@ def render(app_globals: dict) -> None:
         with left:
             st.plotly_chart(
                 _radar_chart(score_dict["dims"], score_dict["name"]),
-                use_container_width=True,
+                width="stretch",
                 config={"displayModeBar": False},
             )
         with right:
@@ -765,7 +765,7 @@ def render(app_globals: dict) -> None:
                 st.toast(f"已带入「{selected}」 → 切到「📝 决策日志」tab 即可", icon="➕")
     with head_mid:
         if score is not None:
-            st.plotly_chart(render_radar(score), use_container_width=True)
+            st.plotly_chart(render_radar(score), width="stretch")
         else:
             st.info("无法生成雪花图")
 
@@ -914,7 +914,7 @@ def render(app_globals: dict) -> None:
                 else:
                     st.plotly_chart(
                         pr.peer_radar_chart(ps, selected_ticker),
-                        use_container_width=True,
+                        width="stretch",
                     )
                     st.caption(f"同 category 同行({len(ps)-1} 家):" + ", ".join(s.name for s in ps if s.ticker != selected_ticker))
 
@@ -976,7 +976,7 @@ def render(app_globals: dict) -> None:
                         fig = percentile_band_chart(df_view, pct_metric, f"{selected} · {pct_metric} 分位带")
                         if fig is not None:
                             fig = overlay_price(fig, selected_ticker, df_view["date"].min(), df_view["date"].max())
-                            st.plotly_chart(fig, use_container_width=True)
+                            st.plotly_chart(fig, width="stretch")
                     last_picked = [pct_metric] if pct_metric else []
 
                     # 林奇 PEG 时间曲线(理杏仁口径)— M6-#5 子任务先落地
@@ -1009,11 +1009,11 @@ def render(app_globals: dict) -> None:
                         fig = px.line(df_view, x="date", y=picked, title=f"{selected} · {module}")
                         fig.update_layout(height=420, hovermode="x unified")
                         fig = overlay_price(fig, selected_ticker, df_view["date"].min(), df_view["date"].max())
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, width="stretch")
                     last_picked = picked
 
                 with st.expander("⬇️ 原始数据(末 50 行)+ CSV 导出"):
-                    st.dataframe(df_view.tail(50), use_container_width=True, hide_index=True)
+                    st.dataframe(df_view.tail(50), width="stretch", hide_index=True)
                     st.download_button(
                         f"下载 {selected}/{module} CSV",
                         df_view.to_csv(index=False).encode("utf-8-sig"),
@@ -1045,7 +1045,7 @@ def render(app_globals: dict) -> None:
                 height=420, hovermode="x unified", xaxis_rangeslider_visible=False,
                 title=f"{selected} ({selected_ticker}) · {price_window} K 线",
             )
-            st.plotly_chart(kfig, use_container_width=True)
+            st.plotly_chart(kfig, width="stretch")
 
     # ─── 📊 行业 ETF 对标(基准化叠加 · 35 只 ETF, 2 年 K 线)─────────
     st.markdown("##### 📊 行业 ETF 对标 · 跑赢 / 跑平 / 跑输?")
@@ -1071,7 +1071,7 @@ def render(app_globals: dict) -> None:
             ifig = px.line(ind_df, x="date", y=["pe_median", "pe_weighted", "pe_arith"],
                            title=f"{ind_name} · PE 中位/加权/算术")
             ifig.update_layout(height=320, hovermode="x unified")
-            st.plotly_chart(ifig, use_container_width=True)
+            st.plotly_chart(ifig, width="stretch")
 
     write_context(
         selected,
@@ -1119,7 +1119,7 @@ def render(app_globals: dict) -> None:
                         matrix_rows.append(row)
                     cols_order = ["公司"] + [rid for rid, _ in rule_names] + ["合计"]
                     matrix = pd.DataFrame(matrix_rows).reindex(columns=cols_order, fill_value="—")
-                    st.dataframe(matrix, use_container_width=True, hide_index=True)
+                    st.dataframe(matrix, width="stretch", hide_index=True)
                     if rule_names:
                         with st.expander("规则 ID → 名称对照"):
                             for rid, name in rule_names:
@@ -1291,13 +1291,13 @@ def render(app_globals: dict) -> None:
                     if normalize:
                         fig.add_hline(y=100, line_dash="dot", line_color="#999",
                                       annotation_text="基准 100")
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width="stretch")
 
                     latest = (
                         merged.sort_values("date").groupby("公司", as_index=False)
                         .tail(1)[["公司", "date", cmp_metric]].sort_values(cmp_metric, ascending=False)
                     )
-                    st.dataframe(latest, use_container_width=True, hide_index=True)
+                    st.dataframe(latest, width="stretch", hide_index=True)
                     st.download_button(
                         "⬇️ 下载对比数据 CSV",
                         merged.to_csv(index=False).encode("utf-8-sig"),
@@ -1337,8 +1337,8 @@ def render(app_globals: dict) -> None:
                     prices_df = load_prices(selected_ticker, DB_MTIME)
                     fig_tl = dt.timeline_chart(ds, price_df=prices_df if not prices_df.empty else None)
                     if fig_tl is not None:
-                        st.plotly_chart(fig_tl, use_container_width=True)
-                    st.dataframe(dt.render_summary_table(ds), hide_index=True, use_container_width=True)
+                        st.plotly_chart(fig_tl, width="stretch")
+                    st.dataframe(dt.render_summary_table(ds), hide_index=True, width="stretch")
 
     # ─── 区块 D-2:投资决策 / 券商研报 / 财报 PDF — 3 列并排全宽 ───
     doc_col_decision, doc_col_broker, doc_col_report = st.columns(3, gap="medium")

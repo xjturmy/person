@@ -108,8 +108,8 @@ def _pool_action_button(
 ) -> None:
     """操作列 — 未入池可点,已入池为同尺寸禁用按钮."""
     if in_pool:
-        st.button(done_label, key=f"{key}_done", disabled=True, use_container_width=True)
-    elif st.button(add_label, key=key, use_container_width=True):
+        st.button(done_label, key=f"{key}_done", disabled=True, width="stretch")
+    elif st.button(add_label, key=key, width="stretch"):
         if on_add:
             on_add()
 
@@ -218,7 +218,7 @@ def _render_leaders_intro_block(industry: str, meta: dict) -> None:
             f"共 **{len(df)}** 家（该 L2 数据源当前可覆盖;"
             "完整 Top 排序与评分 → 「🔍 选股」）"
         )
-    st.dataframe(df, hide_index=True, use_container_width=True)
+    st.dataframe(df, hide_index=True, width="stretch")
     st.caption(
         "💡 林奇评分 / 评级 / 加入自选 → 「🔍 选股 · 初步筛选 / 选股确定」中完成"
     )
@@ -366,7 +366,7 @@ def _render_etf_block(
             "流动性分位": f"{c.liquidity_score:.0f}" if c.liquidity_score is not None else "—",
             "理由": c.rationale,
         } for c in etfs])
-        st.dataframe(etf_df, hide_index=True, use_container_width=True)
+        st.dataframe(etf_df, hide_index=True, width="stretch")
         return
 
     wl_tickers = _watchlist_ticker_set()
@@ -462,7 +462,7 @@ def _render_top5_block(
         show["score"] = show["score"].apply(lambda x: f"{x:.0f}" if pd.notna(x) else "—")
         show["is_owned"] = show["is_owned"].map({True: "🌟 已持", False: ""})
         show.columns = ["排名", "代码", "名称", "分数", "评级", "理由", "自选"]
-        st.dataframe(show, hide_index=True, use_container_width=True)
+        st.dataframe(show, hide_index=True, width="stretch")
         return
 
     wl_tickers = _watchlist_ticker_set()
@@ -513,10 +513,10 @@ def _render_top5_block(
                 if owned or in_wl:
                     st.button(
                         "✓", key=f"{key_prefix}_done_{industry}_{ticker}",
-                        disabled=True, use_container_width=True,
+                        disabled=True, width="stretch",
                         help="已持仓" if owned else "已在观察池",
                     )
-                elif st.button("＋", key=f"{key_prefix}_wl_{industry}_{ticker}", use_container_width=True, help="加入自选"):
+                elif st.button("＋", key=f"{key_prefix}_wl_{industry}_{ticker}", width="stretch", help="加入自选"):
                     n = add_leader_to_watchlist(industry, row)
                     if n:
                         st.toast(f"已加入观察池 {cname}", icon="✅")
@@ -524,7 +524,7 @@ def _render_top5_block(
                     else:
                         st.toast(f"已在观察池 {cname}", icon="ℹ️")
             with b2:
-                if st.button("→", key=f"{key_prefix}_co_{industry}_{ticker}", use_container_width=True, help="跳公司"):
+                if st.button("→", key=f"{key_prefix}_co_{industry}_{ticker}", width="stretch", help="跳公司"):
                     try:
                         from tabs.market import DB_PATH as _DB_PATH
                         from dashboard_helpers import _folder_to_ticker
@@ -621,7 +621,7 @@ def render_rank_table(rank_df: pd.DataFrame) -> None:
     show_df["PB 分位(10y)"] = show_df["PB 分位(10y)"].apply(
         lambda v: f"{v:.0f}%" if pd.notna(v) else "—"
     )
-    st.dataframe(show_df, hide_index=True, use_container_width=True)
+    st.dataframe(show_df, hide_index=True, width="stretch")
 
 
 __all__ = [

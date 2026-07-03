@@ -107,7 +107,7 @@ def _section_thermometer_trends(db_path: str, mtime: float) -> None:
                 margin_t=8, margin_b=22, margin_l=42, margin_r=14,
                 y_range=[y_lo, y_hi],
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
         # 全宽底部卡片(脱离左右两列,从最左侧贯穿到最右)
         # 一行展开:数值 + 日期 + 档位 + 含义 + intro 介绍

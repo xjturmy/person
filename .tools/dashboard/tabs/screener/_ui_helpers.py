@@ -265,7 +265,7 @@ def render_scatter(
         fig.add_vline(x=0.30, line_dash="dot", line_color="#9CA3AF", annotation_text="低估线 30%")
         fig.add_hline(y=0.15, line_dash="dot", line_color="#9CA3AF", annotation_text="ROE 15%")
 
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False}, key=chart_key)
+    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False}, key=chart_key)
 
 
 __all__ = [

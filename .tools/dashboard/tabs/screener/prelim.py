@@ -170,7 +170,7 @@ def render(companies=None, db_mtime: float = 0.0) -> None:
 
     edited = st.data_editor(
         show,
-        use_container_width=True, hide_index=True,
+        width="stretch", hide_index=True,
         num_rows="fixed",
         disabled=[c for c in show.columns if c != "加入草稿"],
         column_config={

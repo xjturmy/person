@@ -91,11 +91,13 @@ def test_engines_smoke_for_focus_industry(ind: str):
     type_map = yaml.safe_load(
         (ROOT / ".tools" / "rules" / "industry_type_map.yaml").read_text(encoding="utf-8")
     )["type_to_scoring"]
-    type_ = next(
-        f["type"] for f in yaml.safe_load(
-            (ROOT / ".config" / "focus_industries.yaml").read_text(encoding="utf-8")
-        )["focus"] if f["industry"] == ind
-    )
+    focus = yaml.safe_load(
+        (ROOT / ".config" / "focus_industries.yaml").read_text(encoding="utf-8")
+    )["focus"]
+    type_ = next((f["type"] for f in focus if f["industry"] == ind), None)
+    if type_ is None:
+        from tabs.industry._master_loader import load_master_merged
+        type_ = (load_master_merged().get(ind) or {}).get("type", "stalwart")
     assert type_ in type_map
     df = screen_industry(ind, type_, top_n=7)
     assert isinstance(df, pd.DataFrame)

@@ -327,7 +327,7 @@ def _render_knowledge(industry_l1: str, *, show_preselect_actions: bool = False)
                 st.caption("关键观察指标待写入 industry_master.yaml → cycle_attrs.key_indicators")
 
             if show_preselect_actions and l2 and l2 != "—":
-                if st.button("→ 加入预选", key=f"ov_preselect_{l2}", use_container_width=True):
+                if st.button("→ 加入预选", key=f"ov_preselect_{l2}", width="stretch"):
                     try:
                         from tabs.industry._draft_helpers import add_industry_to_draft
                         from navigation import goto, PAGE_MARKET_HUB, SUB_INDUSTRY_PRESELECT
@@ -425,7 +425,7 @@ def _render_l1_etf_compare(l1: str) -> None:
     st.dataframe(
         pd.DataFrame(table_rows).sort_values("代码"),
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
     )
 
     for l2 in l2_names:
@@ -731,7 +731,7 @@ def _render_overview_table(df: pd.DataFrame, *, show_preselect_actions: bool = F
     edited = st.data_editor(
         view,
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
         column_config=col_config,
         disabled=disabled_cols,
         key="industry_overview_l1_table",
@@ -797,7 +797,7 @@ def _render_drill(industry: str, *, show_preselect_actions: bool = False) -> Non
             plot_bgcolor="#ffffff",
             paper_bgcolor="#ffffff",
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     # 成员表
     st.markdown("##### 📋 成员公司 PE / PB")
@@ -808,7 +808,7 @@ def _render_drill(industry: str, *, show_preselect_actions: bool = False) -> Non
     show = members.copy()
     show["PE"] = show["PE"].apply(_format_num) if "PE" in show.columns else "—"
     show["PB"] = show["PB"].apply(_format_num) if "PB" in show.columns else "—"
-    st.dataframe(show, hide_index=True, use_container_width=True)
+    st.dataframe(show, hide_index=True, width="stretch")
 
     # L2 分布提示
     if "L2 行业" in members.columns:

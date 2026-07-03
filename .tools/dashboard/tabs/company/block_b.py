@@ -105,6 +105,6 @@ def render() -> None:
                 else:
                     st.plotly_chart(
                         pr.peer_radar_chart(ps, selected_ticker),
-                        use_container_width=True,
+                        width="stretch",
                     )
                     st.caption(f"同 category 同行({len(ps)-1} 家):" + ", ".join(s.name for s in ps if s.ticker != selected_ticker))

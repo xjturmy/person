@@ -484,7 +484,7 @@ def render_strategies_detail(score) -> None:
             "归一": pct_str,
             "评级": info.get("badge", "⚪"),
         })
-    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
 
 
@@ -562,7 +562,7 @@ def render_master_matrix(self_ticker: str, peer_tickers: list[str], year: int | 
     styler = df_m.style.map(_color, subset=masters).set_properties(
         subset=masters, **{"text-align": "center", "font-size": "11px"}
     )
-    st.dataframe(styler, use_container_width=True, hide_index=True)
+    st.dataframe(styler, width="stretch", hide_index=True)
     st.caption(f"格式:`评级 得分/总规则(可跑项)` · year = {year or pd.Timestamp.now().year - 1} · ⭐ = 本公司")
 
 
@@ -867,7 +867,7 @@ def render_etf_overlay(folder: str, ticker: str, price_window_days: int | None) 
                       yaxis_title="基准 = 100")
     fig.add_hline(y=100, line_dash="dot", line_color="#999",
                   annotation_text="起点基准 100")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     # 相对收益小表
     latest = merged.sort_values("date").groupby("series").tail(1)[["series", "norm"]]
@@ -876,7 +876,7 @@ def render_etf_overlay(folder: str, ticker: str, price_window_days: int | None) 
     latest = latest.sort_values("相对涨幅", ascending=False)
     st.dataframe(
         latest.style.format({"累计收益(基准 100)": "{:.1f}", "相对涨幅": "{:+.1f}%"}),
-        hide_index=True, use_container_width=True,
+        hide_index=True, width="stretch",
     )
 
 

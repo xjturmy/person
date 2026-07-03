@@ -84,7 +84,7 @@ def render(*args, **kwargs) -> None:
     _section_a_full_band(macro_path, macro_mtime)
 
     # ⑤ 行业估值矩阵 — 已迁至 🏭 行业分析 sub-tab(避免重复)
-    if st.button("🏭 跳到行业分析 →", key="market_to_industry", use_container_width=False):
+    if st.button("🏭 跳到行业分析 →", key="market_to_industry", width="content"):
         goto(PAGE_MARKET_HUB, sub_tab=SUB_INDUSTRY_ANALYSIS)
 
 

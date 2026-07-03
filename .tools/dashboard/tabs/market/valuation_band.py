@@ -97,4 +97,4 @@ def _section_a_full_band(db_path: str, mtime: float) -> None:
         f"P20={p20:.1f}x / P50={p50:.1f}x / P80={p80:.1f}x</div>",
         unsafe_allow_html=True,
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")

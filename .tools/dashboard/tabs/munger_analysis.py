@@ -693,10 +693,10 @@ def _render_step5_export(ticker: str, company: str, m: dict,
             md.encode("utf-8"),
             file_name=f"芒格决策清单_{company}_{_date_cls.today().isoformat()}.md",
             mime="text/markdown",
-            use_container_width=True,
+            width="stretch",
         )
     with col_b:
-        if st.button("📁 写入公司目录(05_投资决策)", use_container_width=True):
+        if st.button("📁 写入公司目录(05_投资决策)", width="stretch"):
             company_dir = _find_company_dir(company)
             if company_dir is None:
                 st.error(f"⚠️ 未找到 {company} 的公司目录")
@@ -723,7 +723,7 @@ def render(companies: list[str], selected: str, db_mtime: float,
             key="munger_company", label_visibility="collapsed",
         )
     with col_r:
-        if st.button("🔄 重新评估", key="munger_refresh", use_container_width=True):
+        if st.button("🔄 重新评估", key="munger_refresh", width="stretch"):
             _metrics_cached.clear()
             st.rerun()
 

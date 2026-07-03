@@ -162,7 +162,7 @@ def _step_2_growth_check(ticker: str, m: dict, cls_id_used: str) -> None:
             yaxis_tickformat=".0%", showlegend=False,
             yaxis_title="单季营收 YoY",
         )
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
         # 命中数 + 类型铁律达标判断 + 退化提示
         n, h20, h10 = qc.n_quarters, qc.hits_20pct, qc.hits_10pct

@@ -105,7 +105,7 @@ def _section_existing_watchlist() -> None:
         })
     show = pd.DataFrame(show_rows)
     edited = st.data_editor(
-        show, use_container_width=True, hide_index=True, num_rows="fixed",
+        show, width="stretch", hide_index=True, num_rows="fixed",
         disabled=[c for c in show.columns if c != "删除"],
         column_config={"删除": st.column_config.CheckboxColumn(default=False, width="small")},
         key="confirm_existing_table",
@@ -150,7 +150,7 @@ def _section_merged_drafts(universe_df: pd.DataFrame | None) -> None:
     show = show[["加入观察池", "公司", "ticker", "sources", "行业来源"]]
 
     edited = st.data_editor(
-        show, use_container_width=True, hide_index=True, num_rows="fixed",
+        show, width="stretch", hide_index=True, num_rows="fixed",
         disabled=[c for c in show.columns if c != "加入观察池"],
         column_config={
             "加入观察池": st.column_config.CheckboxColumn(default=True, width="small"),
@@ -198,7 +198,7 @@ def _section_orphan_check() -> None:
         return
 
     st.warning(f"⚠️ watchlist 中有 **{len(orphan_list)}** 只孤立股(行业不在 focus):")
-    st.dataframe(pd.DataFrame(orphan_list), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(orphan_list), hide_index=True, width="stretch")
 
 
 def _section_nav_to_company() -> None:
@@ -206,7 +206,7 @@ def _section_nav_to_company() -> None:
     cols = st.columns([3, 1])
     cols[0].caption("选股确定后 → 进入公司研究做深度判定")
     with cols[1]:
-        if st.button("→ 公司研究", type="primary", use_container_width=True,
+        if st.button("→ 公司研究", type="primary", width="stretch",
                      key="confirm_goto_company"):
             try:
                 from navigation import goto, PAGE_COMPANY

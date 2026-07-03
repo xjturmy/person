@@ -16,6 +16,7 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass, field
 from datetime import date, timedelta
+from functools import lru_cache
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from typing import Any
@@ -30,6 +31,24 @@ ENGINE = SourceFileLoader("engine", str(ROOT / ".tools" / "score" / "engine.py")
 DB_PATH = ROOT / "data" / "preson.duckdb"
 DECISIONS_DB = ROOT / "data" / "decisions.duckdb"
 RULES_DIR = ROOT / ".tools" / "rules"
+
+
+def _mtime(path: Path) -> float:
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return 0.0
+
+
+def _rules_signature() -> tuple[tuple[str, float], ...]:
+    if not RULES_DIR.exists():
+        return ()
+    return tuple(sorted((p.name, _mtime(p)) for p in RULES_DIR.glob("*.yaml")))
+
+
+@lru_cache(maxsize=8)
+def _load_portfolio_cached(path_str: str, mtime: float) -> Portfolio:
+    return load_portfolio(Path(path_str))
 
 
 @dataclass
@@ -99,6 +118,36 @@ def _last_price(con, ticker: str) -> float | None:
         return None
 
 
+@lru_cache(maxsize=32)
+def _latest_prices_cached(tickers: tuple[str, ...], db_mtime: float) -> dict[str, float]:
+    if not tickers or db_mtime <= 0:
+        return {}
+    import duckdb
+
+    placeholders = ",".join("?" for _ in tickers)
+    try:
+        con = duckdb.connect(str(DB_PATH), read_only=True)
+        try:
+            rows = con.execute(
+                f"""
+                SELECT ticker, close
+                FROM (
+                    SELECT ticker, close,
+                           ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY date DESC) AS rn
+                    FROM prices
+                    WHERE ticker IN ({placeholders})
+                )
+                WHERE rn = 1
+                """,
+                list(tickers),
+            ).fetchall()
+            return {str(t): float(px) for t, px in rows if px is not None}
+        finally:
+            con.close()
+    except Exception:
+        return {}
+
+
 def _pe_and_pct(con, ticker: str) -> tuple[float | None, float | None]:
     """最新 PE-TTM + 10 年窗口分位(全局统一口径,与 score_card/screener/lynch 一致)。"""
     from datetime import date, timedelta
@@ -129,6 +178,65 @@ def _pe_and_pct(con, ticker: str) -> tuple[float | None, float | None]:
         return None, None
 
 
+@lru_cache(maxsize=32)
+def _pe_and_pct_cached(
+    tickers: tuple[str, ...],
+    cutoff: str,
+    db_mtime: float,
+) -> dict[str, tuple[float | None, float | None]]:
+    if not tickers or db_mtime <= 0:
+        return {}
+    import duckdb
+
+    placeholders = ",".join("?" for _ in tickers)
+    try:
+        con = duckdb.connect(str(DB_PATH), read_only=True)
+        try:
+            rows = con.execute(
+                f"""
+                WITH latest AS (
+                    SELECT ticker, value
+                    FROM (
+                        SELECT ticker, value,
+                               ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY date DESC) AS rn
+                        FROM valuation
+                        WHERE ticker IN ({placeholders})
+                          AND metric = 'PE-TTM'
+                    )
+                    WHERE rn = 1
+                ),
+                series AS (
+                    SELECT ticker, value
+                    FROM valuation
+                    WHERE ticker IN ({placeholders})
+                      AND metric = 'PE-TTM'
+                      AND value IS NOT NULL
+                      AND date >= ?
+                )
+                SELECT
+                    l.ticker,
+                    l.value,
+                    SUM(CASE WHEN s.value <= l.value THEN 1 ELSE 0 END)
+                        * 1.0 / NULLIF(COUNT(s.value), 0) AS pct
+                FROM latest l
+                LEFT JOIN series s ON s.ticker = l.ticker
+                GROUP BY l.ticker, l.value
+                """,
+                [*tickers, *tickers, cutoff],
+            ).fetchall()
+            return {
+                str(t): (
+                    float(pe) if pe is not None else None,
+                    float(pct) if pct is not None else None,
+                )
+                for t, pe, pct in rows
+            }
+        finally:
+            con.close()
+    except Exception:
+        return {}
+
+
 def _fscore(ticker: str, year: int) -> int | None:
     rules = RULES_DIR / "piotroski.yaml"
     if not rules.exists():
@@ -139,6 +247,133 @@ def _fscore(ticker: str, year: int) -> int | None:
         return int(round(result.total_score)) if result else None
     except Exception:
         return None
+
+
+@lru_cache(maxsize=16)
+def _rules_doc_cached(path_str: str, mtime: float) -> dict:
+    import yaml
+
+    return yaml.safe_load(Path(path_str).read_text(encoding="utf-8")) or {}
+
+
+def _run_score_cached_rules(rules_path: Path, data: Any, year: int):
+    rules_doc = _rules_doc_cached(str(rules_path), _mtime(rules_path))
+
+    if data.industry in rules_doc.get("exclude_industries", []):
+        return None
+
+    industry_files = rules_doc.get("industry_specific_files") or {}
+    specific_filename = industry_files.get(data.industry)
+    if specific_filename:
+        specific_path = rules_path.parent / specific_filename
+        if specific_path.exists() and specific_path != rules_path:
+            return _run_score_cached_rules(specific_path, data, year)
+
+    evaluator = ENGINE.FormulaEvaluator(data, year)
+    details = []
+    for rule in rules_doc.get("rules", []):
+        score, passed, formula = ENGINE.eval_rule(rule, evaluator)
+        details.append(ENGINE.RuleResult(
+            rule_id=rule["id"],
+            name=rule.get("name", rule["id"]),
+            passed=passed,
+            score=float(score),
+            formula=formula,
+        ))
+
+    total = sum(d.score for d in details)
+    return ENGINE.ScoreResult(
+        master=rules_doc["master"],
+        master_cn=rules_doc["master_cn"],
+        method=rules_doc.get("method", ""),
+        ticker=data.ticker,
+        year=year,
+        total_score=total,
+        max_score=rules_doc.get("max_score"),
+        rating=ENGINE.classify(total, rules_doc.get("threshold", {})),
+        details=details,
+    )
+
+
+@lru_cache(maxsize=16)
+def _fscores_cached(
+    tickers: tuple[str, ...],
+    year: int,
+    db_mtime: float,
+    rules_signature: tuple[tuple[str, float], ...],
+) -> dict[str, int]:
+    rules = RULES_DIR / "piotroski.yaml"
+    if not tickers or db_mtime <= 0 or not rules.exists():
+        return {}
+    import duckdb
+
+    placeholders = ",".join("?" for _ in tickers)
+    try:
+        con = duckdb.connect(str(DB_PATH), read_only=True)
+        try:
+            info_rows = con.execute(
+                f"SELECT ticker, name, category FROM companies WHERE ticker IN ({placeholders})",
+                list(tickers),
+            ).fetchall()
+            data_by_ticker = {
+                str(t): ENGINE.CompanyData(
+                    ticker=str(t),
+                    name=name or str(t),
+                    industry=ENGINE.CATEGORY_TO_INDUSTRY.get(category or "", "未知"),
+                    metrics={},
+                )
+                for t, name, category in info_rows
+            }
+            if not data_by_ticker:
+                return {}
+
+            existing_tables = {
+                r[0] for r in con.execute(
+                    "SELECT table_name FROM information_schema.tables"
+                ).fetchall()
+            }
+            active_tickers = tuple(data_by_ticker.keys())
+            active_placeholders = ",".join("?" for _ in active_tickers)
+            for table, mappings in ENGINE.DUCKDB_METRIC_MAP.items():
+                if table not in existing_tables:
+                    continue
+                metric_names = [cn for cn, _ in mappings]
+                metric_placeholders = ",".join("?" for _ in metric_names)
+                key_by_metric = dict(mappings)
+                rows = con.execute(
+                    f"""
+                    SELECT ticker, EXTRACT(YEAR FROM date) AS y, metric, value
+                    FROM {table}
+                    WHERE ticker IN ({active_placeholders})
+                      AND metric IN ({metric_placeholders})
+                      AND MONTH(date) = 12
+                      AND DAY(date) = 31
+                    """,
+                    [*active_tickers, *metric_names],
+                ).fetchall()
+                for ticker, y, metric, value in rows:
+                    if value is None:
+                        continue
+                    data = data_by_ticker.get(str(ticker))
+                    key = key_by_metric.get(metric)
+                    if data is None or key is None:
+                        continue
+                    data.metrics.setdefault(key, {})[int(y)] = float(value)
+        finally:
+            con.close()
+
+        result: dict[str, int] = {}
+        for ticker, data in data_by_ticker.items():
+            try:
+                ENGINE._add_derived_metrics(data.metrics)
+                score = _run_score_cached_rules(rules, data, year)
+                if score:
+                    result[ticker] = int(round(score.total_score))
+            except Exception:
+                continue
+        return result
+    except Exception:
+        return {}
 
 
 def _last_decision(ticker: str) -> tuple[date | None, str | None]:
@@ -163,41 +398,85 @@ def _last_decision(ticker: str) -> tuple[date | None, str | None]:
     return None, None
 
 
+@lru_cache(maxsize=32)
+def _last_decisions_cached(
+    tickers: tuple[str, ...],
+    decisions_mtime: float,
+) -> dict[str, tuple[date, str]]:
+    if not tickers or decisions_mtime <= 0:
+        return {}
+    import duckdb
+
+    placeholders = ",".join("?" for _ in tickers)
+    try:
+        con = duckdb.connect(str(DECISIONS_DB), read_only=True)
+        try:
+            rows = con.execute(
+                f"""
+                SELECT ticker, date, action
+                FROM (
+                    SELECT ticker, date, action,
+                           ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY date DESC) AS rn
+                    FROM decisions
+                    WHERE ticker IN ({placeholders})
+                )
+                WHERE rn = 1
+                """,
+                list(tickers),
+            ).fetchall()
+            out: dict[str, tuple[date, str]] = {}
+            for ticker, d, action in rows:
+                if not d:
+                    continue
+                parsed = d if isinstance(d, date) else date.fromisoformat(str(d))
+                out[str(ticker)] = (parsed, str(action))
+            return out
+        finally:
+            con.close()
+    except Exception:
+        return {}
+
+
 def build_snapshot(
     portfolio: Portfolio | None = None,
     fscore_year: int | None = None,
     audit_threshold_months: int = 3,
 ) -> HoldingsSnapshot:
-    p = portfolio or load_portfolio()
+    portfolio_path = ROOT / ".config" / "portfolio.yaml"
+    p = portfolio or _load_portfolio_cached(str(portfolio_path), _mtime(portfolio_path))
     year = fscore_year or (date.today().year - 1)
-
-    import duckdb
-    con = duckdb.connect(str(DB_PATH), read_only=True) if DB_PATH.exists() else None
 
     rows: list[HoldingRow] = []
     actives = p.active()
+    visible_holdings = actives + p.watch()
+    tickers = tuple(dict.fromkeys(h.ticker for h in visible_holdings))
+    db_mtime = _mtime(DB_PATH)
+    prices = _latest_prices_cached(tickers, db_mtime)
+    cutoff = (date.today() - timedelta(days=365 * 10)).isoformat()
+    pe_pcts = _pe_and_pct_cached(tickers, cutoff, db_mtime)
+    fscores = _fscores_cached(tickers, year, db_mtime, _rules_signature())
 
     # 先一次性算 active 总市值用于权重
     market_values: dict[str, float] = {}
     for h in actives:
         if h.shares is None:
             continue
-        px = _last_price(con, h.ticker) if con else None
+        px = prices.get(h.ticker)
         px = px if px is not None else (h.cost_basis or 0)
         market_values[h.ticker] = h.shares * px
 
     total_active_mv = sum(market_values.values()) or 0.0
 
-    for h in (actives + p.watch()):
-        last_px = _last_price(con, h.ticker) if con else None
+    for h in visible_holdings:
+        last_px = prices.get(h.ticker)
         mv = (h.shares * last_px) if (h.shares is not None and last_px is not None) else None
         cost_t = h.cost_total
         pnl = (mv - cost_t) if (mv is not None and cost_t is not None) else None
         pnl_pct = (pnl / cost_t) if (pnl is not None and cost_t and cost_t > 0) else None
         actual_w = (market_values.get(h.ticker, 0.0) / total_active_mv) if (h.status == "active" and total_active_mv) else 0.0
         deviation = actual_w - (h.target_weight or 0.0) if h.status == "active" else 0.0
-        pe, pct = _pe_and_pct(con, h.ticker) if con else (None, None)
-        fs = _fscore(h.ticker, year)
+        _pe, pct = pe_pcts.get(h.ticker, (None, None))
+        fs = fscores.get(h.ticker)
 
         rows.append(HoldingRow(
             ticker=h.ticker, name=h.name, status=h.status,
@@ -210,9 +489,6 @@ def build_snapshot(
             tags=list(h.tags or []), thesis=h.thesis or "",
             school=h.school or "",
         ))
-
-    if con:
-        con.close()
 
     # 行业聚合(按 tags[0] 主标签)
     agg_map: dict[str, dict] = {}
@@ -248,10 +524,14 @@ def build_snapshot(
     audit_alerts: list[DecisionAuditAlert] = []
     today = date.today()
     threshold = timedelta(days=audit_threshold_months * 30)
+    last_decisions = _last_decisions_cached(
+        tuple(r.ticker for r in rows if r.status == "active"),
+        _mtime(DECISIONS_DB),
+    )
     for r in rows:
         if r.status != "active":
             continue
-        last_date, last_action = _last_decision(r.ticker)
+        last_date, last_action = last_decisions.get(r.ticker, (None, None))
         if last_date is None:
             audit_alerts.append(DecisionAuditAlert(
                 ticker=r.ticker, name=r.name,

@@ -304,7 +304,7 @@ with st.sidebar:
         if inbox:
             with st.container(border=True):
                 st.markdown(inbox)
-            if st.button("✅ 已读 / 清空", key="clear_inbox", use_container_width=True):
+            if st.button("✅ 已读 / 清空", key="clear_inbox", width="stretch"):
                 clear_inbox()
                 read_inbox.clear()
                 st.rerun()
@@ -312,7 +312,7 @@ with st.sidebar:
         # 快捷入口(v2.7 简化:MCP/缺口移除 — 日常不看,需要时跑 validate 脚本即可)
         col_a, col_b = st.columns(2)
         with col_a:
-            if st.button("🔄 刷新数据", use_container_width=True, key="refresh_cache",
+            if st.button("🔄 刷新数据", width="stretch", key="refresh_cache",
                          help="重跑分析预计算(analytics.duckdb)+ 清缓存。约 20-30s。"):
                 with st.spinner("重算预计算(评分/分类/价格区间)…"):
                     try:
@@ -325,7 +325,7 @@ with st.sidebar:
                 st.cache_data.clear()
                 st.rerun()
         with col_b:
-            if st.button("📂 打开目录", use_container_width=True, key="open_root"):
+            if st.button("📂 打开目录", width="stretch", key="open_root"):
                 subprocess.run(["open", str(ROOT)], check=False)
 
 # dash-01:顶部全局市场温度计(仅「市场 & 行业」页展示)

@@ -62,7 +62,7 @@ def render(companies: list[str] | None = None,
         )
     with col_refresh:
         if st.button("🔄 拉新数据", key="gold_refresh",
-                     use_container_width=True,
+                     width="stretch",
                      help="跑 fetch_gold_etf + fetch_gold_etf_share + "
                           "fetch_gold_prices + overheat_engine --write"
                           "(预计 30-90s)"):

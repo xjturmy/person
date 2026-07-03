@@ -170,7 +170,7 @@ def render(app_globals: dict) -> None:
     with c1:
         if st.button("▶️ 启动 daemon",
                      disabled=running or not deps_ok,
-                     use_container_width=True, key="m5_start",
+                     width="stretch", key="m5_start",
                      help=("ttyd 未装" if not deps_ok else None)):
             # D8: 启动前端口冲突预检
             port_code, port_msg = _run_launcher(
@@ -188,13 +188,13 @@ def render(app_globals: dict) -> None:
                 (st.success if ok else st.error)(out or ("已启动" if ok else "启动失败"))
                 st.rerun()
     with c2:
-        if st.button("⏹ 停止", disabled=not running, use_container_width=True, key="m5_stop"):
+        if st.button("⏹ 停止", disabled=not running, width="stretch", key="m5_stop"):
             with st.spinner("停止 ttyd…"):
                 ok, out = ttyd_stop()  # type: ignore[name-defined]
             (st.success if ok else st.error)(out or ("已停止" if ok else "停止失败"))
             st.rerun()
     with c3:
-        if st.button("🔄 重启", use_container_width=True, key="m5_restart",
+        if st.button("🔄 重启", width="stretch", key="m5_restart",
                      disabled=not deps_ok, help=("ttyd 未装" if not deps_ok else None)):
             with st.spinner("重启 ttyd…"):
                 if running:
@@ -204,7 +204,7 @@ def render(app_globals: dict) -> None:
             (st.success if ok else st.error)(out or ("已重启" if ok else "重启失败"))
             st.rerun()
     with c4:
-        if st.button("🩺 健康检查", use_container_width=True, key="m5_health"):
+        if st.button("🩺 健康检查", width="stretch", key="m5_health"):
             code, out = _run_launcher(subprocess, TTYD_LAUNCHER, ROOT, "--health")  # type: ignore[name-defined]
             if code == 0:
                 st.success(out)

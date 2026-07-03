@@ -180,4 +180,4 @@ def render(snap: HoldingsSnapshot, include_watch: bool = True) -> None:
     n_active = sum(1 for r in rows if r.status == "active")
     n_watch = sum(1 for r in rows if r.status == "watch")
     st.markdown(f"**📋 统一持仓 / 观察池明细**  ·  active {n_active} · watch {n_watch}")
-    st.dataframe(styler, use_container_width=True, hide_index=True)
+    st.dataframe(styler, width="stretch", hide_index=True)

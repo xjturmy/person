@@ -123,7 +123,7 @@ def _step_6_summary(ticker: str, folder: str, cls: ClassificationResult,
         return ""
 
     styler = sdf.style.map(_style_state, subset=["状态"])
-    st.dataframe(styler, use_container_width=True, hide_index=True)
+    st.dataframe(styler, width="stretch", hide_index=True)
 
     # 综合判断
     n_pass = sum(1 for r in rows if r["状态"] == "✅")
@@ -216,7 +216,7 @@ def _step_6_summary(ticker: str, folder: str, cls: ClassificationResult,
 
     with col_a:
         if st.button("💾 写入决策日志", key=f"lynch_save_{ticker}",
-                     use_container_width=True,
+                     width="stretch",
                      disabled=(decisions_db is None)):
             try:
                 action = "观察" if n_pass < 3 else "买入" if n_pass >= 4 else "观察"
@@ -241,7 +241,7 @@ def _step_6_summary(ticker: str, folder: str, cls: ClassificationResult,
 
     with col_b:
         if st.button("📤 导出五步分析 md", key=f"lynch_export_{ticker}",
-                     use_container_width=True):
+                     width="stretch"):
             md_path = _export_md(ticker, folder, cls, cls_id_used, m, rows, verdict)
             if md_path:
                 st.success(f"✅ 已导出 → `{md_path.relative_to(ROOT)}`", icon="📤")

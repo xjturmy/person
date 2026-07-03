@@ -394,7 +394,7 @@ def render_peg_curve(
         margin=dict(l=20, r=80, t=50, b=20),
     )
 
-    target.plotly_chart(fig, use_container_width=True)
+    target.plotly_chart(fig, width="stretch")
 
     # 评级表
     with target.expander("📊 林奇 PEG 5 档评级表"):

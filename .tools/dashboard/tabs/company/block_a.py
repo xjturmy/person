@@ -52,7 +52,7 @@ def render() -> None:
                 st.toast(f"已带入「{selected}」 → 切到「📝 决策日志」tab 即可", icon="➕")
     with head_mid:
         if score is not None:
-            st.plotly_chart(render_radar(score), use_container_width=True)
+            st.plotly_chart(render_radar(score), width="stretch")
         else:
             st.info("无法生成雪花图")
 
@@ -183,7 +183,7 @@ def _render_price_range_card(ticker: str, name: str) -> None:
             "校验": "✓" if m.verified else "—",
             "说明": m.note,
         })
-    st.dataframe(_pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    st.dataframe(_pd.DataFrame(rows), width="stretch", hide_index=True)
 
     if pr.notes:
         with st.expander("⚠️ 降级说明"):

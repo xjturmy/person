@@ -70,11 +70,11 @@ def render(snap) -> None:
             st.session_state[_STATE_KEY] = new_idx
             idx = new_idx
     with col_prev:
-        if st.button("⬅️ 上一只", use_container_width=True, key="holding_tracker_v1_prev"):
+        if st.button("⬅️ 上一只", width="stretch", key="holding_tracker_v1_prev"):
             st.session_state[_STATE_KEY] = (idx - 1) % len(candidates)
             st.rerun()
     with col_next:
-        if st.button("➡️ 下一只", use_container_width=True, key="holding_tracker_v1_next"):
+        if st.button("➡️ 下一只", width="stretch", key="holding_tracker_v1_next"):
             st.session_state[_STATE_KEY] = (idx + 1) % len(candidates)
             st.rerun()
 
@@ -222,15 +222,15 @@ def render(snap) -> None:
     # 底部 3 按钮
     b1, b2, b3 = st.columns(3)
     with b1:
-        if st.button("📋 录入决策", use_container_width=True,
+        if st.button("📋 录入决策", width="stretch",
                      key=f"holding_tracker_v1_log_{row.ticker}"):
             st.toast("待接入决策日志", icon="🚧")
     with b2:
-        if st.button("🚪 执行清仓", use_container_width=True,
+        if st.button("🚪 执行清仓", width="stretch",
                      key=f"holding_tracker_v1_exit_{row.ticker}"):
             st.toast("待接入决策日志", icon="🚧")
     with b3:
-        if st.button("❌ 取消观察", use_container_width=True,
+        if st.button("❌ 取消观察", width="stretch",
                      key=f"holding_tracker_v1_drop_{row.ticker}"):
             st.toast("待接入决策日志", icon="🚧")
 

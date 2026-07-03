@@ -109,7 +109,7 @@ def _render_stock_etf_leverage(overheat: dict | None, db_mtime: float) -> None:
                 yaxis_title="归一化净值(基期 = 100)",
                 legend=dict(orientation="h", y=1.08, font=dict(size=10)),
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         except Exception as e:
             st.warning(f"主图渲染失败:{e}")
     else:
@@ -154,7 +154,7 @@ def _render_stock_etf_leverage(overheat: dict | None, db_mtime: float) -> None:
     df_view = pd.DataFrame(rows)
     st.dataframe(
         df_view,
-        use_container_width=True, hide_index=True,
+        width="stretch", hide_index=True,
         column_config={
             "费率(%)": st.column_config.NumberColumn(format="%.2f"),
             "180d 涨跌(%)": st.column_config.NumberColumn(format="%+.2f"),
@@ -200,7 +200,7 @@ def _render_stock_etf_leverage(overheat: dict | None, db_mtime: float) -> None:
                 "R²_60d": b.get("r_squared_60d"), "样本量": b.get("n_obs_max"),
                 "as_of": b.get("as_of"),
             } for b in betas])
-            st.dataframe(beta_df, use_container_width=True, hide_index=True,
+            st.dataframe(beta_df, width="stretch", hide_index=True,
                 column_config={
                     "β_30d": st.column_config.NumberColumn(format="%.3f"),
                     "β_60d": st.column_config.NumberColumn(format="%.3f"),

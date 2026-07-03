@@ -80,7 +80,7 @@ def _render_overheat(overheat: dict | None, paradigm_actives: int,
             "说明": sig.get("note", ""),
         })
     df_sig = pd.DataFrame(rows)
-    st.dataframe(df_sig, use_container_width=True, hide_index=True)
+    st.dataframe(df_sig, width="stretch", hide_index=True)
 
     # ── 历史回看时序图(可切换 1 年 / 5 年)──
     col_h1, col_h2 = st.columns([4, 1])
@@ -118,7 +118,7 @@ def _render_overheat(overheat: dict | None, paradigm_actives: int,
                 yaxis_title="信号数(0-6)",
                 legend=dict(orientation="h", y=1.05),
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
             st.caption(f"📊 共 {len(hist)} 个采样点(每日 1 个)· 🔴 高位 = 历史过热警示 · "
                        "可对比 GOLD_USD_DERIVED 时序看是否对应回调")
         except Exception as e:
@@ -209,7 +209,7 @@ def _render_overheat(overheat: dict | None, paradigm_actives: int,
                     yaxis=dict(visible=False, range=[0, 1]),
                     plot_bgcolor="white",
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
 
             with col_r:
                 arrow = "▲" if corridor.decision == "add" else (

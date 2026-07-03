@@ -128,7 +128,7 @@ def _render_section_confirmed() -> None:
             st.caption("✅ 删除后无新增孤立股,可直接删除")
 
     with btn_cols[1]:
-        if st.button("🗑️ 删除选中", disabled=not ack, use_container_width=True,
+        if st.button("🗑️ 删除选中", disabled=not ack, width="stretch",
                      key="confirm_remove_btn"):
             try:
                 import state as _state
@@ -178,7 +178,7 @@ def _render_section_draft() -> None:
 
     import pandas as pd
     show = pd.DataFrame(draft)
-    st.dataframe(show, hide_index=True, use_container_width=True)
+    st.dataframe(show, hide_index=True, width="stretch")
 
     if st.button("✅ 确认新增", type="primary", key="confirm_add_btn"):
         try:
@@ -231,7 +231,7 @@ def _render_section_consistency() -> None:
     st.warning(f"⚠️ watchlist 中有 **{len(orphan_list)}** 只孤立股(行业不在 focus):")
     import pandas as pd
     show = pd.DataFrame(orphan_list)
-    st.dataframe(show, hide_index=True, use_container_width=True)
+    st.dataframe(show, hide_index=True, width="stretch")
 
 
 def _render_section_archive() -> None:
@@ -262,7 +262,7 @@ def _render_nav_to_screener() -> None:
     cols = st.columns([3, 1])
     cols[0].caption("行业确定后 → 进入候选公司初步筛选")
     with cols[1]:
-        if st.button("→ 去选股", type="primary", use_container_width=True, key="confirm_goto_screener"):
+        if st.button("→ 去选股", type="primary", width="stretch", key="confirm_goto_screener"):
             try:
                 from navigation import goto, PAGE_SCREENER, SUB_SCREENER_PRELIM
                 goto(PAGE_SCREENER, sub_tab=SUB_SCREENER_PRELIM)

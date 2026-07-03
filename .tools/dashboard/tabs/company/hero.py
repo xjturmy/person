@@ -289,7 +289,7 @@ def render() -> None:
                 with col_l:
                     st.plotly_chart(
                         _lynch_radar(lynch_dims, score_dict["name"]),
-                        use_container_width=True,
+                        width="stretch",
                         config={"displayModeBar": False},
                     )
                 with col_r:
@@ -444,7 +444,7 @@ def render() -> None:
         with left:
             st.plotly_chart(
                 _radar_chart(score_dict["dims"], score_dict["name"]),
-                use_container_width=True,
+                width="stretch",
                 config={"displayModeBar": False},
             )
         with right:

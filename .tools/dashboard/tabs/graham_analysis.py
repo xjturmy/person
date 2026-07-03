@@ -388,12 +388,12 @@ def _render_step4_valuation(ticker: str, m: dict, cls_id: str) -> None:
                 with col_l:
                     st.plotly_chart(
                         _gpr.graham_radar_chart(scores_with_data, ticker),
-                        use_container_width=True,
+                        width="stretch",
                     )
                 with col_r:
                     st.markdown("**📊 同行明细**")
                     df_summary = _gpr.render_summary_table(scores_with_data)
-                    st.dataframe(df_summary, use_container_width=True,
+                    st.dataframe(df_summary, width="stretch",
                                  hide_index=True)
                 missing = [s for s in scores if not _gpr.has_data(s)]
                 if missing:
@@ -692,7 +692,7 @@ def render(companies: list[str], selected: str, db_mtime: float,
             index=0, key="graham_year", label_visibility="collapsed",
         )
     with col_r:
-        if st.button("🔄 重新评估", key="graham_refresh", use_container_width=True):
+        if st.button("🔄 重新评估", key="graham_refresh", width="stretch"):
             _classify_cached.clear()
             _metrics_cached.clear()
             st.rerun()

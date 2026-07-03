@@ -496,7 +496,7 @@ def _render_etf_overlay(codes: list[str], names: list[str]) -> None:
         margin=dict(l=20, r=20, t=40, b=20),
         showlegend=True,
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 def _render_industry_card_body(focus_item: dict) -> None:
@@ -539,7 +539,7 @@ def _render_industry_card_body(focus_item: dict) -> None:
             )
             show["is_owned"] = show["is_owned"].map({True: "🌟 已持", False: ""})
             show.columns = ["排名", "代码", "名称", "分数", "评级", "理由", "自选"]
-            st.dataframe(show, hide_index=True, use_container_width=True)
+            st.dataframe(show, hide_index=True, width="stretch")
             pm = top_df.iloc[0].get("primary_master", "—")
             ds = top_df.iloc[0].get("data_source", "—")
             st.caption(f"评分链路:{type_} → primary={pm};数据池:{ds}")
@@ -552,7 +552,7 @@ def _render_industry_card_body(focus_item: dict) -> None:
                 cname = str(row.get("name", ""))
                 with btn_cols[bi]:
                     st.caption(f"{row.get('rank', bi + 1)}. {cname} ({ticker})")
-                    if st.button("🌟 加自选", key=f"wl_{ind}_{ticker}", use_container_width=True):
+                    if st.button("🌟 加自选", key=f"wl_{ind}_{ticker}", width="stretch"):
                         try:
                             import watchlist as _wl
                             n = _wl.add(
@@ -569,7 +569,7 @@ def _render_industry_card_body(focus_item: dict) -> None:
                                 st.info(f"已在观察池:{cname}")
                         except Exception as ex:
                             st.info(f"观察池写入不可用 — 请切到「选股确定」手动添加 ({ex})")
-                    if st.button("📊 跳公司", key=f"co_{ind}_{ticker}", use_container_width=True):
+                    if st.button("📊 跳公司", key=f"co_{ind}_{ticker}", width="stretch"):
                         try:
                             from tabs.market import DB_PATH as _DB_PATH
                             from dashboard_helpers import _folder_to_ticker
@@ -602,7 +602,7 @@ def _render_industry_card_body(focus_item: dict) -> None:
             "层级": LAYER_CN.get(c.get("layer"), "—"),
             "推荐理由": c["rationale"],
         } for c in etfs])
-        st.dataframe(etf_df, hide_index=True, use_container_width=True)
+        st.dataframe(etf_df, hide_index=True, width="stretch")
 
         layer = etfs[0].get("layer")
         target = etfs[0].get("target_pct")

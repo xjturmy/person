@@ -204,7 +204,7 @@ def render(companies=None, db_mtime: float = 0.0) -> None:
 
     edited = st.data_editor(
         show,
-        use_container_width=True, hide_index=True, num_rows="fixed",
+        width="stretch", hide_index=True, num_rows="fixed",
         disabled=[c for c in show.columns if c != "命中"],
         column_config={
             "命中": st.column_config.CheckboxColumn("命中", default=False, width="small"),

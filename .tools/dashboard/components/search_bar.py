@@ -68,7 +68,7 @@ def load_index(csv_path: Path) -> list[CompanyEntry]:
     return rows
 
 
-def _norm_ticker(t: str) -> str:
+def _norm_ticker(t: str, market: str | None = None) -> str:
     """规范化 ticker — 委托给 dashboard/tickers.py 单一可信源。
 
     A 股 6 位 zero-padded,港股 5 位 zero-padded(如 '02097')。
@@ -80,7 +80,7 @@ def _norm_ticker(t: str) -> str:
         from pathlib import Path as _Path
         _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
         from tickers import normalize_ticker as _norm
-    return _norm(t)
+    return _norm(t, market=market)
 
 
 def _match_one(q: str, e: CompanyEntry) -> tuple[int, str] | None:
@@ -88,8 +88,9 @@ def _match_one(q: str, e: CompanyEntry) -> tuple[int, str] | None:
     if not q:
         return None
     # ticker 规范化对比:支持 '02097' 命中 '2097'、'000333' 命中 '333'
-    q_norm = _norm_ticker(q)
-    t_norm = _norm_ticker(e.ticker)
+    market = "hk" if e.category.lower() == "hk" else None
+    q_norm = _norm_ticker(q, market=market)
+    t_norm = _norm_ticker(e.ticker, market=market)
     if q == e.ticker or (q_norm == t_norm and q_norm.isdigit()):
         return 100, "ticker"
     if q == e.name:

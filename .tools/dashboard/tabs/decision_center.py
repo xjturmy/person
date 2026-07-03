@@ -165,7 +165,7 @@ def _render_candidate_list() -> None:
             "原文": st.column_config.TextColumn("原文", disabled=True),
         },
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
         key="dc_intake_editor",
     )
 
@@ -240,7 +240,7 @@ def _render_screenshot_intake() -> None:
     if uploaded is None:
         return
 
-    st.image(uploaded, caption="预览", use_container_width=True)
+    st.image(uploaded, caption="预览", width="stretch")
 
     if st.button("🔍 识别(Claude Vision)", type="primary", key="dc_intake_vlm_run"):
         with st.spinner("VLM 识别中..."):
@@ -407,7 +407,7 @@ def _render_rebalance_panel(snap: HoldingsSnapshot) -> None:
                 }
                 for p in actionable
             ])
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.dataframe(df, width="stretch", hide_index=True)
 
         if review_only:
             st.markdown("**👀 仅提示(需人工判断,不自动改 yaml):**")
@@ -556,7 +556,7 @@ def _render_holdings_overview(snap: HoldingsSnapshot) -> None:
                 fig.update_traces(textposition="inside", textinfo="percent+label")
                 fig.update_layout(height=320, margin=dict(t=10, b=10, l=10, r=10),
                                   showlegend=False)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
 
             with col_industry:
                 st.markdown("**🏭 行业集中度(按 portfolio.yaml tags[0])**")
@@ -570,7 +570,7 @@ def _render_holdings_overview(snap: HoldingsSnapshot) -> None:
                                  color_continuous_scale="RdYlGn", range_color=[3, 9])
                     fig.update_layout(height=320, margin=dict(t=10, b=10, l=10, r=10))
                     fig.update_yaxes(tickformat=".0%")
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width="stretch")
                 else:
                     st.caption("(无 active 持仓或缺 tags)")
 
@@ -718,7 +718,7 @@ def _render_decision_log(
             "PE": "{:.1f}", "PE 分位(10y)": "{:.1%}", "Δ%": "{:+.2f}", "价格": "{:.2f}",
         }, na_rep="—")
     )
-    st.dataframe(styler, use_container_width=True, hide_index=True, height=320)
+    st.dataframe(styler, width="stretch", hide_index=True, height=320)
 
 
 # ─── 段 3:月报历史 ─────────────────────────────────────────────────

@@ -56,16 +56,13 @@ def test_focus_yaml_valid():
 
 
 def test_focus_yaml_industries_align_with_master():
-    """focus_industries 的 industry 必须出现在 industry_master.yaml.industries.name。"""
-    master_path = PROJECT_ROOT / ".config" / "industry_master.yaml"
-    if not master_path.exists():
-        pytest.skip("industry_master.yaml 暂不存在")
-    master = yaml.safe_load(master_path.read_text(encoding="utf-8"))
-    master_names = {i["name"] for i in master.get("industries", [])}
+    """focus_industries 的 industry 必须出现在运行时合并主索引。"""
+    from tabs.industry._master_loader import load_master_merged
+    master_names = set(load_master_merged())
     focus = yaml.safe_load(FOCUS_YAML.read_text(encoding="utf-8"))
     for item in focus["focus"]:
         assert item["industry"] in master_names, \
-            f"{item['industry']} 不在 industry_master.yaml"
+            f"{item['industry']} 不在运行时行业主索引"
 
 
 def test_type_map_yaml_valid():
@@ -209,8 +206,8 @@ def test_screen_industry_top_n_caps():
 def test_screen_all_focus_returns_dict():
     results = screen_all_focus()
     assert isinstance(results, dict)
-    # 8 重点行业全部返回(即便部分为空)
-    assert len(results) == 8
+    focus = yaml.safe_load(FOCUS_YAML.read_text(encoding="utf-8"))["focus"]
+    assert len(results) == len(focus)
     for industry, df in results.items():
         assert isinstance(industry, str)
         assert isinstance(df, pd.DataFrame)
@@ -222,6 +219,9 @@ def test_screen_all_focus_returns_dict():
 def test_screen_all_focus_baijiu_nonempty():
     """白酒至少 2 家(自选茅台 + 五粮液保底)。"""
     results = screen_all_focus()
+    focus_names = {f["industry"] for f in yaml.safe_load(FOCUS_YAML.read_text(encoding="utf-8"))["focus"]}
+    if "白酒" not in focus_names:
+        pytest.skip("当前聚焦配置未包含白酒")
     df = results.get("白酒")
     assert df is not None
     assert len(df) >= 2

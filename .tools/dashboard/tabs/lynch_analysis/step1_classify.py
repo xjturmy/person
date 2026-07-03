@@ -101,7 +101,7 @@ def _step_1_classification(ticker: str, cls: ClassificationResult, m: dict,
             return ""
 
         styler = idf.style.map(_style_status, subset=["状态"])
-        st.dataframe(styler, use_container_width=True, hide_index=True)
+        st.dataframe(styler, width="stretch", hide_index=True)
     else:
         st.caption("(数据不足以派生核心指标)")
 
@@ -114,7 +114,7 @@ def _step_1_classification(ticker: str, cls: ClassificationResult, m: dict,
             if sec_rows:
                 sdf = pd.DataFrame(sec_rows[:5])
                 sec_styler = sdf.style.map(_style_status, subset=["状态"])
-                st.dataframe(sec_styler, use_container_width=True, hide_index=True)
+                st.dataframe(sec_styler, width="stretch", hide_index=True)
 
     # ─── 📝 故事脚本(自动派生 + 用户编辑)─────────────────────────────
     st.divider()

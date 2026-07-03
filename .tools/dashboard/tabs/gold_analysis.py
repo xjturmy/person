@@ -565,7 +565,7 @@ def _render_real_rate(snap: Snapshot, db_mtime: float) -> None:
             )
             fig.update_yaxes(title="USD/oz", secondary_y=False)
             fig.update_yaxes(title="实际利率 %", secondary_y=True, autorange="reversed")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         except Exception as e:
             st.warning(f"图表渲染失败:{e}")
     else:
@@ -645,7 +645,7 @@ def _render_cycle() -> None:
             "AI 革命 / 去美元化 / 地缘冲突",
         ],
     })
-    st.dataframe(historical, use_container_width=True, hide_index=True)
+    st.dataframe(historical, width="stretch", hide_index=True)
 
     with st.expander("💡 配置比例公式(三层联动)", expanded=False):
         st.markdown("""
@@ -734,7 +734,7 @@ def _render_ratios(snap: Snapshot, db_mtime: float) -> None:
                 fig.layout.annotations[3].text = "SPDR 持仓(吨)"
 
             fig.update_layout(height=520, margin=dict(l=20, r=20, t=40, b=20))
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         except Exception as e:
             st.warning(f"图表渲染失败:{e}")
 
@@ -770,7 +770,7 @@ def _render_ratios(snap: Snapshot, db_mtime: float) -> None:
 
         st.dataframe(
             pivot.style.format("{:.1%}", na_rep="—").map(_pct_color),
-            use_container_width=True,
+            width="stretch",
         )
         st.caption("🟢 绿色 = 低分位(可能加仓机会)/ 🔴 红色 = 高分位(可能减仓信号)")
     else:
@@ -836,7 +836,7 @@ def _render_etf(db_mtime: float) -> None:
                 yaxis_title="归一化净值(基期 = 100)",
                 legend=dict(orientation="h", y=1.05),
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         except Exception as e:
             st.warning(f"图表渲染失败:{e}")
     else:
@@ -934,7 +934,7 @@ def _render_overheat(overheat: dict | None, paradigm_actives: int,
             "说明": sig.get("note", ""),
         })
     df_sig = pd.DataFrame(rows)
-    st.dataframe(df_sig, use_container_width=True, hide_index=True)
+    st.dataframe(df_sig, width="stretch", hide_index=True)
 
     # ── 历史回看时序图(可切换 1 年 / 5 年)──
     col_h1, col_h2 = st.columns([4, 1])
@@ -972,7 +972,7 @@ def _render_overheat(overheat: dict | None, paradigm_actives: int,
                 yaxis_title="信号数(0-6)",
                 legend=dict(orientation="h", y=1.05),
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
             st.caption(f"📊 共 {len(hist)} 个采样点(每周 1 个)· 🔴 高位 = 历史过热警示 · "
                        "可对比 GOLD_USD_DERIVED 时序看是否对应回调")
         except Exception as e:
@@ -1063,7 +1063,7 @@ def _render_overheat(overheat: dict | None, paradigm_actives: int,
                     yaxis=dict(visible=False, range=[0, 1]),
                     plot_bgcolor="white",
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
 
             with col_r:
                 arrow = "▲" if corridor.decision == "add" else (
@@ -1223,7 +1223,7 @@ def _render_stock_etf_leverage(overheat: dict | None, db_mtime: float) -> None:
                 yaxis_title="归一化净值(基期 = 100)",
                 legend=dict(orientation="h", y=1.08, font=dict(size=10)),
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         except Exception as e:
             st.warning(f"主图渲染失败:{e}")
     else:
@@ -1268,7 +1268,7 @@ def _render_stock_etf_leverage(overheat: dict | None, db_mtime: float) -> None:
     df_view = pd.DataFrame(rows)
     st.dataframe(
         df_view,
-        use_container_width=True, hide_index=True,
+        width="stretch", hide_index=True,
         column_config={
             "费率(%)": st.column_config.NumberColumn(format="%.2f"),
             "180d 涨跌(%)": st.column_config.NumberColumn(format="%+.2f"),
@@ -1314,7 +1314,7 @@ def _render_stock_etf_leverage(overheat: dict | None, db_mtime: float) -> None:
                 "R²_60d": b.get("r_squared_60d"), "样本量": b.get("n_obs_max"),
                 "as_of": b.get("as_of"),
             } for b in betas])
-            st.dataframe(beta_df, use_container_width=True, hide_index=True,
+            st.dataframe(beta_df, width="stretch", hide_index=True,
                 column_config={
                     "β_30d": st.column_config.NumberColumn(format="%.3f"),
                     "β_60d": st.column_config.NumberColumn(format="%.3f"),
@@ -1407,7 +1407,7 @@ def render(companies: list[str] | None = None,
         )
     with col_refresh:
         if st.button("🔄 拉新数据", key="gold_refresh",
-                     use_container_width=True,
+                     width="stretch",
                      help="跑 fetch_gold_etf + fetch_gold_etf_share + "
                           "fetch_gold_prices + overheat_engine --write"
                           "(预计 30-90s)"):
@@ -1829,7 +1829,7 @@ def _render_backtest(db_mtime: float) -> None:
     )
     fig.update_yaxes(title_text="价格(元)", row=1, col=1)
     fig.update_yaxes(title_text="总资产(元)", row=2, col=1)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     # ─── 信号图例 ─────────────────────────────────────────
     st.caption(
@@ -1854,7 +1854,7 @@ def _render_backtest(db_mtime: float) -> None:
                          "amount", "verdict", "shares_after"]]
             disp.columns = ["日期", "动作", "份额", "单价",
                             "金额", "触发档", "持仓后"]
-            st.dataframe(disp, use_container_width=True, hide_index=True)
+            st.dataframe(disp, width="stretch", hide_index=True)
         else:
             st.info("回测区间内没有产生操作(信号始终在档位内 / 现金不足 / 确认期过滤)")
 
@@ -1864,7 +1864,7 @@ def _render_backtest(db_mtime: float) -> None:
             sd = switches.copy()
             sd["date"] = pd.to_datetime(sd["date"]).dt.strftime("%Y-%m-%d")
             sd.columns = ["日期", "前档", "新档", "红", "黄", "绿"]
-            st.dataframe(sd, use_container_width=True, hide_index=True,
+            st.dataframe(sd, width="stretch", hide_index=True,
                          height=min(420, 35 + 35 * len(sd)))
         else:
             st.info("区间内无信号切换")
@@ -1922,7 +1922,7 @@ def _render_backtest(db_mtime: float) -> None:
 
     styled = disp_final.style.apply(_row_style, axis=1)
     st.dataframe(
-        styled, use_container_width=True, hide_index=True,
+        styled, width="stretch", hide_index=True,
         height=min(560, 38 + 35 * len(disp_final)),
     )
 
@@ -1961,7 +1961,7 @@ def _render_backtest(db_mtime: float) -> None:
             vs["pct"] = vs["pct"].round(1).astype(str) + "%"
             vs.columns = ["档位", "天数", "占比"]
             st.dataframe(
-                vs, use_container_width=True, hide_index=True,
+                vs, width="stretch", hide_index=True,
                 height=min(220, 38 + 35 * len(vs)),
             )
 
@@ -1984,7 +1984,7 @@ def _render_backtest(db_mtime: float) -> None:
         cs_df["E_return_pct"] = cs_df["E_return_pct"].round(2).astype(str) + "%"
         cs_df["diff_vs_current"] = cs_df["diff_vs_current"].round(0).astype("Int64")
         cs_df.columns = ["确认天数", "终值", "收益%", "操作次数", "vs当前"]
-        st.dataframe(cs_df, use_container_width=True, hide_index=True)
+        st.dataframe(cs_df, width="stretch", hide_index=True)
 
         # ─ e) 综合建议 ─
         st.markdown("**💡 优化建议**")
@@ -2271,7 +2271,7 @@ def _render_position_advisor(overheat: dict | None, db_mtime: float) -> None:
             "缺口元": f"{(gold_val - cur['real_val'] - cur['stock_val']):+,.0f}",
         },
     ]
-    st.dataframe(pd.DataFrame(cmp_rows), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(cmp_rows), hide_index=True, width="stretch")
 
     # ─── 操作建议 banner ─────────────────────────────
     def _advice(gap_pp: float, gap_yuan: float, label: str) -> str:
@@ -2327,7 +2327,7 @@ def _render_position_advisor(overheat: dict | None, db_mtime: float) -> None:
             "金股调整": f"{(t['stock_val'] - stock_val):+,.0f}",
             "总和调整": f"{(t['real_val'] + t['stock_val'] - real_val - stock_val):+,.0f}",
         })
-    st.dataframe(pd.DataFrame(plan_rows), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(plan_rows), hide_index=True, width="stretch")
     st.caption("⭐ 标记当前档位 · 调整列正数 = 加仓 / 负数 = 减仓")
 
 

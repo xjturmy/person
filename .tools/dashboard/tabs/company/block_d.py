@@ -58,8 +58,8 @@ def render() -> None:
                     prices_df = load_prices(selected_ticker, DB_MTIME)
                     fig_tl = dt.timeline_chart(ds, price_df=prices_df if not prices_df.empty else None)
                     if fig_tl is not None:
-                        st.plotly_chart(fig_tl, use_container_width=True)
-                    st.dataframe(dt.render_summary_table(ds), hide_index=True, use_container_width=True)
+                        st.plotly_chart(fig_tl, width="stretch")
+                    st.dataframe(dt.render_summary_table(ds), hide_index=True, width="stretch")
 
     # ─── 区块 D-2:投资决策 / 券商研报 / 财报 PDF — 3 列并排全宽 ───
     doc_col_decision, doc_col_broker, doc_col_report = st.columns(3, gap="medium")

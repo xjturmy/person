@@ -267,7 +267,7 @@ def _render_preliminary_screened_table(
     st.dataframe(
         view,
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
         column_config={
             "PE 10y 分位": st.column_config.ProgressColumn(
                 "PE 10y 分位",
@@ -289,7 +289,7 @@ def _render_footer(draft_count: int) -> None:
     else:
         c1.caption("🌟 ETF / 龙头点「加入自选」→ 「🔍 选股 · 选股确定」查看 watchlist")
     with c2:
-        if st.button("→ 去行业确定", use_container_width=True, key="preselect_goto_confirm"):
+        if st.button("→ 去行业确定", width="stretch", key="preselect_goto_confirm"):
             try:
                 from navigation import goto, PAGE_MARKET_HUB, SUB_INDUSTRY_CONFIRM
                 goto(PAGE_MARKET_HUB, sub_tab=SUB_INDUSTRY_CONFIRM)
@@ -298,7 +298,7 @@ def _render_footer(draft_count: int) -> None:
             except Exception as e:
                 st.error(f"跳转失败:{e}")
     with c3:
-        if st.button("→ 去选股确定", type="primary", use_container_width=True, key="preselect_goto_screener_confirm"):
+        if st.button("→ 去选股确定", type="primary", width="stretch", key="preselect_goto_screener_confirm"):
             try:
                 from navigation import goto, PAGE_SCREENER, SUB_SCREENER_CONFIRM
                 goto(PAGE_SCREENER, sub_tab=SUB_SCREENER_CONFIRM)
@@ -349,7 +349,7 @@ def render() -> None:
         st.info("尚无初步筛选 / 已确认行业 — 请到「🏭 行业分析」勾选申万一级或点「加入预选」")
         c1, _ = st.columns([1, 3])
         with c1:
-            if st.button("→ 去行业分析", key="preselect_goto_analysis", use_container_width=True):
+            if st.button("→ 去行业分析", key="preselect_goto_analysis", width="stretch"):
                 try:
                     from navigation import goto, PAGE_MARKET_HUB, SUB_INDUSTRY_ANALYSIS
                     goto(PAGE_MARKET_HUB, sub_tab=SUB_INDUSTRY_ANALYSIS)

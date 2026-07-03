@@ -156,7 +156,7 @@ def _step_4_peg_valuation(ticker: str, m: dict, cls_id_used: str) -> None:
         return ["background-color:#d4edda; font-weight:700" if is_current else ""] * len(row)
 
     styled = rating_df.style.apply(_highlight_current, axis=1)
-    st.dataframe(styled, use_container_width=True, hide_index=True)
+    st.dataframe(styled, width="stretch", hide_index=True)
 
     # 结论
     if peg < target:

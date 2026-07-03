@@ -180,7 +180,7 @@ def _step_3_financial_guardrails(ticker: str, m: dict, cls_id_used: str) -> None
         return ""
 
     styler = df.style.map(_style_status, subset=["状态"])
-    st.dataframe(styler, use_container_width=True, hide_index=True)
+    st.dataframe(styler, width="stretch", hide_index=True)
 
     # 整体结论
     total_evaluated = pass_count + fail_count + edge_count

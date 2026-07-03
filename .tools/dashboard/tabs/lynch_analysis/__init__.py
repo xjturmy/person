@@ -55,7 +55,7 @@ def render(companies: list[str], selected: str, db_mtime: float,
                             list(range(_date_cls.today().year, _date_cls.today().year - 5, -1)),
                             index=1, key="lynch_year", label_visibility="collapsed")
     with col_r:
-        if st.button("🔄 重新评估", key="lynch_refresh", use_container_width=True):
+        if st.button("🔄 重新评估", key="lynch_refresh", width="stretch"):
             _classify_cached.clear()
             _metrics_cached.clear()
             _quarterly_yoy.clear()

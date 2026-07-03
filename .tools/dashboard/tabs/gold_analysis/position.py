@@ -247,7 +247,7 @@ def _render_position_advisor(overheat: dict | None, db_mtime: float) -> None:
             "缺口元": f"{(gold_val - cur['real_val'] - cur['stock_val']):+,.0f}",
         },
     ]
-    st.dataframe(pd.DataFrame(cmp_rows), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(cmp_rows), hide_index=True, width="stretch")
 
     # ─── 操作建议 banner ─────────────────────────────
     def _advice(gap_pp: float, gap_yuan: float, label: str) -> str:
@@ -303,7 +303,7 @@ def _render_position_advisor(overheat: dict | None, db_mtime: float) -> None:
             "金股调整": f"{(t['stock_val'] - stock_val):+,.0f}",
             "总和调整": f"{(t['real_val'] + t['stock_val'] - real_val - stock_val):+,.0f}",
         })
-    st.dataframe(pd.DataFrame(plan_rows), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(plan_rows), hide_index=True, width="stretch")
     st.caption("⭐ 标记当前档位 · 调整列正数 = 加仓 / 负数 = 减仓")
 
 

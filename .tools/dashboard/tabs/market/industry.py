@@ -32,7 +32,7 @@ def _section_industry_heatmap(db_path: str, mtime: float) -> None:
         margin=dict(t=50, b=140),
         coloraxis_colorbar=dict(title="PE"),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     st.caption(
         "⚠️ 上图为国民经济行业分类(GB/T 4754,19 粗类)。"
         "申万二级深度下钻(ETF / 龙头 Top5 / 知识)已迁至 🎯 **行业预选**。"

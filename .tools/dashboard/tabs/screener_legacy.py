@@ -407,7 +407,7 @@ def render(companies: list[str], db_mtime: float) -> None:
             height=500, margin=dict(l=40, r=20, t=10, b=40),
             yaxis_tickformat=".0%",
         )
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
     else:
         plot_df["fscore_disp"] = plot_df["fscore"].fillna(-1).astype(int)
         fig = px.scatter(
@@ -428,7 +428,7 @@ def render(companies: list[str], db_mtime: float) -> None:
                       annotation_text="低估线 30%")
         fig.add_hline(y=0.15, line_dash="dot", line_color="#9CA3AF",
                       annotation_text="ROE 15%")
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
     # ─── 候选清单 + checkbox 加入观察池(M2 #1)──────────────────
     st.markdown("##### 📋 候选清单 · 按评分降序")
@@ -498,7 +498,7 @@ def render(companies: list[str], db_mtime: float) -> None:
 
         edited = st.data_editor(
             show,
-            use_container_width=True, hide_index=True,
+            width="stretch", hide_index=True,
             num_rows="fixed",
             disabled=[c for c in show.columns if c != "加入观察池"],
             column_config={

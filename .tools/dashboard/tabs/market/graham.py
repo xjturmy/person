@@ -283,7 +283,7 @@ def _section_graham_index(macro_path: str, macro_mtime: float) -> None:
             hovermode="x unified", showlegend=False,
             font=dict(family=FONT_FAMILY, color="#333"),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
         st.markdown(
             f"<div style='margin-top:-4px;font-size:12px;color:#666;"
@@ -299,5 +299,5 @@ def _section_graham_index(macro_path: str, macro_mtime: float) -> None:
             hist_df = pd.DataFrame(GRAHAM_HISTORY)
             hist_df["diff"] = hist_df["diff"].round(2)
             hist_df.columns = ["日期", "HS300 PE", "10Y 国债 %", "股债差 %", "实际走势"]
-            st.dataframe(hist_df, hide_index=True, use_container_width=True)
+            st.dataframe(hist_df, hide_index=True, width="stretch")
             st.caption("数据源:01_knowledge/02_权益类动态调整/04_格雷厄姆指数.md")

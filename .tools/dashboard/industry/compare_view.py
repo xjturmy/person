@@ -171,7 +171,7 @@ def render_industry_compare(ticker: str, name: str) -> None:
                 self_row[m] = ip3.self_value if ip3 else None
             merged_full = pd.concat([pd.DataFrame([self_row]), merged], ignore_index=True)
             merged_full = merged_full.rename(columns={"peer_ticker": "代码", "peer_name": "公司"})
-            st.dataframe(merged_full, use_container_width=True, hide_index=True)
+            st.dataframe(merged_full, width="stretch", hide_index=True)
             st.download_button(
                 "⬇️ 下载行业横评 CSV",
                 merged_full.to_csv(index=False).encode("utf-8-sig"),

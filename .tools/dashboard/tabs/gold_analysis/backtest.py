@@ -370,7 +370,7 @@ def _render_backtest(db_mtime: float) -> None:
     )
     fig.update_yaxes(title_text="价格(元)", row=1, col=1)
     fig.update_yaxes(title_text="总资产(元)", row=2, col=1)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     # ─── 信号图例(仅在显示背景时才展示)─────────────────
     if show_bg:
@@ -396,7 +396,7 @@ def _render_backtest(db_mtime: float) -> None:
                          "amount", "verdict", "shares_after"]]
             disp.columns = ["日期", "动作", "份额", "单价",
                             "金额", "触发档", "持仓后"]
-            st.dataframe(disp, use_container_width=True, hide_index=True)
+            st.dataframe(disp, width="stretch", hide_index=True)
         else:
             st.info("回测区间内没有产生操作(信号始终在档位内 / 现金不足 / 确认期过滤)")
 
@@ -406,7 +406,7 @@ def _render_backtest(db_mtime: float) -> None:
             sd = switches.copy()
             sd["date"] = pd.to_datetime(sd["date"]).dt.strftime("%Y-%m-%d")
             sd.columns = ["日期", "前档", "新档", "红", "黄", "绿"]
-            st.dataframe(sd, use_container_width=True, hide_index=True,
+            st.dataframe(sd, width="stretch", hide_index=True,
                          height=min(420, 35 + 35 * len(sd)))
         else:
             st.info("区间内无信号切换")
@@ -464,7 +464,7 @@ def _render_backtest(db_mtime: float) -> None:
 
     styled = disp_final.style.apply(_row_style, axis=1)
     st.dataframe(
-        styled, use_container_width=True, hide_index=True,
+        styled, width="stretch", hide_index=True,
         height=min(560, 38 + 35 * len(disp_final)),
     )
 
@@ -503,7 +503,7 @@ def _render_backtest(db_mtime: float) -> None:
             vs["pct"] = vs["pct"].round(1).astype(str) + "%"
             vs.columns = ["档位", "天数", "占比"]
             st.dataframe(
-                vs, use_container_width=True, hide_index=True,
+                vs, width="stretch", hide_index=True,
                 height=min(220, 38 + 35 * len(vs)),
             )
 
@@ -526,7 +526,7 @@ def _render_backtest(db_mtime: float) -> None:
         cs_df["E_return_pct"] = cs_df["E_return_pct"].round(2).astype(str) + "%"
         cs_df["diff_vs_current"] = cs_df["diff_vs_current"].round(0).astype("Int64")
         cs_df.columns = ["确认天数", "终值", "收益%", "操作次数", "vs当前"]
-        st.dataframe(cs_df, use_container_width=True, hide_index=True)
+        st.dataframe(cs_df, width="stretch", hide_index=True)
 
         # ─ e) 综合建议 ─
         st.markdown("**💡 优化建议**")

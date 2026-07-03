@@ -80,6 +80,7 @@ def add_focus(
     if type_ is None:
         type_ = (industry_master().get(industry) or {}).get("type", "stalwart")
     row: dict[str, Any] = {"industry": industry, "type": type_}
+    row["weight"] = float(weight)
     if note:
         row["note"] = note
     rows.append(row)

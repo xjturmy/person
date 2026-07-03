@@ -32,9 +32,56 @@ CORE_METRICS = {
 
 QUARTERLY_TABLES = {"profitability", "growth", "cashflow", "safety"}
 
-# 银行/保险不适用毛利率,免报
+# 不同公司类型的指标口径豁免:
+# - 银行/保险不适用毛利率、流动比率、速动比率这类制造业安全性指标
+# - 港股接口当前缺少部分现金流/安全性字段,按已知可得字段校验
 EXEMPTIONS = {
     "毛利率(GM)": {"bank", "insurance"},
+    "流动比率": {"bank", "insurance"},
+    "速动比率": {"bank", "insurance", "hk"},
+    "自由现金流量": {"hk"},
+}
+
+# 已知新上市 / 回 A / 港股样本的可比数据起点。
+# 校验历史跨度时不再要求这些公司补到上市/可得数据之前。
+DATA_START_OVERRIDES: dict[str, dict[str, date]] = {
+    # 蜜雪集团:港股,现有港股估值从 2025-03 起,财务可追溯到 2021 年年报。
+    "02097": {
+        "valuation": date(2025, 3, 3),
+        "profitability": date(2021, 12, 31),
+        "growth": date(2021, 12, 31),
+        "cashflow": date(2021, 12, 31),
+        "safety": date(2021, 12, 31),
+    },
+    # A 股新上市/回 A:估值只能从 A 股上市后开始;财务上游可得起点短于 10 年。
+    "600938": {  # 中国海油
+        "valuation": date(2022, 4, 21),
+        "profitability": date(2018, 12, 31),
+        "growth": date(2018, 12, 31),
+        "cashflow": date(2018, 12, 31),
+        "safety": date(2018, 12, 31),
+    },
+    "600905": {  # 三峡能源
+        "valuation": date(2021, 6, 10),
+        "profitability": date(2017, 12, 31),
+        "growth": date(2017, 12, 31),
+        "cashflow": date(2017, 12, 31),
+        "safety": date(2017, 12, 31),
+    },
+    "600941": {  # 中国移动
+        "valuation": date(2022, 1, 5),
+        "profitability": date(2018, 12, 31),
+        "growth": date(2018, 12, 31),
+        "cashflow": date(2018, 12, 31),
+        "safety": date(2018, 12, 31),
+    },
+    "601728": {  # 中国电信
+        "valuation": date(2021, 8, 20),
+        "profitability": date(2018, 12, 31),
+        "growth": date(2018, 12, 31),
+        "cashflow": date(2018, 12, 31),
+        "safety": date(2018, 12, 31),
+    },
 }
 
 # 异常值阈值:[低, 高] 任一边超出即标记
@@ -62,10 +109,38 @@ def expected_quarters(start: date, end: date) -> set[date]:
     return out
 
 
+def expected_report_dates(start: date, end: date, category: str) -> set[date]:
+    """按公司类型返回应检查的报告期。
+
+    A 股常规财务表按季度检查;港股披露节奏不稳定,这里只要求年报点,
+    避免把接口/披露频率差异误判为数据损坏。
+    """
+    if category == "hk":
+        return {date(y, 12, 31) for y in range(start.year, end.year + 1) if start <= date(y, 12, 31) <= end}
+    return expected_quarters(start, end)
+
+
+def applicable_core_metrics(table: str, category: str) -> list[str]:
+    """返回当前公司类型实际适用的核心指标。"""
+    return [
+        metric for metric in CORE_METRICS[table]
+        if category not in EXEMPTIONS.get(metric, set())
+    ]
+
+
+def effective_target_start(ticker: str, table: str, target_start: date) -> date:
+    """历史跨度目标起点:全局目标与公司可得数据起点取较晚者。"""
+    override = DATA_START_OVERRIDES.get(str(ticker), {}).get(table)
+    if override is None:
+        return target_start
+    return max(target_start, override)
+
+
 def check_company_table(con, ticker: str, folder: str, category: str,
                         table: str, target_start: date, target_end: date) -> dict:
     """对单个 (公司, 表) 运行所有检查,返回 issue 列表。"""
     issues: list[str] = []
+    applicable_metrics = applicable_core_metrics(table, category)
     df = con.execute(
         f"SELECT date, metric, value FROM {table} WHERE ticker = ?", [ticker]
     ).fetchdf()
@@ -74,7 +149,7 @@ def check_company_table(con, ticker: str, folder: str, category: str,
         return {
             "ticker": ticker, "folder": folder, "table": table,
             "first_date": None, "last_date": None, "n_dates": 0,
-            "n_metrics": 0, "missing_core_metrics": list(CORE_METRICS[table]),
+            "n_metrics": 0, "missing_core_metrics": applicable_metrics,
             "date_span_ok": False, "missing_quarters": [], "outliers": 0,
             "score": 0, "issues": ["EMPTY"],
         }
@@ -87,17 +162,18 @@ def check_company_table(con, ticker: str, folder: str, category: str,
 
     # 1. 核心 metric 缺失
     missing_core = []
-    for m in CORE_METRICS[table]:
+    for m in applicable_metrics:
         if m in metrics_present:
-            continue
-        if category in EXEMPTIONS.get(m, set()):
             continue
         missing_core.append(m)
     if missing_core:
         issues.append(f"missing_metrics={missing_core}")
 
     # 2. 历史跨度
-    target_days = (target_end - target_start).days
+    effective_start = effective_target_start(str(ticker), table, target_start)
+    # 跨度检查只看可比窗口长度,不因最新财报/估值滞后数周到数月而重复扣分。
+    effective_end = min(target_end, last_date)
+    target_days = max((effective_end - effective_start).days, 1)
     actual_days = (last_date - first_date).days
     span_ratio = actual_days / target_days if target_days else 0
     date_span_ok = span_ratio >= 0.9
@@ -110,11 +186,13 @@ def check_company_table(con, ticker: str, folder: str, category: str,
     # 3. 季度缺口(仅季频表)
     missing_quarters: list[date] = []
     if table in QUARTERLY_TABLES:
-        expected = expected_quarters(first_date, last_date)
+        report_start = max(first_date, effective_start)
+        expected = expected_report_dates(report_start, last_date, category)
         actual = set(df["date"].unique())
         missing_quarters = sorted(expected - actual)
         if missing_quarters:
-            issues.append(f"missing_quarters={len(missing_quarters)}")
+            label = "missing_reports" if category == "hk" else "missing_quarters"
+            issues.append(f"{label}={len(missing_quarters)}")
 
     # 4. 异常值
     outliers = 0
@@ -133,7 +211,7 @@ def check_company_table(con, ticker: str, folder: str, category: str,
     # 评分:满分 100
     score = 100
     if missing_core:
-        score -= 30 * len(missing_core) // max(1, len(CORE_METRICS[table]))
+        score -= 30 * len(missing_core) // max(1, len(applicable_metrics))
     if not date_span_ok:
         score -= int(40 * (1 - span_ratio))
     if missing_quarters:
@@ -163,7 +241,14 @@ def render_report(rows: list[dict], target_years: int) -> str:
         "",
         f"- 生成时间: {date.today()}",
         f"- 目标历史长度: {target_years} 年",
-        f"- 检查项: 核心 metric 覆盖 / 历史跨度 / 季度缺口 / 异常值",
+        f"- 检查项: 核心 metric 覆盖 / 历史跨度 / 报告期缺口 / 异常值",
+        f"- 口径:按公司类型校准核心指标与历史起点(港股/金融业/新上市或回 A 不套用一刀切 10 年规则)",
+        "",
+        "## 校验口径调整",
+        "",
+        "- 港股:不强制季度完整,按年报点检查;豁免当前接口不可得的自由现金流量/速动比率。",
+        "- 银行/保险:豁免毛利率、流动比率、速动比率等制造业口径指标。",
+        "- 新上市/回 A 公司:估值和财务历史跨度从已知可比数据起点开始计算。",
         "",
         "## 概览(评分 0-100,满分代表完整)",
         "",

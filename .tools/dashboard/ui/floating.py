@@ -105,17 +105,17 @@ def render() -> None:
 
         with col_a:
             if st.button("💬", help="问 Claude(写入 dashboard_inbox)", key="fab_ask",
-                         use_container_width=True):
+                         width="stretch"):
                 st.session_state["fab_ask_open"] = not st.session_state.get("fab_ask_open", False)
 
         with col_b:
             if st.button("📝", help="跳转决策中心 Tab(请手动点顶部 Tab)", key="fab_decide",
-                         use_container_width=True):
+                         width="stretch"):
                 st.session_state["fab_decide_hint"] = True
 
         with col_c:
             if st.button("📅", help="最近 3 份月报", key="fab_report",
-                         use_container_width=True):
+                         width="stretch"):
                 st.session_state["fab_report_open"] = not st.session_state.get("fab_report_open", False)
 
         with col_d:
@@ -126,7 +126,7 @@ def render() -> None:
                 else "启动 ttyd daemon(切到 🤖 Tab 看终端)"
             )
             if st.button(ttyd_label, help=ttyd_help, key="fab_ttyd",
-                         use_container_width=True):
+                         width="stretch"):
                 with st.spinner("ttyd…"):
                     ok, out = _ttyd_call("--stop" if ttyd_on else "--daemon")
                 if ok:

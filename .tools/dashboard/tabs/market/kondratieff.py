@@ -44,7 +44,7 @@ def _section_kondratieff_card() -> None:
                     pdf["current"] = pdf["current"].fillna(False).map(
                         lambda v: "✅ 当前" if v else ""
                     )
-                st.dataframe(pdf, hide_index=True, use_container_width=True)
+                st.dataframe(pdf, hide_index=True, width="stretch")
             st.caption(
                 f"📅 数据更新:{last_updated} · "
                 f"📖 来源:{kdf.get('source_md', '—')}"

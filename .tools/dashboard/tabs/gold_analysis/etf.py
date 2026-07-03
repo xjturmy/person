@@ -66,7 +66,7 @@ def _render_etf(db_mtime: float) -> None:
                 yaxis_title="归一化净值(基期 = 100)",
                 legend=dict(orientation="h", y=1.05),
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         except Exception as e:
             st.warning(f"图表渲染失败:{e}")
     else:

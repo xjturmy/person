@@ -32,9 +32,15 @@ def test_all_three_models_produce_range():
     fpr = _fake_fpr(current=50.0, graham=60.0, pe=20.0)
     peg_est = ModelEstimate("PEG=1", 55.0, 0.0, True, "fake")
     ddm_est = ModelEstimate("Gordon DDM", 70.0, 0.0, True, "fake")
+    pe_hist_est = ModelEstimate("PE_hist", None, 0.0, False, "fake unavailable")
+    pb_hist_est = ModelEstimate("PB_hist", None, 0.0, False, "fake unavailable")
+    rim_est = ModelEstimate("RIM", None, 0.0, False, "fake unavailable")
     with patch.object(pr_mod, "compute_fair_range", return_value=fpr), \
          patch.object(pr_mod, "_peg_fair_price", return_value=peg_est), \
-         patch.object(pr_mod, "_gordon_fair_price", return_value=ddm_est):
+         patch.object(pr_mod, "_gordon_fair_price", return_value=ddm_est), \
+         patch.object(pr_mod, "_pe_hist_fair_price", return_value=pe_hist_est), \
+         patch.object(pr_mod, "_pb_hist_fair_price", return_value=pb_hist_est), \
+         patch.object(pr_mod, "_rim_fair_price", return_value=rim_est):
         out = compute_next_quarter_range("600000", name="测试")
 
     assert out.floor == 55.0      # min(60, 55, 70)
@@ -43,7 +49,7 @@ def test_all_three_models_produce_range():
     assert out.verdict_code in ("below_floor", "in_lower")  # current=50 < floor=55
     # 三个模型都被记录
     names = {m.name for m in out.models}
-    assert names == {"Graham", "PEG=1", "Gordon DDM"}
+    assert {"Graham", "PEG=1", "Gordon DDM"}.issubset(names)
 
 
 # ─── 2. 单模型降级 → 仍能产出区间 + note ─────────────────────────────
@@ -52,9 +58,15 @@ def test_one_model_degraded():
     fpr = _fake_fpr(current=50.0, graham=60.0)
     peg_est = ModelEstimate("PEG=1", None, 0.0, False, "3y CAGR ≤ 0")
     ddm_est = ModelEstimate("Gordon DDM", 70.0, 0.0, True, "fake")
+    pe_hist_est = ModelEstimate("PE_hist", None, 0.0, False, "fake unavailable")
+    pb_hist_est = ModelEstimate("PB_hist", None, 0.0, False, "fake unavailable")
+    rim_est = ModelEstimate("RIM", None, 0.0, False, "fake unavailable")
     with patch.object(pr_mod, "compute_fair_range", return_value=fpr), \
          patch.object(pr_mod, "_peg_fair_price", return_value=peg_est), \
-         patch.object(pr_mod, "_gordon_fair_price", return_value=ddm_est):
+         patch.object(pr_mod, "_gordon_fair_price", return_value=ddm_est), \
+         patch.object(pr_mod, "_pe_hist_fair_price", return_value=pe_hist_est), \
+         patch.object(pr_mod, "_pb_hist_fair_price", return_value=pb_hist_est), \
+         patch.object(pr_mod, "_rim_fair_price", return_value=rim_est):
         out = compute_next_quarter_range("600000", name="测试", lynch_type="stalwart")
 
     assert out.floor == 60.0
@@ -71,9 +83,15 @@ def test_all_models_unavailable():
     fpr = _fake_fpr(verified=False, skip="PE/PB 缺失")
     peg_est = ModelEstimate("PEG=1", None, 0.0, False, "no data")
     ddm_est = ModelEstimate("Gordon DDM", None, 0.0, False, "no dividend")
+    pe_hist_est = ModelEstimate("PE_hist", None, 0.0, False, "no pe")
+    pb_hist_est = ModelEstimate("PB_hist", None, 0.0, False, "no pb")
+    rim_est = ModelEstimate("RIM", None, 0.0, False, "no bps")
     with patch.object(pr_mod, "compute_fair_range", return_value=fpr), \
          patch.object(pr_mod, "_peg_fair_price", return_value=peg_est), \
-         patch.object(pr_mod, "_gordon_fair_price", return_value=ddm_est):
+         patch.object(pr_mod, "_gordon_fair_price", return_value=ddm_est), \
+         patch.object(pr_mod, "_pe_hist_fair_price", return_value=pe_hist_est), \
+         patch.object(pr_mod, "_pb_hist_fair_price", return_value=pb_hist_est), \
+         patch.object(pr_mod, "_rim_fair_price", return_value=rim_est):
         out = compute_next_quarter_range("600000", name="测试")
 
     assert out.verdict_code == "na"
@@ -87,9 +105,15 @@ def test_weights_by_lynch_type():
     fpr = _fake_fpr(current=50.0, graham=60.0)
     peg_est = ModelEstimate("PEG=1", 80.0, 0.0, True, "fake")
     ddm_est = ModelEstimate("Gordon DDM", 70.0, 0.0, True, "fake")
+    pe_hist_est = ModelEstimate("PE_hist", None, 0.0, False, "fake unavailable")
+    pb_hist_est = ModelEstimate("PB_hist", None, 0.0, False, "fake unavailable")
+    rim_est = ModelEstimate("RIM", None, 0.0, False, "fake unavailable")
     with patch.object(pr_mod, "compute_fair_range", return_value=fpr), \
          patch.object(pr_mod, "_peg_fair_price", return_value=peg_est), \
-         patch.object(pr_mod, "_gordon_fair_price", return_value=ddm_est):
+         patch.object(pr_mod, "_gordon_fair_price", return_value=ddm_est), \
+         patch.object(pr_mod, "_pe_hist_fair_price", return_value=pe_hist_est), \
+         patch.object(pr_mod, "_pb_hist_fair_price", return_value=pb_hist_est), \
+         patch.object(pr_mod, "_rim_fair_price", return_value=rim_est):
         out = compute_next_quarter_range("600000", lynch_type="fast_grower")
 
     peg_weight = next(m.weight for m in out.models if m.name == "PEG=1")

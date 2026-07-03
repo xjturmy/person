@@ -91,7 +91,7 @@ def render_card_lite(industry: str, type_: str, *, key_prefix: str) -> None:
                 lambda x: f"{x:.0f}" if pd.notna(x) else "—"
             )
             show.columns = ["排名", "代码", "名称", "分数", "评级"]
-            st.dataframe(show, hide_index=True, use_container_width=True)
+            st.dataframe(show, hide_index=True, width="stretch")
     except Exception as ex:
         st.caption(f"评分不可用: {ex}")
 
@@ -106,7 +106,7 @@ def render_card_lite(industry: str, type_: str, *, key_prefix: str) -> None:
             "1y": f"{c['return_1y']:+.1%}" if c.get("return_1y") is not None else "—",
             "层级": LAYER_CN.get(c.get("layer"), "—"),
         } for c in etfs])
-        st.dataframe(etf_df, hide_index=True, use_container_width=True)
+        st.dataframe(etf_df, hide_index=True, width="stretch")
         target = etfs[0].get("target_pct")
         if target:
             st.caption(f"建议配置 {target[0]}-{target[1]}%")

@@ -69,7 +69,7 @@ def _render_metrics_panel(snap: Snapshot, db_mtime: float) -> None:
             )
             fig.update_yaxes(title="USD/oz", secondary_y=False)
             fig.update_yaxes(title="实际利率 %", secondary_y=True, autorange="reversed")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         except Exception as e:
             st.warning(f"图表渲染失败:{e}")
     else:
@@ -146,7 +146,7 @@ def _render_metrics_panel(snap: Snapshot, db_mtime: float) -> None:
                 fig.layout.annotations[3].text = "SPDR 持仓(吨)"
 
             fig.update_layout(height=480, margin=dict(l=20, r=20, t=40, b=20))
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         except Exception as e:
             st.warning(f"图表渲染失败:{e}")
 
@@ -176,7 +176,7 @@ def _render_metrics_panel(snap: Snapshot, db_mtime: float) -> None:
 
             st.dataframe(
                 pivot.style.format("{:.1%}", na_rep="—").map(_pct_color),
-                use_container_width=True,
+                width="stretch",
             )
             st.caption("🟢 低分位(可能加仓)/ 🔴 高分位(可能减仓)")
         else:
@@ -227,7 +227,7 @@ def _render_metrics_panel(snap: Snapshot, db_mtime: float) -> None:
                 "AI 革命 / 去美元化 / 地缘冲突",
             ],
         })
-        st.dataframe(historical, use_container_width=True, hide_index=True)
+        st.dataframe(historical, width="stretch", hide_index=True)
 
     with st.expander("💡 配置比例公式(三层联动)", expanded=False):
         st.markdown("""
