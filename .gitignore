@@ -41,6 +41,8 @@ wheels/
 # IDE
 .vscode/
 .idea/
+.codex/
+AGENTS.md
 *.swp
 *.swo
 *~

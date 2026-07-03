@@ -133,15 +133,16 @@ def test_company_tab_renders_radar_and_overlay_toggle():
     assert any("叠加股价" in tg for tg in toggles), f"缺 股价叠加 toggle: {toggles}"
 
 
-def test_six_subtabs_present():
-    """公司详情应有 6 个子 tab(每维 ### 标题)。"""
+def test_company_research_tabs_and_six_dimensions_present():
+    """公司研究应有 4 个分析页签,概览内仍暴露 6 维评分口径。"""
     t = _build(PAGE_COMPANY)
+    app_source = APP.read_text(encoding="utf-8")
+    for label in ("📋 概览", "🌱 林奇", "💎 格雷厄姆", "🧠 芒格"):
+        assert label in app_source, f"公司研究缺页签 {label}"
+
     md_text = "\n".join(m.value for m in t.get("markdown"))
-    needed = ["### 🟢 估值", "### 🟢 盈利", "### 🟢 成长", "### 🟢 现金流"]
-    # 安全/策略 可能 ⚪ 也算
-    needed_loose = ["估值", "盈利", "成长", "现金流", "安全", "策略"]
-    for kw in needed_loose:
-        assert f" {kw}" in md_text, f"6 子 tab 缺 {kw}"
+    for dim in ("估值", "盈利", "成长", "现金流", "安全", "策略"):
+        assert dim in md_text, f"6 维评分缺 {dim}"
 
 
 def test_top_strengths_section_exists():
@@ -264,8 +265,9 @@ def test_global_search_syncs_subtab_company_keys():
         t.session_state["company_search_query"] = "gzmt"
         t.run()
         assert not t.exception, f"搜索 gzmt 抛异常: {t.exception}"
-        assert t.session_state.get(sub_key) == "06_贵州茅台", \
-            f"{sub_key} 未被 sidebar 同步;实际={t.session_state.get(sub_key)}"
+        actual = t.session_state[sub_key] if sub_key in t.session_state else None
+        assert actual == "06_贵州茅台", \
+            f"{sub_key} 未被 sidebar 同步;实际={actual}"
 
 
 if __name__ == "__main__":
@@ -278,7 +280,7 @@ if __name__ == "__main__":
         test_no_fallback_when_mcp_alive,
         test_score_card_six_dims,
         test_company_tab_renders_radar_and_overlay_toggle,
-        test_six_subtabs_present,
+        test_company_research_tabs_and_six_dimensions_present,
         test_top_strengths_section_exists,
         test_dash03_master_matrix_block,
         test_dash03_quick_add_button_present,
