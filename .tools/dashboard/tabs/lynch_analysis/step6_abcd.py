@@ -379,6 +379,321 @@ def _render_matrix_decision(result) -> None:
         )
 
 
+def _fmt_price(value: float | None) -> str:
+    return f"¥{value:.2f}" if value is not None else "—"
+
+
+def _range_label(low: float | None, high: float | None) -> str:
+    if low is None and high is None:
+        return "—"
+    if low is None:
+        return f"≤ {_fmt_price(high)}"
+    if high is None:
+        return f"> {_fmt_price(low)}"
+    return f"{_fmt_price(low)} - {_fmt_price(high)}"
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def _lynch_price_inputs_cached(ticker: str, mtime: float) -> dict[str, Any]:
+    con = duckdb.connect(str(DB_PATH), read_only=True)
+    try:
+        def latest(table: str, metric: str) -> tuple[float | None, Any]:
+            row = con.execute(
+                f"SELECT value, date FROM {table} "
+                f"WHERE ticker=? AND metric=? AND value IS NOT NULL "
+                f"ORDER BY date DESC LIMIT 1",
+                [ticker, metric],
+            ).fetchone()
+            return (float(row[0]), row[1]) if row else (None, None)
+
+        pe, pe_date = latest("valuation", "PE-TTM")
+        pb, pb_date = latest("valuation", "PB")
+        mcap, mcap_date = latest("valuation", "市值(元)")
+        eps, eps_date = latest("growth", "基本每股收益")
+        ni, ni_date = latest("growth", "归属于母公司普通股股东的净利润")
+    finally:
+        con.close()
+
+    current = None
+    if mcap is not None and eps is not None and ni is not None and eps > 0 and ni > 0:
+        current = mcap / (ni / eps)
+    return {
+        "current": current,
+        "pe": pe,
+        "pb": pb,
+        "as_of": pe_date or pb_date or mcap_date or eps_date or ni_date,
+    }
+
+
+def _growth_for_lynch(m: dict) -> tuple[float | None, str, bool]:
+    np_yoy = m.get("np_ttm_yoy")
+    if np_yoy is not None and np_yoy > 0:
+        return float(np_yoy), "净利润 3y CAGR", False
+    cagr = m.get("rev_cagr_3y") or m.get("rev_cagr_5y")
+    if cagr is not None and cagr > 0:
+        return float(cagr) * 100, "营收 CAGR 兜底", True
+    return None, "增长率", False
+
+
+def _peg_price_at(current: float, current_peg: float, target_peg: float) -> float:
+    return current * target_peg / current_peg
+
+
+def _pb_price_at(current: float, current_pb: float, target_pb: float) -> float:
+    return current * target_pb / current_pb
+
+
+def _pe_price_at(current: float, current_pe: float, target_pe: float) -> float:
+    return current * target_pe / current_pe
+
+
+def _yield_price_at(current: float, current_yield: float, target_yield: float) -> float:
+    return current * current_yield / target_yield
+
+
+def _as_ratio(value: float | None) -> float | None:
+    if value is None:
+        return None
+    return value / 100 if value > 1 else value
+
+
+def _metric_items(
+    current: float,
+    as_of: Any,
+    key_label: str,
+    key_value: str,
+    key_help: str,
+    buy_line: float,
+    sell_line: float,
+) -> list[tuple[str, str, str]]:
+    return [
+        ("当前价", _fmt_price(current), f"数据日:{as_of or '—'}"),
+        (key_label, key_value, key_help),
+        ("买入观察线", _fmt_price(buy_line), "低于该价格进入林奇方案买入观察区"),
+        ("减仓/卖出线", _fmt_price(sell_line), "高于该价格需重新评估故事与估值"),
+    ]
+
+
+def _render_lynch_price_zones(ticker: str, cls_id: str, m: dict) -> None:
+    """Render Lynch-method buy/hold/sell price zones below the final decision."""
+    db_mtime = DB_PATH.stat().st_mtime if DB_PATH.exists() else 0.0
+    try:
+        inputs = _lynch_price_inputs_cached(ticker, db_mtime)
+    except Exception as exc:  # noqa: BLE001 - price zones should not break the decision tab
+        st.warning(f"林奇价格区间暂不可用:{exc}")
+        return
+
+    current = inputs.get("current")
+    pe = inputs.get("pe") or m.get("pe_ttm")
+    pb = inputs.get("pb") or m.get("pb")
+    as_of = inputs.get("as_of")
+
+    st.markdown("### 💵 林奇价格区间")
+    if current is None:
+        st.info("当前价基础数据不足,暂不能形成林奇买入 / 卖出价格区间。")
+        return
+
+    rows: list[dict[str, str]] = []
+    metrics: list[tuple[str, str, str]] = [("当前价", _fmt_price(current), f"数据日:{as_of or '—'}")]
+    caption = ""
+
+    if PEG_BY_TYPE.get(cls_id, {}).get("applicable"):
+        growth_pct, growth_label, fallback = _growth_for_lynch(m)
+        if pe is None or pe <= 0 or growth_pct is None or growth_pct <= 0:
+            st.info("PE-TTM 或增长率不足,暂不能按林奇 PEG 形成价格区间。")
+            return
+        current_peg = pe / growth_pct
+        if current_peg <= 0:
+            st.info("当前 PEG 无法计算,暂不能形成价格区间。")
+            return
+
+        if cls_id == "fast_grower":
+            safe_peg, buy_peg, hold_peg, sell_peg = 1.0, 1.5, 2.0, 2.0
+            scheme = "快速增长型:PEG ≤ 1.0 安全,≤ 1.5 可买,> 2.0 需要减仓/卖出"
+        else:
+            safe_peg, buy_peg, hold_peg, sell_peg = 0.8, 1.2, 1.8, 1.8
+            scheme = "稳健增长型:PEG ≤ 0.8 安全,0.8-1.2 分批,> 1.8 需要减仓/卖出"
+
+        safe_price = _peg_price_at(current, current_peg, safe_peg)
+        buy_price = _peg_price_at(current, current_peg, buy_peg)
+        hold_price = _peg_price_at(current, current_peg, hold_peg)
+
+        metrics.extend([
+            ("当前 PEG", f"{current_peg:.2f}", f"PE {pe:.1f} ÷ {growth_label} {growth_pct:.1f}%"),
+            ("安全买入线", _fmt_price(safe_price), f"PEG {safe_peg:.1f}"),
+            ("减仓/卖出线", _fmt_price(sell_price := hold_price), f"PEG {sell_peg:.1f}"),
+        ])
+        rows = [
+            {"区间": "安全买入", "价格范围": _range_label(None, safe_price), "动作": "林奇好公司遇到好价格,可重点建仓"},
+            {"区间": "分批买入", "价格范围": _range_label(safe_price, buy_price), "动作": "价格仍匹配成长,按仓位计划买入"},
+            {"区间": "合理持有", "价格范围": _range_label(buy_price, hold_price), "动作": "等待故事兑现,不追高加仓"},
+            {"区间": "减仓/卖出", "价格范围": _range_label(sell_price, None), "动作": "除非成长率上修,否则优先降风险"},
+        ]
+        caption = (
+            f"{scheme}。本区间只按林奇 PEG 口径计算:价格变动会等比例改变 PE 和 PEG。"
+            + (" 当前使用营收 CAGR 兜底,需注意和净利润 CAGR 口径不同。" if fallback else "")
+        )
+
+    elif cls_id == "slow_grower":
+        div_yield = _as_ratio(m.get("dividend_yield"))
+        if div_yield is not None and div_yield > 0:
+            safe_price = _yield_price_at(current, div_yield, 0.05)
+            buy_price = _yield_price_at(current, div_yield, 0.04)
+            hold_price = _yield_price_at(current, div_yield, 0.03)
+            metrics = _metric_items(
+                current, as_of,
+                "当前股息率", f"{div_yield*100:.2f}%", "缓慢增长型以股息率作为主要价格锚",
+                buy_price, hold_price,
+            )
+            rows = [
+                {"区间": "高股息买入", "价格范围": _range_label(None, safe_price), "动作": "股息率 ≥ 5%,偏防御型建仓区"},
+                {"区间": "分批买入", "价格范围": _range_label(safe_price, buy_price), "动作": "股息率 4%-5%,可按现金流配置"},
+                {"区间": "收益持有", "价格范围": _range_label(buy_price, hold_price), "动作": "股息率 3%-4%,以收息和稳定性为主"},
+                {"区间": "减仓/卖出", "价格范围": _range_label(hold_price, None), "动作": "股息率 < 3%,缓慢增长股吸引力下降"},
+            ]
+            caption = "缓慢增长型不看 PEG。本区间只按林奇收息型口径,用股息率反推价格。"
+        elif pe is not None and pe > 0:
+            safe_price = _pe_price_at(current, pe, 10)
+            buy_price = _pe_price_at(current, pe, 12)
+            hold_price = _pe_price_at(current, pe, 18)
+            metrics = _metric_items(
+                current, as_of,
+                "当前 PE", f"{pe:.1f}", "股息率缺失时退化为缓慢增长股 PE 上限",
+                buy_price, hold_price,
+            )
+            rows = [
+                {"区间": "低 PE 买入", "价格范围": _range_label(None, safe_price), "动作": "PE ≤ 10,防御性较强"},
+                {"区间": "分批买入", "价格范围": _range_label(safe_price, buy_price), "动作": "PE 10-12,可小步配置"},
+                {"区间": "合理持有", "价格范围": _range_label(buy_price, hold_price), "动作": "PE 12-18,主要看股息和稳定性"},
+                {"区间": "减仓/卖出", "价格范围": _range_label(hold_price, None), "动作": "PE > 18,缓慢增长股性价比不足"},
+            ]
+            caption = "股息率缺失,临时退化为林奇缓慢增长股 PE 口径。"
+        else:
+            st.info("缓慢增长型需要股息率或 PE-TTM 才能形成价格区间。")
+            return
+
+    elif cls_id == "cyclical":
+        if pb is None or pb <= 0:
+            st.info("周期型公司需要 PB 数据来判断周期位置,当前数据不足。")
+            return
+        safe_price = _pb_price_at(current, pb, 1.0)
+        buy_price = _pb_price_at(current, pb, 1.5)
+        hold_price = _pb_price_at(current, pb, 2.0)
+        metrics.extend([
+            ("当前 PB", f"{pb:.2f}", "周期型按 PB 判断周期位置"),
+            ("周期底部线", _fmt_price(safe_price), "PB 1.0"),
+            ("周期顶部线", _fmt_price(hold_price), "PB 2.0"),
+        ])
+        rows = [
+            {"区间": "周期底部买入", "价格范围": _range_label(None, safe_price), "动作": "PB 低位,结合行业景气反转建仓"},
+            {"区间": "分批买入", "价格范围": _range_label(safe_price, buy_price), "动作": "确认产品价格/利润拐点后买入"},
+            {"区间": "景气持有", "价格范围": _range_label(buy_price, hold_price), "动作": "跟踪库存、价格和盈利弹性"},
+            {"区间": "周期顶部卖出", "价格范围": _range_label(hold_price, None), "动作": "PB 高位时不恋战,优先兑现"},
+        ]
+        caption = "周期型不使用 PEG。本区间只按林奇周期股口径,用 PB 作为周期位置代理。"
+
+    elif cls_id == "turnaround":
+        if pb is not None and pb > 0:
+            safe_price = _pb_price_at(current, pb, 0.8)
+            buy_price = _pb_price_at(current, pb, 1.2)
+            hold_price = _pb_price_at(current, pb, 2.0)
+            metrics = _metric_items(
+                current, as_of,
+                "当前 PB", f"{pb:.2f}", "困境反转型以资产折价和破产风险作为价格锚",
+                buy_price, hold_price,
+            )
+            rows = [
+                {"区间": "深度反转买入", "价格范围": _range_label(None, safe_price), "动作": "PB ≤ 0.8,但必须确认生存风险可控"},
+                {"区间": "分批买入", "价格范围": _range_label(safe_price, buy_price), "动作": "PB 0.8-1.2,等待经营拐点确认"},
+                {"区间": "反转持有", "价格范围": _range_label(buy_price, hold_price), "动作": "PB 1.2-2.0,看利润修复兑现"},
+                {"区间": "兑现/卖出", "价格范围": _range_label(hold_price, None), "动作": "PB > 2.0,反转预期大多已反映"},
+            ]
+            caption = "困境反转型不用 PEG。本区间只按林奇反转股口径,用 PB 折价作为安全边际代理。"
+        elif pe is not None and pe > 0:
+            safe_price = _pe_price_at(current, pe, 8)
+            buy_price = _pe_price_at(current, pe, 12)
+            hold_price = _pe_price_at(current, pe, 20)
+            metrics = _metric_items(
+                current, as_of,
+                "当前 PE", f"{pe:.1f}", "PB 缺失时退化为反转股 PE 重估线",
+                buy_price, hold_price,
+            )
+            rows = [
+                {"区间": "反转买入", "价格范围": _range_label(None, safe_price), "动作": "低 PE 且经营拐点明确才考虑"},
+                {"区间": "分批买入", "价格范围": _range_label(safe_price, buy_price), "动作": "PE 8-12,小仓位验证"},
+                {"区间": "反转持有", "价格范围": _range_label(buy_price, hold_price), "动作": "PE 12-20,看利润修复持续性"},
+                {"区间": "兑现/卖出", "价格范围": _range_label(hold_price, None), "动作": "PE > 20,不再便宜"},
+            ]
+            caption = "PB 缺失,临时退化为林奇困境反转 PE 重估口径。"
+        else:
+            st.info("困境反转型需要 PB 或 PE-TTM 才能形成价格区间。")
+            return
+
+    elif cls_id == "asset_play":
+        if pb is not None and pb > 0:
+            safe_price = _pb_price_at(current, pb, 0.8)
+            buy_price = _pb_price_at(current, pb, 1.0)
+            hold_price = _pb_price_at(current, pb, 1.3)
+            metrics = _metric_items(
+                current, as_of,
+                "当前 PB", f"{pb:.2f}", "资产隐蔽型以账面资产折价作为价格锚",
+                buy_price, hold_price,
+            )
+            rows = [
+                {"区间": "资产折价买入", "价格范围": _range_label(None, safe_price), "动作": "PB ≤ 0.8,隐蔽资产安全边际较足"},
+                {"区间": "分批买入", "价格范围": _range_label(safe_price, buy_price), "动作": "PB 0.8-1.0,等待催化重估"},
+                {"区间": "重估持有", "价格范围": _range_label(buy_price, hold_price), "动作": "PB 1.0-1.3,观察资产释放或重估进展"},
+                {"区间": "兑现/卖出", "价格范围": _range_label(hold_price, None), "动作": "PB > 1.3,资产折价优势减弱"},
+            ]
+            caption = "资产隐蔽型不使用 PEG。本区间只按林奇资产股口径,用 PB/NAV 折价代理安全边际。"
+        else:
+            cash_mc = _as_ratio(m.get("cash_to_market_cap"))
+            if cash_mc is None or cash_mc <= 0:
+                st.info("资产隐蔽型需要 PB 或现金/市值数据才有价格锚。")
+                return
+            safe_price = _yield_price_at(current, cash_mc, 0.40)
+            buy_price = _yield_price_at(current, cash_mc, 0.30)
+            hold_price = _yield_price_at(current, cash_mc, 0.20)
+            metrics = _metric_items(
+                current, as_of,
+                "现金/市值", f"{cash_mc*100:.1f}%", "PB 缺失时用现金/市值作为资产折价代理",
+                buy_price, hold_price,
+            )
+            rows = [
+                {"区间": "现金折价买入", "价格范围": _range_label(None, safe_price), "动作": "现金/市值 ≥ 40%,资产保护较强"},
+                {"区间": "分批买入", "价格范围": _range_label(safe_price, buy_price), "动作": "现金/市值 30%-40%,等待催化"},
+                {"区间": "重估持有", "价格范围": _range_label(buy_price, hold_price), "动作": "现金/市值 20%-30%,谨慎持有"},
+                {"区间": "兑现/卖出", "价格范围": _range_label(hold_price, None), "动作": "现金/市值 < 20%,资产折价不明显"},
+            ]
+            caption = "PB 缺失,临时退化为现金/市值口径。"
+
+    else:
+        if pe is None or pe <= 0:
+            st.info(f"{CLASS_META.get(cls_id, ('当前类型',))[0]} 暂缺 PE-TTM,无法形成兜底价格区间。")
+            return
+        safe_price = _pe_price_at(current, pe, 10)
+        buy_price = _pe_price_at(current, pe, 15)
+        hold_price = _pe_price_at(current, pe, 25)
+        metrics = _metric_items(
+            current, as_of,
+            "当前 PE", f"{pe:.1f}", "未知林奇类型的兜底 PE 价格线",
+            buy_price, hold_price,
+        )
+        rows = [
+            {"区间": "谨慎买入", "价格范围": _range_label(None, safe_price), "动作": "仅作兜底参考,需先校准林奇类型"},
+            {"区间": "观察买入", "价格范围": _range_label(safe_price, buy_price), "动作": "小仓位验证故事"},
+            {"区间": "合理持有", "价格范围": _range_label(buy_price, hold_price), "动作": "等待类型和故事进一步确认"},
+            {"区间": "减仓/卖出", "价格范围": _range_label(hold_price, None), "动作": "类型不清且估值偏高,优先降风险"},
+        ]
+        caption = "当前类型未匹配到专属公式,使用林奇页面兜底 PE 价格线。"
+
+    c1, c2, c3, c4 = st.columns(4)
+    for col, item in zip((c1, c2, c3, c4), metrics):
+        col.metric(item[0], item[1], help=item[2])
+    st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
+    st.caption(caption)
+
+
 def _matrix_cell_html(grade: str, price: int, highlight: bool) -> str:
     from masters.lynch.scorer import MATRIX
     decision, color = MATRIX[grade][price]
@@ -392,4 +707,3 @@ def _matrix_cell_html(grade: str, price: int, highlight: bool) -> str:
         f"<td style='padding:8px;border:1px solid #E5E7EB;"
         f"text-align:center;font-size:11px;color:{color}'>{decision}</td>"
     )
-

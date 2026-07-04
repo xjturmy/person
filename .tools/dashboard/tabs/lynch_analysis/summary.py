@@ -37,6 +37,7 @@ from ._helpers import (
     derive_key_indicators, derive_story,
     _render_type_editor, _editable_list,
 )
+from .step6_abcd import _render_lynch_price_zones
 
 
 def _step_6_summary(ticker: str, folder: str, cls: ClassificationResult,
@@ -209,6 +210,8 @@ def _step_6_summary(ticker: str, folder: str, cls: ClassificationResult,
                 f"**建议**:把五步当_决策 gate_(任一硬伤需复盘),加权分当_整体画像_(高分仍可优秀)。",
                 icon="⚠️",
             )
+
+    _render_lynch_price_zones(ticker, cls_id_used, m)
 
     # 操作按钮
     st.markdown("---")

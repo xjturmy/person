@@ -39,27 +39,44 @@ from .step6_abcd import _step_6_abcd_evaluation
 from .summary import _step_6_summary
 
 
+def _method_hint(m: dict, cls: ClassificationResult) -> tuple[bool, str, str, str]:
+    industry = f"{m.get('industry_sw_l1') or ''} {m.get('industry_sw_l2') or ''}"
+    category = (m.get("category") or "").lower()
+    if cls.extra.get("lynch_six_class_misfit"):
+        if "保险" in industry or category == "insurance":
+            return True, "保险价值修复法", "保险不是典型林奇成长股,PEG/负债率护栏容易误导。", "低 PB/PEV + EV/NBV 修复 + 偿付能力 + 投资收益率 + 股息回报"
+        if "银行" in industry or category == "bank":
+            return True, "银行价值评估法", "银行不是典型林奇成长股,高负债率是行业特性。", "低 PB + ROE/息差 + 不良率/拨备 + 分红稳定性"
+        if "证券" in industry or category in ("security", "other_financial"):
+            return True, "券商周期估值法", "券商受资本市场周期影响大,不适合按普通成长股 PEG 评估。", "PB 分位 + 净资本 + 自营/经纪/投行业务周期"
+        return True, "行业专属评估框架", "该公司不适合直接套用林奇六类和 PEG 体系。", "先判断行业核心驱动,再选择对应估值锚。"
+    return False, "", "", ""
+
+
+def _render_method_not_applicable(reason: str, framework: str, focus: str) -> None:
+    st.info(
+        f"**不符合彼得林奇通用评估方法**\n\n"
+        f"{reason}\n\n"
+        f"建议切换到:**{framework}**\n\n"
+        f"核心观察:{focus}"
+    )
+
+
+def _sync_company(source_key: str) -> None:
+    company = st.session_state.get(source_key)
+    if not company:
+        return
+    for key in ("company", "lynch_company", "graham_company", "munger_company", "dc_company"):
+        st.session_state[key] = company
+    st.session_state["_last_sidebar_company"] = company
+
+
 def render(companies: list[str], selected: str, db_mtime: float,
            decisions_db=None, folder_to_ticker_fn=None) -> None:
     st.subheader("🌱 彼得林奇分析法 · 成长投资五步框架")
 
-    # 顶部公司选择 + 年份
-    col_c, col_y, col_r = st.columns([3, 1, 1])
-    with col_c:
-        # 默认与 sidebar selected 同步
-        idx = companies.index(selected) if selected in companies else 0
-        company = st.selectbox("公司", companies, index=idx,
-                               key="lynch_company", label_visibility="collapsed")
-    with col_y:
-        year = st.selectbox("年份",
-                            list(range(_date_cls.today().year, _date_cls.today().year - 5, -1)),
-                            index=1, key="lynch_year", label_visibility="collapsed")
-    with col_r:
-        if st.button("🔄 重新评估", key="lynch_refresh", width="stretch"):
-            _classify_cached.clear()
-            _metrics_cached.clear()
-            _quarterly_yoy.clear()
-            st.rerun()
+    company = st.session_state.get("company", selected)
+    st.caption(f"当前公司:{company} · 评估年份:2026")
 
     # ticker 解析
     if folder_to_ticker_fn:
@@ -91,7 +108,13 @@ def render(companies: list[str], selected: str, db_mtime: float,
         reason=cls_dict["reason"],
         key_metrics=cls_dict["key_metrics"],
         notes=cls_dict["notes"],
+        extra=cls_dict.get("extra", {}),
     )
+
+    not_applicable, framework, reason, focus = _method_hint(m, cls)
+    if not_applicable:
+        _render_method_not_applicable(reason, framework, focus)
+        return
 
     # 顶部 banner:类型徽章 + 一句话定位
     st.markdown(

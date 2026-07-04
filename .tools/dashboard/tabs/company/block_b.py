@@ -102,9 +102,11 @@ def render() -> None:
                 ps = peer_scores(selected_ticker, DB_MTIME, max_n=4)
                 if not ps:
                     st.info("同行评分计算失败")
+                elif len(ps) <= 1:
+                    st.info("暂无同细分行业同行。请先刷新同行数据后再显示雷达对比。")
                 else:
                     st.plotly_chart(
                         pr.peer_radar_chart(ps, selected_ticker),
                         width="stretch",
                     )
-                    st.caption(f"同 category 同行({len(ps)-1} 家):" + ", ".join(s.name for s in ps if s.ticker != selected_ticker))
+                    st.caption(pr.peer_group_label(selected_ticker, max_n=4))

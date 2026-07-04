@@ -11,7 +11,7 @@
 """
 from __future__ import annotations
 
-from . import _helpers, block_a, block_b, block_c, block_d, hero
+from . import _helpers, block_a, block_b, block_c, block_d, hero, insurance_value
 
 
 def render(app_globals: dict) -> None:
@@ -20,11 +20,12 @@ def render(app_globals: dict) -> None:
     原 tabs/company.py 的单文件模式依赖把 app 全局直接注入到模块字典;
     拆包后改为把同一份字典注入到每个 sub-module 的字典。
     """
-    for mod in (_helpers, hero, block_a, block_b, block_c, block_d):
+    for mod in (_helpers, hero, block_a, block_b, block_c, block_d, insurance_value):
         g = mod.__dict__
         for _k, _v in app_globals.items():
             if _k != "__builtins__":
                 g[_k] = _v
+    block_a.insurance_value = insurance_value
 
     hero.render()
     block_a.render()

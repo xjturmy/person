@@ -1,6 +1,7 @@
 """段 1 Hero:SWS Hero banner + 持仓卡 + 投资视角(林奇) + 健康度 + 雪花/五维 + Piotroski。"""
 from __future__ import annotations
 
+from html import escape
 from importlib.machinery import SourceFileLoader
 
 import watchlist as _wl
@@ -36,9 +37,173 @@ from ._helpers import (
 )
 from ui.invest_ui import (
     inject_invest_ui_css,
-    render_metric_card,
-    render_section_header,
 )
+
+_OVERVIEW_COMPACT_CSS = """
+<style>
+.sws-hero {
+    border-radius: 12px;
+    box-shadow: none;
+    margin: 0 0 8px;
+    padding: 16px 22px;
+}
+.sws-hero-row {
+    align-items: center;
+}
+.sws-hero-name {
+    font-size: 26px;
+}
+.sws-hero-cat {
+    font-size: 12px;
+    margin-top: 4px;
+}
+.sws-hero-score-label {
+    font-size: 10px;
+}
+.sws-hero-score-num {
+    font-size: 40px;
+}
+.sws-hero-score-suffix {
+    font-size: 17px;
+}
+.sws-hero-score-pill {
+    padding: 2px 10px;
+}
+.company-locator-badge {
+    margin: 6px 0 8px !important;
+    padding: 6px 9px !important;
+}
+.company-quick-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0 0 8px;
+}
+.company-quick-item {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-left: 3px solid var(--quick-accent, #6B7280);
+    border-radius: 8px;
+    padding: 7px 10px;
+    min-height: 54px;
+    font-family: -apple-system, "Inter", "PingFang SC", sans-serif;
+}
+.company-quick-label {
+    color: #6B7280;
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1.1;
+}
+.company-quick-value {
+    color: #111827;
+    font-size: 18px;
+    font-weight: 760;
+    line-height: 1.15;
+    margin-top: 4px;
+}
+.company-quick-note {
+    color: var(--quick-fg, #6B7280);
+    font-size: 11px;
+    line-height: 1.2;
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.company-inline-note {
+    align-items: center;
+    background: #F9FAFB;
+    border: 1px solid #E5E7EB;
+    border-left: 3px solid var(--note-accent, #9CA3AF);
+    border-radius: 7px;
+    color: #4B5563;
+    display: flex;
+    font-family: -apple-system, "Inter", "PingFang SC", sans-serif;
+    font-size: 12px;
+    gap: 6px;
+    line-height: 1.25;
+    margin: 4px 0 6px;
+    padding: 6px 9px;
+}
+.company-inline-note strong {
+    color: #111827;
+}
+[data-testid="stTabs"] [data-baseweb="tab-list"] {
+    gap: 6px;
+}
+[data-testid="stTabs"] [data-baseweb="tab"] {
+    height: 28px;
+    padding-left: 2px;
+    padding-right: 2px;
+}
+[data-testid="stTabs"] [data-baseweb="tab"] p {
+    font-size: 13px;
+}
+[data-testid="stTabs"] [data-baseweb="tab-panel"] {
+    padding-top: 4px;
+}
+[data-testid="stTabs"] [data-testid="stVerticalBlock"] {
+    gap: 0.25rem;
+}
+</style>
+"""
+
+_QUICK_STATUS_COLORS = {
+    "success": ("#15803D", "#166534"),
+    "fair": ("#65A30D", "#365314"),
+    "warning": ("#CA8A04", "#854D0E"),
+    "risk": ("#DC2626", "#991B1B"),
+    "info": ("#2563EB", "#1E3A8A"),
+    "disabled": ("#9CA3AF", "#6B7280"),
+    "neutral": ("#6B7280", "#374151"),
+    "undervalued": ("#16A34A", "#166534"),
+    "overvalued": ("#D97706", "#92400E"),
+}
+
+
+def _short_note(note: str | None, max_chars: int = 18) -> str:
+    if not note:
+        return ""
+    text = str(note).replace("\n", " ").strip()
+    return text if len(text) <= max_chars else text[:max_chars - 1] + "…"
+
+
+def _quick_metric_html(label: str, value: object, note: str | None, status: str) -> str:
+    accent, fg = _QUICK_STATUS_COLORS.get(status, _QUICK_STATUS_COLORS["neutral"])
+    note_html = (
+        f'<div class="company-quick-note">{escape(_short_note(note))}</div>'
+        if note
+        else ""
+    )
+    return (
+        f'<div class="company-quick-item" style="--quick-accent:{accent};--quick-fg:{fg};">'
+        f'<div class="company-quick-label">{escape(label)}</div>'
+        f'<div class="company-quick-value">{escape(str(value))}</div>'
+        f'{note_html}'
+        f'</div>'
+    )
+
+
+def _inline_note_html(message: str, kind: str = "neutral") -> str:
+    accent = {
+        "success": "#16A34A",
+        "warning": "#D97706",
+        "info": "#2563EB",
+        "neutral": "#9CA3AF",
+    }.get(kind, "#9CA3AF")
+    return (
+        f'<div class="company-inline-note" style="--note-accent:{accent};">'
+        f'{escape(message)}</div>'
+    )
+
+
+def _combined_note_html(parts: list[tuple[str, str]]) -> str:
+    if not parts:
+        return ""
+    priority = {"warning": 3, "info": 2, "success": 1, "neutral": 0}
+    kind = max((kind for _, kind in parts), key=lambda k: priority.get(k, 0))
+    msg = " ｜ ".join(text for text, _ in parts if text)
+    return _inline_note_html(msg, kind)
 
 
 def _score_status(score: float | None) -> str:
@@ -194,7 +359,7 @@ def _render_locator_badge(ticker: str, score_dict: dict) -> None:
 
     body = " │ ".join(segs)
     st.markdown(
-        f'<div style="margin:6px 0 12px 0;padding:8px 14px;'
+        f'<div class="company-locator-badge" style="margin:6px 0 12px 0;padding:8px 14px;'
         f'background:#F3F4F6;border:1px solid #E5E7EB;border-radius:8px;'
         f'font-family:-apple-system,Inter,PingFang SC,sans-serif;'
         f'font-size:13px;color:#374151;line-height:1.5;white-space:nowrap;'
@@ -208,6 +373,7 @@ def _render_locator_badge(ticker: str, score_dict: dict) -> None:
 def render() -> None:
     # ─── 段 1:SWS 风格 Hero + 雷达 + 五维 + Piotroski ─────────────
     st.markdown(_SWS_CSS, unsafe_allow_html=True)
+    st.markdown(_OVERVIEW_COMPACT_CSS, unsafe_allow_html=True)
     inject_invest_ui_css()
     folder_to_ticker_home = _folder_to_ticker(DB_MTIME)
     ticker = folder_to_ticker_home.get(selected, "")
@@ -219,13 +385,6 @@ def render() -> None:
     st.session_state["home_window"] = home_window
     _latest_period = latest_financial_period(DB_MTIME, ticker)
     _annual_year = latest_annual_year(DB_MTIME, ticker)
-    with st.expander("📐 PE 分位口径说明(默认 10y 全周期,可查看近 N 年对照)", expanded=False):
-        st.markdown(
-            "**主口径**:PE-TTM 10 年全周期分位(自算,与理杏仁内置 `PE-TTM_分位点` 差异 < 1pp)。\n\n"
-            "**为什么固定 10y**:跨 Tab 一致性 — graham/lynch/决策中心/screener 全部以 10y 为基准,"
-            "避免同一公司在不同卡片显示不同分位造成误判。\n\n"
-            "若想看「近 5 年贵不贵」,可使用估值 sub-tab 内的 5y 分位带图(显式标注口径)。"
-        )
 
     score_dict = _company_score(ticker, home_window, DB_MTIME)
     if score_dict is None:
@@ -261,11 +420,6 @@ def render() -> None:
         except Exception as _badge_exc:
             st.caption(f"(💡 当前定位 渲染失败:{_badge_exc})")
 
-        render_section_header(
-            "投研速览",
-            subtitle="先看结论,再下钻指标。评分与估值统一使用 10 年全周期口径。",
-            eyebrow="Overview",
-        )
         _valuation_dim = score_dict["dims"].get("valuation", {})
         _safety_dim = score_dict["dims"].get("safety", {})
         _valuation_raw = _valuation_dim.get("raw")
@@ -273,26 +427,25 @@ def render() -> None:
         _safety_note = _safety_dim.get("note") or "负债率 / 风险指标"
         _valuation_value = _percentile_value(_valuation_raw)
         _safety_score = _safety_dim.get("score")
-        _quick_cols = st.columns(4)
-        with _quick_cols[0]:
-            render_metric_card("综合评分", f"{ov:.0f}/100", ov_label, _score_status(ov))
-        with _quick_cols[1]:
-            render_metric_card("估值分位", _valuation_value, _valuation_note, _valuation_status(_valuation_raw))
-        with _quick_cols[2]:
-            render_metric_card("安全性", _score_value(_safety_score), _safety_note, _score_status(_safety_score))
-        with _quick_cols[3]:
-            _period_note = f"年报评分按 {_annual_year} 完整年报" if _annual_year else "年报评分按完整年报"
-            render_metric_card("最新财报", _latest_period.get("label", "—"), _period_note, "info")
+        _period_note = f"{_annual_year} 年报" if _annual_year else "完整年报"
+        _quick_html = "".join([
+            _quick_metric_html("综合", f"{ov:.0f}/100", ov_label, _score_status(ov)),
+            _quick_metric_html("估值", _valuation_value, _valuation_note, _valuation_status(_valuation_raw)),
+            _quick_metric_html("安全", _score_value(_safety_score), _safety_note, _score_status(_safety_score)),
+            _quick_metric_html("财报", _latest_period.get("label", "—"), _period_note, "info"),
+        ])
+        st.markdown(f'<div class="company-quick-grid">{_quick_html}</div>', unsafe_allow_html=True)
 
         unit_position, unit_view, unit_health, unit_dims, unit_fscore = st.tabs([
-            "① 持仓状态",
-            "② 投资视角",
-            "③ 健康风险",
-            "④ 五维评分",
-            "⑤ 年报评分",
+            "① 持仓",
+            "② 视角",
+            "③ 风险",
+            "④ 五维",
+            "⑤ 年报",
         ])
 
         with unit_position:
+            _position_notes: list[tuple[str, str]] = []
             try:
                 _wl_entry = _wl.get_entry(ticker) if ticker else None
             except Exception:
@@ -300,15 +453,9 @@ def render() -> None:
             if _wl_entry is not None and _wl_entry.status == "pending":
                 _src = _wl_entry.preset or "—"
                 _at = _wl_entry.added_at or "—"
-                st.markdown(
-                    f"<div style='display:inline-block;background:#fef3c7;color:#92400e;"
-                    f"padding:0.35rem 0.75rem;border-radius:6px;border-left:3px solid #f59e0b;"
-                    f"font-size:0.85rem;margin:0.4rem 0;'>"
-                    f"🔔 <b>在观察池中</b> · 来源:{_src} · 加入:{_at}</div>",
-                    unsafe_allow_html=True,
-                )
+                _position_notes.append((f"观察池:pending · 来源:{_src} · 加入:{_at}", "warning"))
             else:
-                st.caption("当前不在观察池 pending 清单中。")
+                _position_notes.append(("观察池:不在 pending 清单", "neutral"))
 
             if ticker:
                 try:
@@ -332,7 +479,14 @@ def render() -> None:
                             st.info(f"📤 已移出持仓:{score_dict['name']} ({ticker})")
                             st.rerun()
                 except Exception as _e:
-                    st.caption(f"⚠️ 持仓开关不可用:{_e}")
+                    _msg = str(_e)
+                    if "fair_price.py" in _msg or "No such file" in _msg or "Errno 2" in _msg:
+                        _msg = "持仓开关暂不可用:缺少 fair_price.py"
+                    else:
+                        _msg = f"持仓开关暂不可用:{_short_note(_msg, 52)}"
+                    _position_notes.append((_msg, "warning"))
+
+            st.markdown(_combined_note_html(_position_notes), unsafe_allow_html=True)
 
             _render_position_card(ticker, st)
 
@@ -356,7 +510,13 @@ def render() -> None:
                     metrics = lc.load_metrics_from_db(ticker)
                     lr = lc.classify(metrics)
                 except Exception as _e:
-                    st.info(f"⚠️ 彼得林奇分类引擎调用失败:{_e}")
+                    st.markdown(
+                        _inline_note_html(
+                            f"彼得林奇分类暂不可用:{_short_note(str(_e), 48)}",
+                            "warning",
+                        ),
+                        unsafe_allow_html=True,
+                    )
                     lr = None
 
                 if lr is not None:
@@ -438,7 +598,7 @@ def render() -> None:
                     unsafe_allow_html=True,
                 )
             else:
-                st.caption("通用视角使用顶部投研速览与「④ 五维评分」;切换到彼得林奇可查看分类与专属评分。")
+                st.caption("切到彼得林奇可看分类与专属评分;通用视角看上方摘要与「④ 五维」。")
 
         with unit_health:
             try:
@@ -516,7 +676,13 @@ def render() -> None:
                     unsafe_allow_html=True,
                 )
             except Exception as _hs_exc:
-                st.caption(f"(综合健康度加载失败:{_hs_exc})")
+                st.markdown(
+                    _inline_note_html(
+                        f"综合健康度暂不可用:{_short_note(str(_hs_exc), 48)}",
+                        "warning",
+                    ),
+                    unsafe_allow_html=True,
+                )
 
         with unit_dims:
             left, right = st.columns([3, 2], gap="medium")
@@ -577,7 +743,10 @@ def render() -> None:
                                    step=1, key="home_fscore_year")
             fs, details = _fscore_for(ticker, year, DB_MTIME)
             if fs is None:
-                st.caption("(F-Score 计算失败 — 可能数据缺失)")
+                st.markdown(
+                    _inline_note_html("F-Score 暂不可用:可能数据缺失", "warning"),
+                    unsafe_allow_html=True,
+                )
             else:
                 fs_color = "#10B981" if fs >= 7 else ("#F59E0B" if fs >= 5 else "#EF4444")
                 st.markdown(

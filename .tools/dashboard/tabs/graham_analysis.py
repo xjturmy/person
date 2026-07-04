@@ -67,6 +67,94 @@ def _classify_cached(ticker: str, db_mtime: float) -> dict | None:
     return cls.to_dict()
 
 
+def _next_report_window(today: _date_cls | None = None) -> tuple[str, _date_cls]:
+    """按常见 A 股定期报告披露截止日估算下一次财报窗口。"""
+    today = today or _date_cls.today()
+    y = today.year
+    if today <= _date_cls(y, 4, 30):
+        return f"{y}Q1/年报", _date_cls(y, 4, 30)
+    if today <= _date_cls(y, 8, 31):
+        return f"{y}中报", _date_cls(y, 8, 31)
+    if today <= _date_cls(y, 10, 31):
+        return f"{y}Q3", _date_cls(y, 10, 31)
+    return f"{y + 1}Q1/年报", _date_cls(y + 1, 4, 30)
+
+
+def _fmt_price(v: float | None) -> str:
+    return f"¥{v:,.2f}" if v is not None else "—"
+
+
+def _financial_method_hint(m: dict) -> tuple[bool, str, str]:
+    industry = f"{m.get('industry_sw_l1') or ''} {m.get('industry_sw_l2') or ''}"
+    category = (m.get("category") or "").lower()
+    if "保险" in industry or category == "insurance":
+        return True, "保险价值修复法", "低 PB/PEV + EV/NBV 修复 + 偿付能力 + 投资收益率 + 股息回报"
+    if "银行" in industry or category == "bank":
+        return True, "银行价值评估法", "低 PB + ROE/息差 + 不良率/拨备 + 分红稳定性"
+    if "证券" in industry or category in ("security", "other_financial"):
+        return True, "券商周期估值法", "PB 分位 + 净资本 + 自营/经纪/投行业务周期"
+    return False, "", ""
+
+
+def _render_method_not_applicable(title: str, reason: str, framework: str, focus: str) -> None:
+    st.info(
+        f"**{title}**\n\n"
+        f"{reason}\n\n"
+        f"建议切换到:**{framework}**\n\n"
+        f"核心观察:{focus}"
+    )
+
+
+def _sync_company(source_key: str) -> None:
+    company = st.session_state.get(source_key)
+    if not company:
+        return
+    for key in ("company", "lynch_company", "graham_company", "munger_company", "dc_company"):
+        st.session_state[key] = company
+    st.session_state["_last_sidebar_company"] = company
+
+
+def _render_next_report_price_position(ticker: str, company: str) -> None:
+    """决策矩阵下方的买入/卖出价格位置。"""
+    try:
+        from valuation.fair_price import compute_fair_range
+        pr = compute_fair_range(ticker, name=company)
+    except Exception as e:
+        st.caption(f"格雷厄姆价格区间暂不可用:{e}")
+        return
+
+    window_label, deadline = _next_report_window()
+    st.markdown("#### 下次财报前价格位置")
+    st.caption(
+        f"参考窗口:今天至 {deadline:%Y-%m-%d}({window_label} 披露前后);"
+        "仅按格雷厄姆方案定价:格氏数为中枢,下沿/上沿为 ±15%。"
+    )
+
+    if not pr.verified or pr.low is None or pr.graham_number is None or pr.high is None:
+        note = pr.skip_reason or pr.verdict_label
+        st.info(f"格雷厄姆价格位置暂不可用:{note}")
+        return
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("当前价", _fmt_price(pr.current_price))
+    col2.metric("买入线", f"≤ {_fmt_price(pr.low)}")
+    col3.metric("格氏数中枢", _fmt_price(pr.graham_number))
+    col4.metric("减仓/卖出线", f"≥ {_fmt_price(pr.high)}")
+
+    if pr.current_price is None:
+        st.caption("当前价缺失,暂不判断所处位置。")
+    else:
+        if pr.current_price <= pr.low:
+            action = "买入/加仓区"
+        elif pr.current_price <= pr.graham_number:
+            action = "偏低可分批区"
+        elif pr.current_price <= pr.high:
+            action = "合理持有区"
+        else:
+            action = "高估减仓观察区"
+        st.info(f"{pr.verdict_label} · 当前位于:{action}")
+
+
 # ─── 顶部 banner ────────────────────────────────────────────────────────
 
 def _render_banner(cls_dict: dict, gn_dict: dict) -> None:
@@ -331,7 +419,8 @@ def _render_step4_valuation(ticker: str, m: dict, cls_id: str) -> None:
             ratio_str = f"{ncav.mc_to_ncav:.2f}" if ncav.mc_to_ncav else "—"
             st.metric("市值 / NCAV", ratio_str, delta=ncav.grade, delta_color="off")
     else:
-        st.info(f"⚪ {ncav.grade}(NCAV 不适用 — 多见于服务/金融业,适用于强资产型公司)")
+        detail = ncav.note or "多见于服务/金融业,适用于强资产型公司"
+        st.info(f"{ncav.grade_emoji} {ncav.grade} — {detail}")
 
     # PEG(理杏仁口径,从 lynch 已派生)
     st.markdown("#### 📈 PEG(理杏仁口径)")
@@ -545,6 +634,7 @@ def _render_summary(ticker: str, company: str, m: dict,
                 row += f" {cell} |"
         matrix_md += row + "\n"
     st.markdown(matrix_md)
+    _render_next_report_price_position(ticker, company)
 
     # 一键导出 md
     st.markdown("---")
@@ -679,23 +769,8 @@ def render(companies: list[str], selected: str, db_mtime: float,
            decisions_db=None, folder_to_ticker_fn=None) -> None:
     st.subheader("💎 格雷厄姆深度价值投资法 · 五步框架")
 
-    # 顶部公司选择
-    col_c, col_y, col_r = st.columns([3, 1, 1])
-    with col_c:
-        idx = companies.index(selected) if selected in companies else 0
-        company = st.selectbox("公司", companies, index=idx,
-                                key="graham_company", label_visibility="collapsed")
-    with col_y:
-        year = st.selectbox(
-            "年份",
-            list(range(_date_cls.today().year, _date_cls.today().year - 5, -1)),
-            index=0, key="graham_year", label_visibility="collapsed",
-        )
-    with col_r:
-        if st.button("🔄 重新评估", key="graham_refresh", width="stretch"):
-            _classify_cached.clear()
-            _metrics_cached.clear()
-            st.rerun()
+    company = st.session_state.get("company", selected)
+    st.caption(f"当前公司:{company} · 评估年份:2026")
 
     # ticker 解析
     if folder_to_ticker_fn:
@@ -715,6 +790,25 @@ def render(companies: list[str], selected: str, db_mtime: float,
     if m is None or cls_dict is None or "_error" in (m or {}):
         err = m.get("_error") if m else "数据加载失败"
         st.error(f"⚠️ {company} ({ticker}) — {err}")
+        return
+
+    is_financial, framework, focus = _financial_method_hint(m)
+    if is_financial:
+        _render_method_not_applicable(
+            "不符合格雷厄姆通用评估方法",
+            "这类公司的资产负债表口径特殊,格氏数和 NCAV 容易给出误导性价格。",
+            framework,
+            focus,
+        )
+        return
+
+    if cls_dict.get("cls_id") == "skip":
+        _render_method_not_applicable(
+            "不符合格雷厄姆通用评估方法",
+            cls_dict.get("reason") or "数据不全或不符合防御型/进取型/深度低估/特殊情境的任一条件。",
+            "行业专属评估框架",
+            "先判断商业模式和关键驱动,再选择合适估值锚。",
+        )
         return
 
     # 顶部 banner

@@ -408,7 +408,7 @@ def company_score(ticker: str, mtime: float, pct_window: str = "10y", year: int 
 SCORE_DIM_ORDER = ["valuation", "profitability", "growth", "cashflow", "safety", "strategies"]
 
 
-def render_radar(score) -> go.Figure:
+def render_radar(score, height: int = 320) -> go.Figure:
     """6 维 0-100 雷达图(plotly Scatterpolar)。缺失维度按 50 中性占位。"""
     labels = [sc.DIM_LABEL.get(k, k) for k in SCORE_DIM_ORDER]
     values = []
@@ -433,7 +433,7 @@ def render_radar(score) -> go.Figure:
     ))
     fig.update_layout(
         polar=dict(radialaxis=dict(visible=True, range=[0, 100], tickvals=[20, 40, 60, 80, 100])),
-        showlegend=False, height=360, margin=dict(l=20, r=20, t=20, b=20),
+        showlegend=False, height=height, margin=dict(l=12, r=12, t=8, b=8),
     )
     return fig
 
@@ -513,21 +513,24 @@ def peer_scores(self_ticker: str, mtime: float, max_n: int = 4) -> list:
     if pr is None or not self_ticker:
         return []
     try:
-        peers = pr.peer_pool(self_ticker, db_path=DUCKDB_PATH, max_n=max_n)
-        all_t = [self_ticker] + [t for t, _ in peers]
+        peer_rows = pr.peer_pool_rows(self_ticker, db_path=DUCKDB_PATH, max_n=max_n)
+        peers = [(r.get("peer_ticker"), r.get("peer_name")) for r in peer_rows]
         # 优先读预计算 CompanyScore(每家 <5ms);未覆盖的降级 live。
         try:
             import analytics_store as _store
         except Exception:
             _store = None
         out = []
-        for t in all_t:
+        all_items = [(self_ticker, None)] + [(t, row) for (t, _), row in zip(peers, peer_rows) if t]
+        for t, peer_row in all_items:
             s = _store.company_score(t) if _store is not None else None
             if s is None:
                 try:
                     s = sc.compute_dimensions(t, db_path=DUCKDB_PATH)
                 except Exception:
                     s = None
+            if s is None and peer_row is not None and hasattr(pr, "cached_peer_score"):
+                s = pr.cached_peer_score(peer_row)
             if s is not None:
                 out.append(s)
         return out

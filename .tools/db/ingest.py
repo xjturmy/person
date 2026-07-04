@@ -28,6 +28,7 @@ TABLE_MAP = {
     "成长.csv": "growth",
     "现金流.csv": "cashflow",
     "安全性.csv": "safety",
+    "保险.csv": "insurance_metrics",
 }
 
 DDL = """
@@ -67,6 +68,13 @@ CREATE TABLE cashflow (
     PRIMARY KEY (ticker, date, metric)
 );
 CREATE TABLE safety (
+    ticker VARCHAR NOT NULL,
+    date   DATE    NOT NULL,
+    metric VARCHAR NOT NULL,
+    value  DOUBLE,
+    PRIMARY KEY (ticker, date, metric)
+);
+CREATE TABLE insurance_metrics (
     ticker VARCHAR NOT NULL,
     date   DATE    NOT NULL,
     metric VARCHAR NOT NULL,

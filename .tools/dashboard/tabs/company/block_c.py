@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from importlib.machinery import SourceFileLoader
+from html import escape
 
 from ._helpers import (
     _THIS,
@@ -11,6 +12,28 @@ from ._helpers import (
 )
 from ui.chart_meta import render_chart_meta
 from ui.table_view import render_smart_dataframe
+
+
+def _short_note(note: str | None, max_chars: int = 56) -> str:
+    if not note:
+        return ""
+    text = str(note).replace("\n", " ").strip()
+    return text if len(text) <= max_chars else text[:max_chars - 1] + "…"
+
+
+def _inline_note(message: str, kind: str = "warning") -> None:
+    accent = {
+        "warning": "#D97706",
+        "info": "#2563EB",
+        "neutral": "#9CA3AF",
+    }.get(kind, "#D97706")
+    st.markdown(
+        f'<div style="background:#F9FAFB;border:1px solid #E5E7EB;'
+        f'border-left:3px solid {accent};border-radius:7px;color:#4B5563;'
+        f'font-size:12px;line-height:1.25;margin:4px 0 6px;padding:6px 9px;">'
+        f'{escape(message)}</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def render() -> None:
@@ -139,7 +162,12 @@ def render() -> None:
                                         lookback_years=5,
                                     )
                                 except Exception as e:
-                                    st.warning(f"PEG 曲线渲染失败:{e}")
+                                    msg = str(e)
+                                    if "peg_curve.py" in msg or "No such file" in msg or "Errno 2" in msg:
+                                        msg = "PEG 曲线暂不可用:缺少 peg_curve.py"
+                                    else:
+                                        msg = f"PEG 曲线暂不可用:{_short_note(msg)}"
+                                    _inline_note(msg, "warning")
                     else:
                         defaults_map = {
                             "profitability": ("净资产收益率(ROE)", "毛利率(GM)"),

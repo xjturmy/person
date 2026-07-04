@@ -3,7 +3,7 @@
 > 个股分析 · 行业研究 · 投资决策跟踪 · Streamlit Dashboard  
 > **换机后先看本文**，5 分钟恢复开发环境；细节见 [docs/README.md](./docs/README.md)
 
-**最后更新**：2026-07-03 · **当前版本**：preson v1.0 · **公司库**：100 家 · 版本史见 [CHANGELOG.md](./CHANGELOG.md)
+**最后更新**：2026-07-04 · **当前版本**：preson v1.1 · **公司库**：100 家 · 版本史见 [CHANGELOG.md](./CHANGELOG.md)
 
 ---
 

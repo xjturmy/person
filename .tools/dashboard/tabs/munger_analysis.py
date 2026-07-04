@@ -710,22 +710,21 @@ def _render_step5_export(ticker: str, company: str, m: dict,
 # ─── 主入口 ─────────────────────────────────────────────────────────────
 
 
+def _sync_company(source_key: str) -> None:
+    company = st.session_state.get(source_key)
+    if not company:
+        return
+    for key in ("company", "lynch_company", "graham_company", "munger_company", "dc_company"):
+        st.session_state[key] = company
+    st.session_state["_last_sidebar_company"] = company
+
+
 def render(companies: list[str], selected: str, db_mtime: float,
            decisions_db=None, folder_to_ticker_fn=None) -> None:
     st.subheader("🧠 芒格多元思维 · 决策检查框架")
 
-    # 顶部公司选择
-    col_c, col_r = st.columns([4, 1])
-    with col_c:
-        idx = companies.index(selected) if selected in companies else 0
-        company = st.selectbox(
-            "公司", companies, index=idx,
-            key="munger_company", label_visibility="collapsed",
-        )
-    with col_r:
-        if st.button("🔄 重新评估", key="munger_refresh", width="stretch"):
-            _metrics_cached.clear()
-            st.rerun()
+    company = st.session_state.get("company", selected)
+    st.caption(f"当前公司:{company} · 评估年份:2026")
 
     # ticker 解析
     if folder_to_ticker_fn:

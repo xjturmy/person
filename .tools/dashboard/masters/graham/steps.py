@@ -154,6 +154,7 @@ class NCAVCheck:
     mc_to_ncav: float | None             # 市值 / NCAV(< 0.67 是经典阈值)
     grade: str                           # 经典深度 / 适度低估 / 持有 / 不适用
     grade_emoji: str
+    note: str = ""
 
 
 @dataclass
@@ -273,6 +274,16 @@ def load_graham_metrics(ticker: str, db_path: Path | str = DB_PATH) -> dict[str,
         m["book_equity"] = None  # 净资产(可派生:总资产 - 总负债)
         if m["total_assets"] and m["total_liabilities"]:
             m["book_equity"] = m["total_assets"] - m["total_liabilities"]
+
+        m["ncav_note"] = ""
+        if m["current_assets"] is not None and m["current_assets"] <= 0:
+            m["current_assets"] = None
+        if m["current_assets"] is None:
+            current_ratio = m.get("current_ratio") or _latest_value(con, "safety", ticker, "流动比率")
+            current_liabilities = m.get("current_liabilities")
+            if current_ratio is not None and current_liabilities is not None and current_liabilities > 0:
+                m["current_assets"] = float(current_ratio) * float(current_liabilities)
+                m["ncav_note"] = "流动资产合计缺失/为0,已用流动比率×流动负债近似"
 
         # 市值
         m["market_cap"] = _latest_value(con, "valuation", ticker, "市值(元)")
@@ -634,6 +645,19 @@ def check_ncav(m: dict) -> NCAVCheck:
     ncav = m.get("ncav")
     current_assets = m.get("current_assets")
     total_liabilities = m.get("total_liabilities")
+    industry = m.get("industry_sw_l1") or ""
+    category = m.get("category") or ""
+    note = m.get("ncav_note") or ""
+
+    if "银行" in industry or "保险" in industry or category in ("bank", "insurance", "security", "other_financial"):
+        return NCAVCheck(
+            market_cap=market_cap,
+            current_assets=current_assets,
+            total_liabilities=total_liabilities,
+            ncav=ncav, mc_to_ncav=None,
+            grade="不适用(金融/保险口径)", grade_emoji="⚪",
+            note="金融业资产负债表没有可比的流动资产/流动负债 NCAV 口径",
+        )
 
     if market_cap is None or ncav is None:
         return NCAVCheck(
@@ -642,6 +666,7 @@ def check_ncav(m: dict) -> NCAVCheck:
             total_liabilities=total_liabilities,
             ncav=ncav, mc_to_ncav=None,
             grade="数据缺失", grade_emoji="⚪",
+            note=note or "缺少市值、流动资产或总负债字段",
         )
 
     if ncav <= 0:
@@ -651,6 +676,7 @@ def check_ncav(m: dict) -> NCAVCheck:
             total_liabilities=total_liabilities,
             ncav=ncav, mc_to_ncav=None,
             grade="不适用(负债 > 流动资产)", grade_emoji="❌",
+            note=note,
         )
 
     ratio = market_cap / ncav
@@ -672,6 +698,7 @@ def check_ncav(m: dict) -> NCAVCheck:
         total_liabilities=total_liabilities,
         ncav=ncav, mc_to_ncav=ratio,
         grade=grade, grade_emoji=emoji,
+        note=note,
     )
 
 

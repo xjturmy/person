@@ -124,13 +124,11 @@ def test_score_card_six_dims():
     assert hasattr(s, "masters") and isinstance(s.masters, dict), "缺 masters 明细"
 
 
-def test_company_tab_renders_radar_and_overlay_toggle():
-    """V8: 公司详情 tab 顶部应有 ★ 综合评分 metric + 股价叠加 toggle。"""
+def test_company_tab_renders_radar_summary():
+    """V8: 公司详情 tab 顶部应有综合评分摘要。"""
     t = _build(PAGE_COMPANY)
-    metrics = [m.label for m in t.get("metric")]
-    assert any("综合评分" in m for m in metrics), f"缺 综合评分 metric: {metrics}"
-    toggles = [tg.label for tg in t.get("toggle")]
-    assert any("叠加股价" in tg for tg in toggles), f"缺 股价叠加 toggle: {toggles}"
+    md_text = "\n".join(m.value for m in t.get("markdown"))
+    assert "综合评分" in md_text, "缺 综合评分摘要"
 
 
 def test_company_research_tabs_and_six_dimensions_present():
@@ -161,14 +159,6 @@ def test_dash03_master_matrix_block():
     md_blocks = [m.value for m in t.get("markdown")]
     assert any("多大师评分矩阵" in m for m in md_blocks), \
         "dash-03 主区缺多大师矩阵标题"
-
-
-def test_dash03_quick_add_button_present():
-    """单公司详情顶部应有 ➕ 一键补录决策 按钮。"""
-    t = _build(PAGE_COMPANY)
-    btn_labels = [b.label for b in t.get("button")]
-    assert any("一键补录" in (b or "") for b in btn_labels), \
-        f"缺 ➕ 一键补录决策 按钮;实际按钮={btn_labels[:10]}"
 
 
 def test_dash03_helpers_offline_runnable():

@@ -1,23 +1,28 @@
 """区块 A · 看结论:雪花 + 同行业建议卡 + 优势/短板 Top3 + 一句话定位。"""
 from __future__ import annotations
 
+from html import escape
 import sys
 from pathlib import Path
 
-from ._helpers import _section_banner, _dim_explanation
+from ._helpers import _dim_explanation, _load_industry_map
 
 
 def render() -> None:
     st.markdown('<div id="block-a"></div>', unsafe_allow_html=True)
     # ═══ 区块 A · 看结论(雪花 + 优势短板)═══
     st.markdown(
-        _section_banner("A", "🎯", "一眼看结论", "雪花图 · 优势短板 Top3 · 一句话定位"),
+        '<div style="margin:18px 0 8px 0;">'
+        '<span style="font-size:13px;font-weight:800;color:#2563EB;">区块 A</span>'
+        '<span style="margin-left:10px;font-size:17px;font-weight:850;color:#111827;">🎯 一眼看结论</span>'
+        '<span style="margin-left:10px;font-size:12px;color:#6B7280;">雪花图 · 优势短板 · 一句话定位</span>'
+        '</div>',
         unsafe_allow_html=True,
     )
     folder_to_ticker_local = _folder_to_ticker(DB_MTIME)
     selected_ticker = folder_to_ticker_local.get(selected, "")
 
-    # ─── 区块 A-0:💡 vs 同行业建议卡(Phase C)─────────────────────
+    _adv = None
     if selected_ticker:
         try:
             _here = str(Path(__file__).resolve().parents[1])
@@ -25,34 +30,17 @@ def render() -> None:
                 sys.path.insert(0, _here)
             import peers.advisor as _pa
             _adv = _pa.advise(selected_ticker, name=selected)
-            if _adv is not None and _adv.n_peers > 0:
-                st.markdown(_pa.render_hero_card_html(_adv), unsafe_allow_html=True)
         except Exception as _pa_e:
             st.caption(f"⚠️ 同行建议引擎调用失败:{_pa_e}")
 
     # ─── V8 顶部:综合评分 + 雪花图(SWS 风格)+ 股价叠加全局 toggle ─
     score = company_score(selected_ticker, DB_MTIME) if selected_ticker else None
-    head_left, head_mid = st.columns([1.0, 2.0])
+    head_left, head_mid = st.columns([0.82, 1.55], vertical_alignment="center")
     with head_left:
-        st.markdown(f"### 🏢 {selected}")
-        if score is not None and score.overall is not None:
-            st.metric("★ 综合评分", f"{score.overall:.1f} / 100", help="6 维加权(估值/盈利/成长/现金流/安全/策略)")
-            st.markdown(f"#### {score.overall_badge} {score.category or '—'}")
-        else:
-            st.caption("(评分不可用 — 数据缺失或 ticker 未映射)")
-        st.toggle(
-            "📈 在所有时序图叠加股价(右轴)", value=False, key="overlay_price",
-            help="勾选后,公司详情下方的指标时序图会在右轴叠加 prices 表收盘价",
-        )
-        if decisions_db is not None:
-            if st.button("➕ 一键补录决策", key="quick_add_decision",
-                         help="带入当前公司,切换到「📝 决策日志」tab 即可填写表单"):
-                st.session_state["dec_company"] = selected
-                st.session_state["pending_decision_for"] = selected
-                st.toast(f"已带入「{selected}」 → 切到「📝 决策日志」tab 即可", icon="➕")
+        st.markdown(_conclusion_panel_html(selected, score, _adv), unsafe_allow_html=True)
     with head_mid:
         if score is not None:
-            st.plotly_chart(render_radar(score), width="stretch")
+            st.plotly_chart(render_radar(score, height=280), width="stretch")
         else:
             st.info("无法生成雪花图")
 
@@ -70,31 +58,7 @@ def render() -> None:
         top = sorted(valid, key=lambda x: x[1], reverse=True)[:3]
         bot = sorted(valid, key=lambda x: x[1])[:3]
 
-        col_top, col_bot = st.columns(2)
-        with col_top:
-            st.markdown("##### 🟢 优势 Top3 · 为什么强?")
-            for label, val, badge, note, raw in top:
-                with st.container(border=True):
-                    st.markdown(
-                        f"{badge} **{label}** · `{val:.0f}/100`"
-                        + (f" · <span style='color:#6B7280;font-size:13px'>{note}</span>" if note else ""),
-                        unsafe_allow_html=True,
-                    )
-                    explain = _dim_explanation(label, raw, val)
-                    if explain:
-                        st.caption(explain)
-        with col_bot:
-            st.markdown("##### 🔴 短板 Top3 · 为什么弱?")
-            for label, val, badge, note, raw in bot:
-                with st.container(border=True):
-                    st.markdown(
-                        f"{badge} **{label}** · `{val:.0f}/100`"
-                        + (f" · <span style='color:#6B7280;font-size:13px'>{note}</span>" if note else ""),
-                        unsafe_allow_html=True,
-                    )
-                    explain = _dim_explanation(label, raw, val)
-                    if explain:
-                        st.caption(explain)
+        st.markdown(_top_bottom_html(top, bot), unsafe_allow_html=True)
 
         # 一句话定位
         if top and bot:
@@ -110,7 +74,87 @@ def render() -> None:
 
     # ─── 区块 A 收尾:🎯 下季度合理价格区间(多模型加权)─────────────
     if selected_ticker:
+        if insurance_value.render_price_range(selected_ticker, selected):
+            return
         _render_price_range_card(selected_ticker, selected)
+
+
+def _category_label(category: str | None) -> str:
+    labels = {
+        "non_financial": "普通非金融公司",
+        "bank": "银行",
+        "insurance": "保险",
+        "hk": "港股",
+    }
+    key = str(category or "").strip().lower()
+    return labels.get(key, key or "未分类")
+
+
+def _conclusion_panel_html(selected_folder: str, score, advice) -> str:
+    imap = _load_industry_map()
+    meta = imap.get(selected_folder, {})
+    industry = meta.get("industry_l2") or meta.get("industry") or "—"
+    badge = str(getattr(score, "overall_badge", "") or "⚪")
+    score_value = getattr(score, "overall", None)
+    score_line = f"{score_value:.1f} / 100" if score_value is not None else "评分不可用"
+    conclusion = "暂无同行结论"
+    peer_line = f"{industry}"
+    if advice is not None and getattr(advice, "n_peers", 0) > 0:
+        conclusion = f"{advice.overall_emoji} {advice.overall_label} · 综合{advice.quality_label}"
+        peer_line = f"「{advice.industry}」{advice.n_peers} 家"
+
+    return (
+        '<div style="font-size:14px;line-height:1.9;color:#111827;margin:2px 0 10px 0;">'
+        f'<div>结论：{escape(conclusion)}</div>'
+        f'<div>评分：{escape(badge)} {escape(score_line)}</div>'
+        f'<div>同行：{escape(peer_line)}</div>'
+        '</div>'
+    )
+
+
+def _top_bottom_html(top: list[tuple], bot: list[tuple]) -> str:
+    def _score_color(val: float) -> tuple[str, str]:
+        if val >= 75:
+            return "#16A34A", "🟢"
+        if val >= 55:
+            return "#CA8A04", "🟡"
+        if val >= 35:
+            return "#EA580C", "🟠"
+        return "#DC2626", "🔴"
+
+    def _items(rows: list[tuple]) -> str:
+        out = []
+        for label, val, _badge, note, raw in rows:
+            explain = _dim_explanation(label, raw, val)
+            note_text = (note or "").split("·")[0].strip()
+            detail = explain or note_text or "—"
+            color, dot = _score_color(float(val))
+            out.append(
+                '<div style="display:grid;grid-template-columns:82px 1fr;gap:8px;'
+                'align-items:start;padding:7px 0;border-top:1px solid #EEF2F7;">'
+                f'<div style="font-weight:750;color:#111827;">{dot} {escape(str(label))}</div>'
+                '<div>'
+                f'<span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;'
+                f'font-size:12px;color:{color};background:#F9FAFB;border-radius:5px;'
+                f'padding:2px 5px;">{float(val):.0f}/100</span>'
+                f'<span style="margin-left:8px;color:#6B7280;font-size:12px;">{escape(note_text)}</span>'
+                f'<div style="color:#4B5563;font-size:12px;line-height:1.45;margin-top:4px;">{escape(detail)}</div>'
+                '</div></div>'
+            )
+        return "".join(out)
+
+    return (
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin:6px 0 4px 0;">'
+        '<div>'
+        '<div style="font-weight:800;font-size:15px;margin-bottom:2px;color:#111827;">优势 Top3</div>'
+        f'{_items(top)}'
+        '</div>'
+        '<div>'
+        '<div style="font-weight:800;font-size:15px;margin-bottom:2px;color:#111827;">相对短板 Top3</div>'
+        f'{_items(bot)}'
+        '</div>'
+        '</div>'
+    )
 
 
 def _render_price_range_card(ticker: str, name: str) -> None:
@@ -189,4 +233,3 @@ def _render_price_range_card(ticker: str, name: str) -> None:
         with st.expander("⚠️ 降级说明"):
             for n in pr.notes:
                 st.caption("• " + n)
-

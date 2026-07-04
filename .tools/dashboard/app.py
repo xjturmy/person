@@ -169,7 +169,6 @@ def ttyd_stop() -> tuple[bool, str]:
 
 # ──────────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="投资智能体", page_icon="📊", layout="wide")
-st.title("📊 投资智能体")
 
 inject_zh_column_menu()
 
@@ -227,65 +226,10 @@ with st.sidebar:
         _ver = "?"
     st.caption(f"preson v{_ver}")
 
-    # M0 #4:选股 + 设置合并为一段(去掉 divider,改名"当前公司")
-    st.markdown("### 🎯 当前公司")
     companies = list_companies(DB_MTIME)
     if not companies:
         st.error(f"未在 {COMPANIES_DIR} 找到公司目录")
         st.stop()
-
-    # 候选 ⑩(v2.4 step-B):全局搜索栏 — 代码/中文名/拼音首字母/行业关键词
-    csv_mtime = COMPANIES_CSV.stat().st_mtime if COMPANIES_CSV.exists() else 0.0
-    search_index = _company_search_index(csv_mtime)
-    query = st.text_input(
-        "🔍 搜索",
-        placeholder="代码 / 名称 / 拼音 / 行业,如 gzmt · 茅台 · 白酒",
-        key="company_search_query",
-        label_visibility="collapsed",
-    )
-    show_all_label = "── 📋 显示全部 ──"
-    if query and search_index:
-        matched_folders = company_search.search_folders(query, search_index, limit=20)
-        if matched_folders:
-            options = matched_folders + [show_all_label]
-            st.caption(f"🎯 命中 {len(matched_folders)} 家")
-        else:
-            options = list(companies)
-            st.caption("⚠️ 无匹配 — 显示全部")
-    else:
-        options = list(companies)
-
-    # selectbox options 变化时,清掉旧 session_state 避免值不在列表内的报错
-    options_signature = tuple(options)
-    if st.session_state.get("_company_options_sig") != options_signature:
-        st.session_state["_company_options_sig"] = options_signature
-        if "company" in st.session_state and st.session_state["company"] not in options:
-            del st.session_state["company"]
-
-    selected = st.selectbox(
-        "公司",
-        options,
-        key="company",
-        label_visibility="collapsed",
-    )
-    if selected == show_all_label:
-        # 用户点"显示全部":清搜索词,下次 rerun 走全量列表
-        st.session_state["company_search_query"] = ""
-        st.rerun()
-
-    # 候选 ⑩ 修复:sidebar selected 变化时,同步覆盖各 Tab 内部的公司 selectbox。
-    # streamlit selectbox 一旦 key 在 session_state,index 参数失效 — 不同步则
-    # sidebar 切公司后林奇/格雷厄姆/芒格/决策中心仍显示旧公司。
-    #
-    # 注意:这里用 **无条件写入**(而非"仅 key 存在时写入")。
-    # 因为林奇等 sub-tab 在未激活时并不渲染 selectbox,key 不会被预先注册;
-    # 若仅条件写入,首次切公司时 key 不存在→不写入→sub-tab 激活后又用错误的 index。
-    # 直接 setdefault 写入,sub-tab 内 selectbox 读到的就是 sidebar 当前公司。
-    _SUB_COMPANY_KEYS = ("lynch_company", "graham_company", "munger_company", "dc_company")
-    if st.session_state.get("_last_sidebar_company") != selected:
-        st.session_state["_last_sidebar_company"] = selected
-        for _k in _SUB_COMPANY_KEYS:
-            st.session_state[_k] = selected
 
     # M0 #6:收件箱并入设置(顶部独立段删除,有信时设置内徽章提示)
     inbox = read_inbox()
@@ -328,6 +272,59 @@ with st.sidebar:
         with col_b:
             if st.button("📂 打开目录", width="stretch", key="open_root"):
                 subprocess.run(["open", str(ROOT)], check=False)
+
+csv_mtime = COMPANIES_CSV.stat().st_mtime if COMPANIES_CSV.exists() else 0.0
+search_index = _company_search_index(csv_mtime)
+show_all_label = "── 📋 显示全部 ──"
+
+title_col, company_col = st.columns([2.4, 1.6])
+with title_col:
+    st.title("📊 投资智能体")
+with company_col:
+    st.caption("当前公司")
+    query = st.text_input(
+        "搜索公司",
+        placeholder="代码 / 名称 / 拼音 / 行业",
+        key="company_search_query",
+        label_visibility="collapsed",
+    )
+    if query and search_index:
+        matched_folders = company_search.search_folders(query, search_index, limit=20)
+        if matched_folders:
+            options = matched_folders + [show_all_label]
+            st.caption(f"命中 {len(matched_folders)} 家")
+        else:
+            options = list(companies)
+            st.caption("无匹配,显示全部")
+    else:
+        options = list(companies)
+
+    options_signature = tuple(options)
+    if st.session_state.get("_company_options_sig") != options_signature:
+        st.session_state["_company_options_sig"] = options_signature
+        if "company" in st.session_state and st.session_state["company"] not in options:
+            del st.session_state["company"]
+
+    selected = st.selectbox(
+        "公司",
+        options,
+        key="company",
+        label_visibility="collapsed",
+    )
+    if selected == show_all_label:
+        st.session_state["company_search_query"] = ""
+        st.rerun()
+
+_SUB_COMPANY_KEYS = ("lynch_company", "graham_company", "munger_company", "dc_company")
+if st.session_state.get("_last_sidebar_company") != selected:
+    st.session_state["_last_sidebar_company"] = selected
+    for _k in _SUB_COMPANY_KEYS:
+        st.session_state[_k] = selected
+
+if not st.session_state.get("_company_method_years_initialized"):
+    for _k in ("lynch_year", "graham_year", "munger_year"):
+        st.session_state[_k] = 2026
+    st.session_state["_company_method_years_initialized"] = True
 
 # dash-01:顶部全局市场温度计(仅「市场 & 行业」页展示)
 if page == PAGE_MARKET_HUB:
@@ -513,8 +510,8 @@ from ui.sws_styles import (  # noqa: E402
 
 # ─── 🏢 公司研究(v2.7:4 合 1 — 概览 / 林奇 / 格雷厄姆 / 芒格,公司只选一次)─
 if page == PAGE_COMPANY:
-    sub_overview, sub_lynch, sub_graham, sub_munger = st.tabs(
-        ["📋 概览", "🌱 林奇", "💎 格雷厄姆", "🧠 芒格"]
+    sub_overview, sub_lynch, sub_graham, sub_munger, sub_insurance = st.tabs(
+        ["📋 概览", "🌱 林奇", "💎 格雷厄姆", "🧠 芒格", "🛡️ 保险"]
     )
     _f2t = _folder_to_ticker(DB_MTIME)
     with sub_overview:
@@ -556,6 +553,18 @@ if page == PAGE_COMPANY:
             )
         except Exception as _e:
             st.error(f"芒格加载失败:{_e}")
+            import traceback as _tb
+            st.caption(_tb.format_exc())
+    with sub_insurance:
+        try:
+            from tabs.company import insurance_value as _insurance_mod
+            for _k, _v in list(globals().items()):
+                if _k != "__builtins__":
+                    _insurance_mod.__dict__[_k] = _v
+            _ticker = _f2t.get(selected, "")
+            _insurance_mod.render_page(_ticker, selected)
+        except Exception as _e:
+            st.error(f"保险估值加载失败:{_e}")
             import traceback as _tb
             st.caption(_tb.format_exc())
 
