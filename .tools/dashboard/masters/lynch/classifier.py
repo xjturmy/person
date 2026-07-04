@@ -70,6 +70,12 @@ CYCLICAL_INDUSTRIES = {
 # 银行/保险:知识库归"传统银行=缓慢增长"。CAGR<10% 时按缓慢,
 # 但若 ROE 长期 ≥15% 仍可视为稳健(招商银行/平安等)
 FINANCIAL_INDUSTRIES = {"银行", "非银金融", "保险", "证券"}
+HOME_APPLIANCE_KEYWORDS = ("家电", "白色家电", "家用电器")
+
+
+def _is_home_appliance(m: dict[str, Any]) -> bool:
+    text = " ".join(str(m.get(k) or "") for k in ("industry_sw_l1", "industry_sw_l2", "industry"))
+    return any(k in text for k in HOME_APPLIANCE_KEYWORDS)
 
 
 @dataclass
@@ -347,7 +353,24 @@ def _score_dividend(m, w, label="股息率"):
 
 
 def _score_cfo_quality(m, w, label="现金流质量"):
-    """无 CFO/NI 数据(linker 没装配)→ 暂用 ROE 作代理。"""
+    """现金流质量:优先 CFO/NI,缺失时才用 ROE 代理。"""
+    cfo_ni = m.get("cfo_to_ni")
+    if cfo_ni is not None:
+        s = _clip((cfo_ni - 0.5) * 200)  # 0.5 → 0,1.0 → 100
+        if _is_home_appliance(m):
+            note = (
+                "家电校正:优秀现金牛" if cfo_ni >= 0.9
+                else "家电校正:可接受" if cfo_ni >= 0.7
+                else "家电校正:现金流偏弱"
+            )
+        else:
+            note = "高质量" if cfo_ni >= 1.0 else "可接受" if cfo_ni >= 0.8 else "弱"
+        return DimScore(
+            key="cfo_quality", label=label, score=s, badge=_badge(s), weight=w,
+            inputs={"CFO/净利润": f"{cfo_ni:.2f}"},
+            formula="(CFO/净利润 − 0.5) × 200;1.0+ → 满分",
+            note=note,
+        )
     roe = m.get("roe")
     if roe is None:
         return _missing("cfo_quality", label, w, "CFO/NI 或 ROE")
@@ -509,14 +532,24 @@ def _verify_financials(primary: str, m: dict) -> tuple[list[str], float]:
     roe = m.get("roe")
     debt = m.get("debt_ratio")
     div = m.get("dividend_yield")
+    is_home_appliance = _is_home_appliance(m)
 
     if primary == "stalwart":
         if roe is not None and roe < 0.15:
             warnings.append(f"⚠️ ROE {_pct(roe)} < 15%,稳健性不足(优秀稳健龙头门槛 ≥ 15%)")
             delta -= 0.15
-        if debt is not None and debt >= 0.50:
-            warnings.append(f"⚠️ 资产负债率 {_pct(debt)} ≥ 50%,偏离稳健财务结构")
+        debt_warning_line = 0.65 if is_home_appliance else 0.55
+        if debt is not None and debt > debt_warning_line:
+            label = "家电校正" if is_home_appliance else "稳健增长"
+            warnings.append(
+                f"⚠️ 资产负债率 {_pct(debt)} > {debt_warning_line*100:.0f}%"
+                f",偏离{label}财务结构"
+            )
             delta -= 0.10
+        elif debt is not None and is_home_appliance:
+            warnings.append(
+                f"✅ 家电校正:资产负债率 {_pct(debt)} ≤ 65%,不按通用 50% 硬卡"
+            )
     elif primary == "fast_grower":
         if debt is not None and debt >= 0.40:
             warnings.append(f"⚠️ 资产负债率 {_pct(debt)} ≥ 40% — 违反快速增长股「铁律」,需重审分类")

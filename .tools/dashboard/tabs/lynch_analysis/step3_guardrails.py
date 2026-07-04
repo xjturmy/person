@@ -29,6 +29,7 @@ from masters.lynch.classifier import (  # noqa: E402
 
 from ._helpers import (
     GUARDRAIL_THRESHOLDS, PEG_BY_TYPE, LAYER3_INDUSTRY_NA,
+    guardrail_thresholds_for,
     _quarterly_continuity_cached, _qc_from_dict,
     _section_banner, _badge_pill, _confidence_color,
     _classify_cached, _metrics_cached, _deduct_metrics,
@@ -57,7 +58,7 @@ def _step_3_financial_guardrails(ticker: str, m: dict, cls_id_used: str) -> None
         )
         return
 
-    th = GUARDRAIL_THRESHOLDS.get(cls_id_used, GUARDRAIL_THRESHOLDS["stalwart"])
+    th = guardrail_thresholds_for(cls_id_used, industry)
     st.caption(f"📌 当前阈值口径:**{th['label']}**")
 
     rows: list[dict[str, Any]] = []
@@ -102,7 +103,7 @@ def _step_3_financial_guardrails(ticker: str, m: dict, cls_id_used: str) -> None
     if cr is not None:
         min_th = th["current_ratio_min"]
         passed = cr >= min_th
-        edge = (not passed) and (cr >= min_th * 0.85)
+        edge = (not passed) and (cr >= max(1.0, min_th - 0.2))
         rows.append({
             "指标": "流动比率",
             "当前值": f"{cr:.2f}",
@@ -208,4 +209,3 @@ def _step_3_financial_guardrails(ticker: str, m: dict, cls_id_used: str) -> None
         "📊 数据来源:`资产负债率/流动比率`(safety) · `CFO/NI`(cashflow) · "
         "`存货周转/应收周转天数`(独立 turnover.duckdb,sina 财报派生)"
     )
-

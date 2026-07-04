@@ -29,6 +29,7 @@ from masters.lynch.classifier import (  # noqa: E402
 
 from ._helpers import (
     GUARDRAIL_THRESHOLDS, PEG_BY_TYPE, LAYER3_INDUSTRY_NA,
+    guardrail_thresholds_for,
     _quarterly_continuity_cached, _qc_from_dict,
     _section_banner, _badge_pill, _confidence_color,
     _classify_cached, _metrics_cached, _deduct_metrics,
@@ -74,7 +75,8 @@ def _step_6_summary(ticker: str, folder: str, cls: ClassificationResult,
 
     # 步 3
     debt = m.get("debt_ratio")
-    th_max = GUARDRAIL_THRESHOLDS.get(cls_id_used, GUARDRAIL_THRESHOLDS["stalwart"])["debt_ratio_max"]
+    th = guardrail_thresholds_for(cls_id_used, m.get("industry_sw_l1") or "")
+    th_max = th["debt_ratio_max"]
     if debt is not None:
         rows.append({
             "步骤": "③ 财务护栏",
@@ -315,7 +317,7 @@ def _export_md(ticker: str, folder: str, cls: ClassificationResult,
         "",
         "## 第三步:财务护栏",
         "",
-        f"- 资产负债率:{(m.get('debt_ratio') or 0)*100:.1f}%(类型阈值 {GUARDRAIL_THRESHOLDS[cls_id_used]['debt_ratio_max']*100:.0f}%)",
+        f"- 资产负债率:{(m.get('debt_ratio') or 0)*100:.1f}%(类型阈值 {guardrail_thresholds_for(cls_id_used, m.get('industry_sw_l1') or '')['debt_ratio_max']*100:.0f}%)",
         "",
         "---",
         "",

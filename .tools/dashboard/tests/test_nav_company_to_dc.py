@@ -1,7 +1,7 @@
 """P0 阶段 2 · 公司研究 → 决策中心 跳转 prefill 消费测试。
 
 测试两件事:
-1. block_d 的「📝 记此决策」按钮通过 goto() 写入正确 intent(含 price / reason_template)
+1. 公司研究入口通过 goto() 写入正确 intent(含 price / reason_template)
 2. decision_center.render() 入口能从 session_state.nav_prefill 取出 price / reason_template
    并注入到 dc_price / dc_rationale_short 表单字段。
 """
@@ -31,7 +31,7 @@ def clear_session():
 
 
 def test_goto_dc_with_price_and_reason():
-    """模拟 block_d 按钮被点击 — goto() 应写出含 price + reason_template + sub_tab 的 intent。"""
+    """模拟公司研究跳转决策中心 — goto() 应写出含 price + reason_template + sub_tab 的 intent。"""
     nav.goto(
         nav.PAGE_DC,
         company="美的集团",

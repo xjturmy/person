@@ -91,10 +91,14 @@ def test_overview_dataframe_includes_new_columns():
         )
 
 
-def test_compare_tab_has_mode_switch():
-    t = _build(PAGE_COMPANY)  # 原 横向对比 → 单公司详情页底部
+def test_company_overview_has_no_deep_archive_blocks():
+    """公司研究概览只保留初步判断主流程,不再渲染原 C/D 深挖与档案区。"""
+    t = _build(PAGE_COMPANY)
     radio_labels = [r.label for r in t.get("radio")]
-    assert "模式" in radio_labels, "单公司详情页缺 模式切换 radio (V6)"
+    md_text = "\n".join(m.value for m in t.get("markdown"))
+    assert "模式" not in radio_labels, "公司概览不应再显示横向对比模式切换"
+    assert "数据深挖" not in md_text, "公司概览不应再渲染区块 C"
+    assert "决策档案" not in md_text, "公司概览不应再渲染区块 D"
 
 
 def test_no_fallback_when_mcp_alive():
@@ -153,12 +157,14 @@ def test_top_strengths_section_exists():
 
 
 # ─── dash-03 专项回归 ────────────────────────────────────────────────
-def test_dash03_master_matrix_block():
-    """单公司详情 Tab 应有「🧪 多大师评分矩阵(本公司 + 同行)」块。"""
+def test_dash03_peer_compare_block():
+    """单公司详情 Tab 应有「同行业比较」块。"""
     t = _build(PAGE_COMPANY)
     md_blocks = [m.value for m in t.get("markdown")]
-    assert any("多大师评分矩阵" in m for m in md_blocks), \
-        "dash-03 主区缺多大师矩阵标题"
+    assert any("同行业比较" in m for m in md_blocks), \
+        "dash-03 主区缺同行业比较标题"
+    assert any("雷达图读法" in m for m in md_blocks), \
+        "dash-03 主区缺雷达图读法"
 
 
 def test_dash03_helpers_offline_runnable():
@@ -272,7 +278,7 @@ if __name__ == "__main__":
         test_company_tab_renders_radar_and_overlay_toggle,
         test_company_research_tabs_and_six_dimensions_present,
         test_top_strengths_section_exists,
-        test_dash03_master_matrix_block,
+        test_dash03_peer_compare_block,
         test_dash03_quick_add_button_present,
         test_dash03_helpers_offline_runnable,
         test_global_search_pinyin_collapses_options,

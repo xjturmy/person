@@ -40,10 +40,8 @@ def _lynch_scored(db_mtime: float, year: int, tickers_key: str) -> pd.DataFrame:
     df = df[df["ticker"].astype(str).str.zfill(6).isin(set(tickers_key.split(",")))]
     if df.empty:
         return df
-    # 预计算 wide 表已含 lynch 评分列(score/lynch_type/...),直接用;
-    # 否则(降级 live 路径)再跑分类器。
-    if "lynch_type" in df.columns and "score" in df.columns:
-        return df
+    # 林奇分类器参数会按行业校正(如家电),这里始终实时重算林奇列,
+    # 避免 analytics 宽表里的旧评分让公司筛选页显示过期结果。
     return _scr.score_lynch_classifier_all(df)
 
 

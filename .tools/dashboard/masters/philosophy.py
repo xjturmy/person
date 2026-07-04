@@ -104,9 +104,9 @@ MASTERS: dict[str, dict] = {
 
 
 # ───── 投票卡启用阵容(改这里切换;其他模块仍可用 MASTERS 全量) ─────
-# 当前:格雷厄姆(深度价值)+ 巴菲特(护城河)+ 彼得林奇(GARP)
-# 顺序按价值 → 护城河 → 成长 的投资风格谱系
-ACTIVE_MASTERS: list[str] = ["graham", "buffett", "lynch"]
+# 当前:格雷厄姆(深度价值)+ 彼得林奇(GARP)
+# 顺序按价值 → 成长 的投资风格谱系
+ACTIVE_MASTERS: list[str] = ["graham", "lynch"]
 
 
 def _verdict(score_pct: float | None) -> tuple[str, str, str]:

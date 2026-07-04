@@ -35,7 +35,7 @@ def render() -> None:
 
     # ─── V8 顶部:综合评分 + 雪花图(SWS 风格)+ 股价叠加全局 toggle ─
     score = company_score(selected_ticker, DB_MTIME) if selected_ticker else None
-    head_left, head_mid = st.columns([0.82, 1.55], vertical_alignment="center")
+    head_left, head_mid = st.columns([1.02, 1.35], vertical_alignment="center")
     with head_left:
         st.markdown(_conclusion_panel_html(selected, score, _adv), unsafe_allow_html=True)
     with head_mid:
@@ -60,35 +60,19 @@ def render() -> None:
 
         st.markdown(_top_bottom_html(top, bot), unsafe_allow_html=True)
 
-        # 一句话定位
         if top and bot:
             t_label, _, _, t_note, _ = top[0]
             b_label, _, _, b_note, _ = bot[0]
             if t_label != b_label:
-                st.caption(
-                    f"💡 一句话定位:**{t_label}** 极强({t_note.split('·')[0].strip() if t_note else '—'})"
-                    f",**{b_label}** 偏弱({b_note.split('·')[0].strip() if b_note else '—'})"
+                st.markdown(
+                    _insight_footer_html(
+                        t_label,
+                        t_note.split("·")[0].strip() if t_note else "—",
+                        b_label,
+                        b_note.split("·")[0].strip() if b_note else "—",
+                    ),
+                    unsafe_allow_html=True,
                 )
-
-        st.caption("横向对比同行 ➡ [Block C 行业横评](#block-c)")
-
-    # ─── 区块 A 收尾:🎯 下季度合理价格区间(多模型加权)─────────────
-    if selected_ticker:
-        if insurance_value.render_price_range(selected_ticker, selected):
-            return
-        _render_price_range_card(selected_ticker, selected)
-
-
-def _category_label(category: str | None) -> str:
-    labels = {
-        "non_financial": "普通非金融公司",
-        "bank": "银行",
-        "insurance": "保险",
-        "hk": "港股",
-    }
-    key = str(category or "").strip().lower()
-    return labels.get(key, key or "未分类")
-
 
 def _conclusion_panel_html(selected_folder: str, score, advice) -> str:
     imap = _load_industry_map()
@@ -97,17 +81,67 @@ def _conclusion_panel_html(selected_folder: str, score, advice) -> str:
     badge = str(getattr(score, "overall_badge", "") or "⚪")
     score_value = getattr(score, "overall", None)
     score_line = f"{score_value:.1f} / 100" if score_value is not None else "评分不可用"
+    score_width = max(0, min(100, float(score_value or 0)))
+    if score_value is None:
+        score_color = "#6B7280"
+    elif score_value >= 75:
+        score_color = "#16A34A"
+    elif score_value >= 60:
+        score_color = "#CA8A04"
+    else:
+        score_color = "#DC2626"
     conclusion = "暂无同行结论"
     peer_line = f"{industry}"
+    peer_meta = "行业资料"
     if advice is not None and getattr(advice, "n_peers", 0) > 0:
         conclusion = f"{advice.overall_emoji} {advice.overall_label} · 综合{advice.quality_label}"
         peer_line = f"「{advice.industry}」{advice.n_peers} 家"
+        peer_meta = "同行样本"
 
     return (
-        '<div style="font-size:14px;line-height:1.9;color:#111827;margin:2px 0 10px 0;">'
-        f'<div>结论：{escape(conclusion)}</div>'
-        f'<div>评分：{escape(badge)} {escape(score_line)}</div>'
-        f'<div>同行：{escape(peer_line)}</div>'
+        '<div style="background:#FFFFFF;border:1px solid #E5E7EB;border-radius:8px;'
+        'padding:14px 14px 13px 14px;margin:0 0 10px 0;'
+        'box-shadow:0 1px 2px rgba(15,23,42,.04);font-family:-apple-system,Inter,'
+        'PingFang SC,sans-serif;">'
+        '<div style="font-size:12px;color:#6B7280;">当前结论</div>'
+        f'<div style="font-size:22px;font-weight:860;color:#111827;line-height:1.25;margin-top:2px;">{escape(conclusion)}</div>'
+        '<div style="margin-top:12px;">'
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">'
+        '<span style="font-size:12px;color:#6B7280;">综合评分</span>'
+        f'<span style="font-size:13px;font-weight:800;color:{score_color};">{escape(badge)} {escape(score_line)}</span>'
+        '</div>'
+        '<div style="height:7px;background:#EEF2F7;border-radius:999px;margin-top:6px;overflow:hidden;">'
+        f'<div style="height:100%;width:{score_width:.0f}%;background:{score_color};border-radius:999px;"></div>'
+        '</div>'
+        '</div>'
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">'
+        '<div style="background:#F9FAFB;border:1px solid #EEF2F7;border-radius:7px;padding:8px;">'
+        '<div style="font-size:11px;color:#6B7280;">行业</div>'
+        f'<div style="font-size:13px;font-weight:760;color:#111827;margin-top:2px;">{escape(str(industry))}</div>'
+        '</div>'
+        '<div style="background:#F9FAFB;border:1px solid #EEF2F7;border-radius:7px;padding:8px;">'
+        f'<div style="font-size:11px;color:#6B7280;">{escape(peer_meta)}</div>'
+        f'<div style="font-size:13px;font-weight:760;color:#111827;margin-top:2px;">{escape(peer_line)}</div>'
+        '</div>'
+        '</div>'
+        '</div>'
+    )
+
+
+def _insight_footer_html(top_label: str, top_note: str, bot_label: str, bot_note: str) -> str:
+    return (
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;'
+        'margin:10px 0 4px 0;padding:10px 12px;background:#F8FAFC;border:1px solid #E5E7EB;'
+        'border-radius:8px;font-family:-apple-system,Inter,PingFang SC,sans-serif;">'
+        '<div style="min-width:0;">'
+        '<span style="font-size:12px;font-weight:780;color:#2563EB;margin-right:8px;">一句话定位</span>'
+        f'<span style="font-size:13px;color:#111827;">强项: <b>{escape(top_label)}</b>'
+        f'<span style="color:#6B7280;">({escape(top_note)})</span>'
+        f' · 待验证: <b>{escape(bot_label)}</b>'
+        f'<span style="color:#6B7280;">({escape(bot_note)})</span></span>'
+        '</div>'
+        '<a href="#block-c" style="flex:0 0 auto;font-size:12px;font-weight:760;color:#2563EB;'
+        'text-decoration:none;">看同行横评 -></a>'
         '</div>'
     )
 
@@ -155,81 +189,3 @@ def _top_bottom_html(top: list[tuple], bot: list[tuple]) -> str:
         '</div>'
         '</div>'
     )
-
-
-def _render_price_range_card(ticker: str, name: str) -> None:
-    """渲染下季度合理价格区间卡:三模型公允价 + 区间标尺 + verdict。"""
-    # 优先读预计算 bundle.price_range(<5ms);缺失降级 live 计算。
-    pr = None
-    try:
-        import analytics_store as _store
-        pr = _store.price_range(ticker)
-    except Exception:
-        pr = None
-
-    # lynch_type 在 if 块外(下方 caption)也会引用,必须无条件初始化,
-    # 否则走预计算分支(pr 非 None)时 lynch_type 未定义 → UnboundLocalError。
-    lynch_type = None
-    if pr is None:
-        try:
-            from valuation.price_range import compute_next_quarter_range
-        except Exception as e:
-            st.caption(f"⚠️ price_range 加载失败:{e}")
-            return
-        # 取 lynch_type 用于权重 — 只算当前这一家(按 mtime 缓存),
-        # 不再对全市场跑 score_lynch_classifier_all(load_all())(实测 17.5s)。
-        try:
-            from masters.lynch.classifier import lynch_type_of
-            lynch_type = lynch_type_of(ticker, DB_MTIME)
-        except Exception:
-            pass
-        pr = compute_next_quarter_range(ticker, name=name, lynch_type=lynch_type)
-
-    st.markdown("---")
-    st.markdown("### 🎯 下季度合理价格区间")
-    st.caption(
-        "三模型加权聚合:Graham(账面安全) · PEG=1(成长公允) · Gordon DDM(股息折现)。"
-        + (f" · 林奇分类:`{lynch_type}`" if lynch_type else " · 林奇分类:未知,使用等权")
-    )
-
-    if pr.floor is None or pr.ceiling is None:
-        st.warning(f"{pr.verdict_label}({'; '.join(pr.notes) or '三模型均不可得'})")
-        return
-
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("📉 下沿 floor", f"¥{pr.floor:,.2f}", help="三模型公允价最小值")
-    col2.metric("🎯 中枢 mid", f"¥{pr.mid:,.2f}", help="按林奇分类加权后的目标价")
-    col3.metric("📈 上沿 ceiling", f"¥{pr.ceiling:,.2f}", help="三模型公允价最大值")
-    if pr.current_price is not None:
-        deviation = (pr.current_price - pr.mid) / pr.mid * 100
-        col4.metric("当前价",
-                    f"¥{pr.current_price:,.2f}",
-                    delta=f"{deviation:+.1f}% vs 中枢",
-                    delta_color="inverse")
-    else:
-        col4.metric("当前价", "—")
-
-    # 一句话 verdict
-    if pr.current_price is not None:
-        st.markdown(
-            f"#### {pr.verdict_label} · 当前 ¥{pr.current_price:.2f} ∈ "
-            f"[¥{pr.floor:.2f}, ¥{pr.ceiling:.2f}]"
-        )
-
-    # 三模型明细表
-    import pandas as _pd
-    rows = []
-    for m in pr.models:
-        rows.append({
-            "模型": m.name,
-            "公允价": f"¥{m.fair_price:,.2f}" if m.fair_price is not None else "—",
-            "权重": f"{m.weight*100:.0f}%" if m.weight > 0 else "—",
-            "校验": "✓" if m.verified else "—",
-            "说明": m.note,
-        })
-    st.dataframe(_pd.DataFrame(rows), width="stretch", hide_index=True)
-
-    if pr.notes:
-        with st.expander("⚠️ 降级说明"):
-            for n in pr.notes:
-                st.caption("• " + n)

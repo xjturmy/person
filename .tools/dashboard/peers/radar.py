@@ -222,6 +222,8 @@ def peer_radar_chart(scores: list, self_ticker: str, height: int = 460) -> go.Fi
     labels = [sc.DIM_LABEL[k] for k in DIM_ORDER]
     labels_closed = labels + [labels[0]]
     fig = go.Figure()
+    peer_colors = ["#EF4444", "#F59E0B", "#8B5CF6", "#10B981", "#64748B"]
+    peer_i = 0
     for s in scores:
         vals = []
         for k in DIM_ORDER:
@@ -233,18 +235,30 @@ def peer_radar_chart(scores: list, self_ticker: str, height: int = 460) -> go.Fi
             fig.add_trace(go.Scatterpolar(
                 r=vals_closed, theta=labels_closed,
                 name=f"⭐ {s.name}",
-                line=dict(color="#0d6efd", width=3),
-                fill="toself", fillcolor="rgba(13,110,253,0.20)",
+                line=dict(color="#0d6efd", width=3.5),
+                marker=dict(size=7, color="#0d6efd"),
+                fill="toself", fillcolor="rgba(13,110,253,0.10)",
             ))
         else:
+            color = peer_colors[peer_i % len(peer_colors)]
+            peer_i += 1
             fig.add_trace(go.Scatterpolar(
                 r=vals_closed, theta=labels_closed,
                 name=s.name,
-                line=dict(width=1.4, dash="dot"),
-                opacity=0.7,
+                line=dict(color=color, width=2.4, dash="dash"),
+                marker=dict(size=6, color=color),
+                opacity=0.95,
             ))
     fig.update_layout(
-        polar=dict(radialaxis=dict(visible=True, range=[0, 100], tickvals=[20, 40, 60, 80])),
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, 100],
+                tickvals=[20, 40, 60, 80],
+                gridcolor="rgba(148,163,184,0.35)",
+            ),
+            angularaxis=dict(gridcolor="rgba(148,163,184,0.35)"),
+        ),
         showlegend=True, height=height,
         legend=dict(orientation="h", y=-0.10, x=0.5, xanchor="center"),
         margin=dict(l=20, r=20, t=20, b=60),

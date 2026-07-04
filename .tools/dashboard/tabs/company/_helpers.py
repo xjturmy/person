@@ -14,7 +14,7 @@ _PRESON = Path(__file__).resolve().parents[4]  # preson/
 # ─── v2.7 持仓档案 + 合理价格区间 ────────────────────────────────────
 def _load_fair_price_module():
     """懒加载 fair_price 模块,与本文件其它模块加载方式保持一致。"""
-    return SourceFileLoader("fair_price", str(_THIS.parent / "fair_price.py")).load_module()
+    return SourceFileLoader("fair_price", str(_DASH / "valuation" / "fair_price.py")).load_module()
 
 
 def _render_position_card(ticker: str, st) -> None:
@@ -222,13 +222,11 @@ def _lynch_card_html(result) -> str:
 _SECTION_GRADIENTS = {
     "A": ("#0d6efd", "rgba(13,110,253,0.05)"),  # 蓝 — 看结论
     "B": ("#0EA5E9", "rgba(14,165,233,0.05)"),  # 青 — 评分体系
-    "C": ("#10B981", "rgba(16,185,129,0.05)"),  # 绿 — 数据深挖
-    "D": ("#8B5CF6", "rgba(139,92,246,0.05)"),  # 紫 — 决策档案
 }
 
 
 def _section_banner(letter: str, emoji: str, title: str, subtitle: str = "") -> str:
-    """4 大区块 banner — 渐变背景条,提示用户"看到第几段了"。"""
+    """主判断区块 banner — 渐变背景条,提示用户"看到第几段了"。"""
     main, _bg = _SECTION_GRADIENTS.get(letter, ("#6B7280", "rgba(0,0,0,0.02)"))
     return (
         f'<div style="background:linear-gradient(90deg,{main} 0%,rgba(255,255,255,0) 100%);'

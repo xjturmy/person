@@ -74,7 +74,7 @@ GUARDRAIL_THRESHOLDS = {
     },
     "stalwart": {
         "debt_ratio_max":  0.50,
-        "current_ratio_min": 1.5,
+        "current_ratio_min": 1.2,
         "cfo_to_ni_min":   0.9,
         "inv_days_max":    240,
         "ar_days_max":     90,
@@ -113,6 +113,37 @@ GUARDRAIL_THRESHOLDS = {
         "label": "困境反转",
     },
 }
+
+HOME_APPLIANCE_KEYWORDS = ("家电", "白色家电", "家用电器")
+
+INDUSTRY_GUARDRAIL_OVERRIDES = {
+    "home_appliance": {
+        "keywords": HOME_APPLIANCE_KEYWORDS,
+        "types": {
+            "stalwart": {
+                "debt_ratio_max": 0.65,
+                "current_ratio_min": 1.1,
+                "cfo_to_ni_min": 0.9,
+                "label": "稳健增长 · 家电校正",
+            },
+        },
+    },
+}
+
+
+def guardrail_thresholds_for(cls_id: str, industry: str | None = None) -> dict:
+    """按林奇类型取财务护栏,再叠加 A 股行业校正。"""
+    base = dict(GUARDRAIL_THRESHOLDS.get(cls_id, GUARDRAIL_THRESHOLDS["stalwart"]))
+    industry_text = str(industry or "")
+    for cfg in INDUSTRY_GUARDRAIL_OVERRIDES.values():
+        if not any(k in industry_text for k in cfg["keywords"]):
+            continue
+        override = cfg["types"].get(cls_id)
+        if override:
+            base.update(override)
+            base["industry_override"] = True
+        break
+    return base
 
 PEG_BY_TYPE = {
     "fast_grower":  {"target": 1.5, "applicable": True,  "note": "快速增长 PEG ≤ 1.5 合理"},
@@ -887,4 +918,3 @@ def _editable_list(*, label: str, key_base: str, raw_value: str,
         st.rerun()
 
     return "\n".join(l for l in new_lines if l.strip())
-

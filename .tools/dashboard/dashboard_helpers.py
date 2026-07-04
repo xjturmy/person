@@ -538,8 +538,15 @@ def peer_scores(self_ticker: str, mtime: float, max_n: int = 4) -> list:
         return []
 
 
-def render_master_matrix(self_ticker: str, peer_tickers: list[str], year: int | None = None) -> None:
-    """4 大师 × N 公司矩阵。本公司高亮。"""
+def render_master_matrix(
+    self_ticker: str,
+    peer_tickers: list[str],
+    year: int | None = None,
+    *,
+    show_caption: bool = True,
+    master_keys: list[str] | None = None,
+) -> None:
+    """多方法 × N 公司矩阵。本公司高亮。"""
     if not self_ticker:
         st.info("缺 ticker,跳过大师矩阵")
         return
@@ -556,17 +563,36 @@ def render_master_matrix(self_ticker: str, peer_tickers: list[str], year: int | 
     if not matrix:
         st.info("multi_master 无可用数据")
         return
-    masters = list(matrix[0]["masters"].keys())
+    available_masters = list(matrix[0]["masters"].keys())
+    masters = [m for m in (master_keys or available_masters) if m in available_masters]
+    if not masters:
+        st.info("当前启用的方法暂无可用数据")
+        return
+    master_labels = {
+        "graham": "格雷厄姆",
+        "graham_bank": "格雷厄姆(银行)",
+        "graham_insurance": "格雷厄姆(保险)",
+        "lynch": "彼得林奇",
+        "buffett": "巴菲特",
+        "piotroski": "皮奥乔斯基",
+        "altman": "阿特曼",
+        "greenblatt": "格林布拉特",
+        "damodaran": "达莫达兰",
+    }
+    master_columns = [master_labels.get(m, m) for m in masters]
     rows = []
     for row in matrix:
         line = {"公司": ("⭐ " if row["ticker"] == self_ticker else "  ") + row["name"]}
-        for m in masters:
+        for m, label in zip(masters, master_columns):
             info = row["masters"].get(m, {})
+            if not info or int(info.get("valid") or 0) <= 0 or int(info.get("total") or 0) <= 0:
+                line[label] = "⚪ 数据不足"
+                continue
             sc_str = info.get("score") if info.get("score") is not None else "—"
             tot = info.get("total") or "—"
             valid = info.get("valid", 0)
             badge = info.get("badge", "⚪")
-            line[m] = f"{badge} {sc_str}/{tot}({valid})"
+            line[label] = f"{badge} {sc_str}/{tot}({valid})"
         rows.append(line)
     df_m = pd.DataFrame(rows)
 
@@ -578,10 +604,12 @@ def render_master_matrix(self_ticker: str, peer_tickers: list[str], year: int | 
                 return f"background-color: {color}; color: white"
         return ""
 
-    styler = df_m.style.map(_color, subset=masters).set_properties(
-        subset=masters, **{"text-align": "center", "font-size": "11px"}
+    styler = df_m.style.map(_color, subset=master_columns).set_properties(
+        subset=master_columns, **{"text-align": "center", "font-size": "11px"}
     )
     st.dataframe(styler, width="stretch", hide_index=True)
+    if not show_caption:
+        return
     _latest_period = latest_financial_period(_db_mtime()).get("label", "—")
     _annual_year = year or latest_annual_year(_db_mtime()) or (pd.Timestamp.now().year - 1)
     st.caption(
