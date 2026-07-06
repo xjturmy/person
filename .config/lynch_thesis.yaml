@@ -1,0 +1,206 @@
+# 彼得林奇投资假设复核表
+# 用途:公司页 / 林奇分析 / 综合结论中,把“为什么买/为什么持有”转成可复核清单。
+# 这里只先覆盖当前实际持仓:中国中车、立讯精密、美的集团、蜜雪集团、新华保险。
+
+"601766":
+  name: 中国中车
+  lynch_type: cyclical
+  thesis: 轨交装备龙头,政策/设备更新周期 + 低估值修复。
+  buy_reason: PB/PE 处历史低位,股息提供防守,等待新签订单和 ROE 改善验证。
+  method_note: 周期/央企制造股不适合用高增长 PEG 判断,重点看估值位置、订单周期、ROE 是否修复。
+  operation_bias: 低估持有,不因短期增长慢直接否定;若订单继续下滑或 ROE 失守,需要降级。
+  next_review: 2026 中报:新签订单、收入确认、ROE、经营现金流。
+  must_hold:
+    - PB/PE 仍处历史低位,不能追到高分位。
+    - ROE 不能继续下台阶,至少维持央企制造合理回报。
+    - 新签订单和现金流不能连续恶化。
+  watch:
+    - 政策订单兑现速度。
+    - 股息是否稳定。
+    - 估值修复是否已经吃掉安全边际。
+  fail_signals:
+    - 新签订单连续两年下滑。
+    - ROE 跌破 6% 且看不到修复。
+    - PB 分位升至 60% 以上但盈利没有同步改善。
+  auto_rules:
+    - metric: pe_pct_10y
+      label: PE 10年分位
+      op: <=
+      value: 0.30
+      pass: 估值仍在低位,保留安全边际。
+      fail: 估值低位优势减弱,不能再按低估修复逻辑加仓。
+    - metric: roe
+      label: ROE
+      op: ">"
+      value: 0.06
+      pass: ROE 尚未跌破周期股底线。
+      fail: ROE 已低于底线,需要重新评估资产回报。
+    - metric: dividend_yield
+      label: 股息率
+      op: ">="
+      value: 0.03
+      pass: 股息对持有等待有补偿。
+      fail: 股息补偿不足,等待周期修复的性价比下降。
+
+"002475":
+  name: 立讯精密
+  lynch_type: fast_grower
+  thesis: 精密制造平台型公司,苹果链稳基本盘,汽车/AI/通讯连接打开新增量。
+  buy_reason: 制造能力和客户粘性强,若新业务放量,可从苹果链估值切到平台制造估值。
+  method_note: 快速增长型要证明“增长真实且利润质量不塌”,不能只看营收扩张。
+  operation_bias: 已持有以观察为主;若估值回到合理分位且汽车/AI业务持续兑现,再考虑加仓。
+  next_review: 2026 中报:汽车业务增速、毛利率、CFO/净利润、苹果依赖度。
+  must_hold:
+    - 营收增长不能只靠低毛利扩张。
+    - ROE 至少维持优秀制造业水平。
+    - 现金流不能明显弱于净利润。
+  watch:
+    - 苹果订单份额变化。
+    - 汽车业务和 AI 硬件业务收入占比。
+    - 毛利率是否被新业务拖累。
+  fail_signals:
+    - 苹果订单份额下滑。
+    - 汽车业务增速跌破 50%。
+    - 净利率跌破 4% 或现金流持续弱于净利润。
+  auto_rules:
+    - metric: rev_cagr_3y
+      label: 营收3年CAGR
+      op: ">="
+      value: 0.20
+      pass: 增长速度符合快速增长型底线。
+      fail: 增长不足以支撑快速增长型估值。
+    - metric: roe
+      label: ROE
+      op: ">="
+      value: 0.15
+      pass: 资本回报仍符合优秀制造业要求。
+      fail: ROE 不足,增长质量需要打折。
+    - metric: pe_pct_10y
+      label: PE 10年分位
+      op: <=
+      value: 0.50
+      pass: 估值没有明显透支。
+      fail: 估值已偏高,新增买入要谨慎。
+
+"000333":
+  name: 美的集团
+  lynch_type: stalwart
+  thesis: 家电龙头 + 海外扩张 + 稳定现金流,属于稳健增长型现金牛。
+  buy_reason: ROE、现金流、分红和海外扩张共同支撑,合理估值下适合长期持有。
+  method_note: 稳定增长型不追求高增速,重点看现金流、ROE、分红和估值分位。
+  operation_bias: 合理价附近持有;低估时可加,明显高估时不追。
+  next_review: 2026 中报:海外收入、经营现金流、ROE、股息政策。
+  must_hold:
+    - ROE 维持 15% 以上。
+    - CFO/净利润保持健康。
+    - 股息率提供持有补偿。
+  watch:
+    - 海外业务增速。
+    - 家电竞争导致毛利率下滑。
+    - 估值是否脱离稳健增长型区间。
+  fail_signals:
+    - 海外业务增速跌破 15%。
+    - 股息率跌破 2.5%。
+    - CFO/净利润长期低于 0.8。
+  auto_rules:
+    - metric: roe
+      label: ROE
+      op: ">="
+      value: 0.15
+      pass: ROE 支撑稳健龙头定位。
+      fail: ROE 跌破稳健龙头底线。
+    - metric: cfo_to_ni
+      label: CFO/净利润
+      op: ">="
+      value: 0.80
+      pass: 现金流质量健康。
+      fail: 现金流弱于利润,需要警惕利润质量。
+    - metric: dividend_yield
+      label: 股息率
+      op: ">="
+      value: 0.025
+      pass: 股息提供持有补偿。
+      fail: 股息补偿下降,稳健持有吸引力降低。
+
+"02097":
+  name: 蜜雪集团
+  lynch_type: fast_grower
+  thesis: 高性价比现制饮品连锁,门店扩张 + 供应链效率驱动成长。
+  buy_reason: 门店规模、加盟模型和供应链效率是核心,上市时间短,需要用财报持续验证。
+  method_note: 港股新股历史数据短,不能过度相信分位和 PEG;要看门店质量、同店表现和利润率。
+  operation_bias: 小仓观察,等更多财报验证;不要因为低 PEG 直接重仓。
+  next_review: 2026 中报:门店净增、同店收入、净利率、现金流。
+  must_hold:
+    - 门店扩张仍能带来收入和利润同步增长。
+    - 净利率不能被加盟补贴或竞争明显压低。
+    - 现金流要跟得上扩张。
+  watch:
+    - 同店收入是否转弱。
+    - 下沉市场竞争加剧。
+    - 港股流动性和估值折价。
+  fail_signals:
+    - 门店增速跌破 10%。
+    - 同店收入连续两个季度负增长。
+    - 净利率跌破 12%。
+  auto_rules:
+    - metric: rev_cagr_3y
+      label: 营收3年CAGR
+      op: ">="
+      value: 0.20
+      pass: 增长速度仍符合扩张型消费公司。
+      fail: 增长放缓,扩张故事需要重新验证。
+    - metric: roe
+      label: ROE
+      op: ">="
+      value: 0.15
+      pass: 资本效率较好。
+      fail: ROE 不足,加盟模型效率需复核。
+    - metric: peg_lixinger
+      label: PEG
+      op: <=
+      value: 1.50
+      pass: 估值与成长仍可匹配。
+      fail: PEG 偏高,成长性价比下降。
+
+"601336":
+  name: 新华保险
+  lynch_type: asset_play
+  acceptable_types:
+    - asset_play
+    - not_applicable
+  thesis: 保险资产修复 + 低估值 + 股息补偿,核心看 P/EV 和投资端修复。
+  buy_reason: 估值处极低位置,若权益市场和新业务价值修复,弹性较大。
+  method_note: 保险公司不适合普通 PE/PEG 林奇法,应按资产隐蔽/金融修复口径看 P/EV、新业务价值和投资收益。
+  operation_bias: 低估持有,但不因单年 ROE 高就提高仓位;重点盯负债端与投资端。
+  next_review: 2026 中报:NBV、新业务价值率、投资收益率、分红能力。
+  must_hold:
+    - 估值仍显著低于内含价值。
+    - 新业务价值不能继续恶化。
+    - 投资端不能连续拖累利润。
+  watch:
+    - 利率下行对负债端影响。
+    - 权益市场波动对投资收益影响。
+    - 股息是否可持续。
+  fail_signals:
+    - 新业务价值率跌破 8%。
+    - 投资端连续两年亏损。
+    - P/EV 升至 1.0 以上后修复空间消失。
+  auto_rules:
+    - metric: pe_pct_10y
+      label: PE 10年分位
+      op: <=
+      value: 0.30
+      pass: 估值仍处低位,保留修复空间。
+      fail: 估值低位优势减弱。
+    - metric: dividend_yield
+      label: 股息率
+      op: ">="
+      value: 0.03
+      pass: 股息补偿较好。
+      fail: 股息补偿不足。
+    - metric: roe
+      label: ROE
+      op: ">="
+      value: 0.08
+      pass: ROE 没有跌破金融股观察底线。
+      fail: ROE 低于底线,修复逻辑需重审。

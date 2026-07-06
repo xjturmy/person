@@ -88,37 +88,22 @@ def _step_4_peg_valuation(ticker: str, m: dict, cls_id_used: str) -> None:
     np_yoy = m.get("np_ttm_yoy")           # 百分数 33.0 = 33%
     peg_lx = m.get("peg_lixinger")          # 直接复用 peg_curve 算好的 PEG
 
-    if pe is None or np_yoy is None or np_yoy <= 0:
-        # 兜底退化:净利 3y CAGR 不可用时退到营收 CAGR(明确告知)
-        cagr_3y = m.get("rev_cagr_3y")
-        cagr_5y = m.get("rev_cagr_5y")
-        cagr = cagr_3y or cagr_5y
-        if pe is None or cagr is None or cagr <= 0:
-            st.warning(
-                "⚠️ PE-TTM 或增长率数据缺失,无法算 PEG。"
-                "(理杏仁口径需净利润 3y CAGR > 0)",
-                icon="⚠️",
-            )
-            return
-        peg = pe / (cagr * 100)
+    if peg_lx is None:
         st.warning(
-            f"⚠️ 净利润 3y CAGR 不可用({np_yoy or 0:.1f}%) — "
-            f"退化用营收 5y CAGR={cagr*100:.1f}% 兜底,"
-            f"**与理杏仁页面会有差异**。",
+            "⚠️ 理杏仁 PEG 数据缺失,本页不使用营收 CAGR 自行兜底计算。",
             icon="⚠️",
         )
-        growth_label = f"营收 CAGR({'3y' if cagr_3y else '5y'},兜底)"
-        growth_value_str = f"{cagr*100:.1f}%"
-    else:
-        peg = peg_lx if peg_lx is not None else pe / (np_yoy / 100 * 100)
-        growth_label = "净利润 3y CAGR"
-        growth_value_str = f"{np_yoy:+.1f}%"
+        return
+
+    peg = peg_lx
+    growth_label = "净利润 3y CAGR"
+    growth_value_str = "—" if np_yoy is None else f"{np_yoy:+.1f}%"
 
     target = peg_cfg["target"]
 
     # 顶部大数字
     c1, c2, c3 = st.columns(3)
-    c1.metric("PE-TTM", f"{pe:.1f}")
+    c1.metric("PE-TTM", "—" if pe is None else f"{pe:.1f}")
     c2.metric(growth_label, growth_value_str,
               help="理杏仁标准:净利润 3 年 CAGR(年报数据,end=倒数第二份年报)")
     peg_rating = (
@@ -165,4 +150,3 @@ def _step_4_peg_valuation(ticker: str, m: dict, cls_id_used: str) -> None:
         st.warning(f"⚠️ PEG {peg:.2f} 略高于 {target} 目标 — 需观望", icon="⚠️")
     else:
         st.error(f"🔴 PEG {peg:.2f} 远超 {target} 目标 — 估值过高", icon="🚨")
-

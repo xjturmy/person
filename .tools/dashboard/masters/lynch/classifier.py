@@ -63,19 +63,115 @@ COMPANIES_CSV = ROOT / ".config" / "companies.csv"
 CYCLICAL_INDUSTRIES = {
     "汽车", "钢铁", "有色金属", "石油石化", "煤炭",
     "建筑材料", "化工", "基础化工",
-    "交通运输", "航空", "航运",
+    "航空", "航运",
     "房地产", "建筑装饰",
 }
+CYCLICAL_KEYWORDS = (
+    "轨交设备", "工程机械", "工程机械整机",
+    "化学制品", "化学原料", "乘用车", "汽车零部件",
+    "工业金属", "贵金属", "航空运输", "航运港口",
+)
 
-# 银行/保险:知识库归"传统银行=缓慢增长"。CAGR<10% 时按缓慢,
-# 但若 ROE 长期 ≥15% 仍可视为稳健(招商银行/平安等)
+# 银行/保险/券商:A 股校正版中不进入通用林奇六类。
 FINANCIAL_INDUSTRIES = {"银行", "非银金融", "保险", "证券"}
 HOME_APPLIANCE_KEYWORDS = ("家电", "白色家电", "家用电器")
+TECH_MANUFACTURING_KEYWORDS = (
+    "电子", "消费电子", "半导体", "元件", "光学光电子",
+    "通信", "通信设备", "计算机", "电力设备", "电池",
+    "新能源", "光伏", "自动化设备", "机器人",
+)
+CONSUMER_STALWART_KEYWORDS = (
+    "白酒", "食品饮料", "饮料乳品", "调味发酵品",
+    "家电", "白色家电", "家用电器",
+)
+PHARMA_STALWART_KEYWORDS = ("医药", "化学制药", "创新药", "医疗器械", "生物制品")
+
+A_SHARE_CLASSIFICATION_OVERRIDES = {
+    # 成熟白酒龙头:历史 CAGR 容易把酒企误推为快速增长,实际应按现金流/ROE/估值分位看。
+    "山西汾酒": {
+        "cls_id": "stalwart",
+        "confidence": 0.82,
+        "reason": "A 股校准样本:次高端白酒成熟龙头,不因过去 5 年高 CAGR 直接归快速增长型;主看 ROE、现金流、分红和估值分位。",
+        "notes": ["白酒龙头应防止把渠道扩张期的历史增速外推为长期高成长。"],
+    },
+    "泸州老窖": {
+        "cls_id": "stalwart",
+        "confidence": 0.80,
+        "reason": "A 股校准样本:成熟白酒龙头,低增速阶段仍可凭 ROE、现金流和分红归为稳定增长型。",
+        "notes": ["关注品牌势能、批价、渠道库存和估值分位,不要只按短期营收 CAGR 降为缓慢增长。"],
+    },
+    # 成熟医疗器械龙头:增速阶段性放缓不等于慢增长股。
+    "迈瑞医疗": {
+        "cls_id": "stalwart",
+        "confidence": 0.78,
+        "reason": "A 股校准样本:医疗器械成熟龙头,阶段性低增速不等于缓慢增长股;主看 ROE、现金流、研发管线和全球化韧性。",
+        "notes": ["医疗器械需区分成熟平台型龙头与单品高成长公司。"],
+    },
+    # 软件/AI:故事空间大,但近年财务兑现不足,更接近反转验证而非稳定慢增长。
+    "科大讯飞": {
+        "cls_id": "turnaround",
+        "confidence": 0.62,
+        "reason": "A 股校准样本:AI/软件成长故事仍在,但近年收入和利润兑现不足;先归困境反转/兑现验证,而不是缓慢增长型。",
+        "notes": ["跟踪经营现金流、利润率修复和 AI 商业化订单兑现,不只看主题热度。"],
+        "extra": {
+            "suggest_split_secondary": "fast_grower",
+            "suggest_split_weight": 45,
+            "a_share_adjusted": True,
+            "a_share_note": "反转验证主 + 成长故事辅",
+        },
+    },
+    # 交通运输需要拆细:高速公路/机场不应和航运航空价格周期粗暴混同。
+    "宁沪高速": {
+        "cls_id": "slow_grower",
+        "confidence": 0.82,
+        "reason": "A 股校准样本:高速公路偏成熟现金流和分红资产,不按交通运输一级行业粗分为周期型。",
+        "notes": ["核心看车流、费率、分红覆盖和再投资回报。"],
+    },
+    "上海机场": {
+        "cls_id": "turnaround",
+        "confidence": 0.68,
+        "reason": "A 股校准样本:机场枢纽更像客流/免税修复型资产,不按交通运输一级行业粗分为强周期;当前主线是困境修复验证。",
+        "notes": ["核心看国际客流、免税合同、商业租金和现金流恢复。"],
+        "extra": {
+            "suggest_split_secondary": "slow_grower",
+            "suggest_split_weight": 40,
+            "a_share_adjusted": True,
+            "a_share_note": "修复型主 + 成熟现金流辅",
+        },
+    },
+}
 
 
 def _is_home_appliance(m: dict[str, Any]) -> bool:
     text = " ".join(str(m.get(k) or "") for k in ("industry_sw_l1", "industry_sw_l2", "industry"))
     return any(k in text for k in HOME_APPLIANCE_KEYWORDS)
+
+
+def _industry_text(m: dict[str, Any]) -> str:
+    return " ".join(str(m.get(k) or "") for k in ("industry_sw_l1", "industry_sw_l2", "industry", "name"))
+
+
+def _is_tech_manufacturing(m: dict[str, Any]) -> bool:
+    text = _industry_text(m)
+    return any(k in text for k in TECH_MANUFACTURING_KEYWORDS)
+
+
+def _is_consumer_stalwart(m: dict[str, Any]) -> bool:
+    text = _industry_text(m)
+    return any(k in text for k in CONSUMER_STALWART_KEYWORDS)
+
+
+def _is_pharma_stalwart(m: dict[str, Any]) -> bool:
+    text = _industry_text(m)
+    return any(k in text for k in PHARMA_STALWART_KEYWORDS)
+
+
+def _is_cyclical_industry(m: dict[str, Any]) -> bool:
+    industry_l1 = (m.get("industry_sw_l1") or "").strip()
+    if industry_l1 in CYCLICAL_INDUSTRIES:
+        return True
+    text = _industry_text(m)
+    return any(k in text for k in CYCLICAL_KEYWORDS)
 
 
 @dataclass
@@ -101,7 +197,40 @@ class ClassificationResult:
         }
 
 
+def _manual_a_share_override(m: dict[str, Any], km: dict[str, str],
+                             special_tags: list[str]) -> ClassificationResult | None:
+    name = str(m.get("name") or "").strip()
+    ticker = str(m.get("ticker") or "").strip()
+    cfg = A_SHARE_CLASSIFICATION_OVERRIDES.get(name) or A_SHARE_CLASSIFICATION_OVERRIDES.get(ticker)
+    if not cfg:
+        return None
+
+    cls_id = cfg["cls_id"]
+    notes = list(cfg.get("notes") or [])
+    notes.append(CLASS_META[cls_id][2])
+    if special_tags:
+        notes.extend(special_tags)
+
+    extra = {
+        "a_share_manual_override": True,
+        "a_share_adjusted": True,
+    }
+    extra.update(cfg.get("extra") or {})
+
+    return ClassificationResult(
+        cls_id=cls_id,
+        cls_name=CLASS_META[cls_id][0],
+        cls_emoji=CLASS_META[cls_id][1],
+        confidence=cfg.get("confidence", 0.75),
+        reason=cfg["reason"],
+        key_metrics=km,
+        notes=notes,
+        extra=extra,
+    )
+
+
 CLASS_META = {
+    "not_applicable": ("不适用通用林奇", "🚫", "行业核心驱动不适合套用 PEG/通用成长股护栏"),
     "slow_grower":  ("缓慢增长型", "🐢", "成熟大盘股,适合靠股息长期持有"),
     "stalwart":     ("稳定增长型", "🛡️", "消费防御类,在熊市中跑赢市场"),
     "fast_grower":  ("快速增长型", "🚀", "高成长但需警惕估值过高"),
@@ -200,40 +329,21 @@ def _missing(key: str, label: str, weight: float, what: str) -> DimScore:
 
 
 def _score_peg(m, w):
-    """PEG 评分 — 理杏仁口径:PEG = PE-TTM ÷ (净利润 3y CAGR × 100)。
-
-    其中 3y CAGR 用倒数第二份年报作 end(滞后一年保稳定),
-    实测美的 14/10.5 = 1.33 ✅ 与理杏仁页面一致。
-    """
+    """PEG 评分 — 只采用理杏仁同口径 PEG,不使用营收 CAGR 自行兜底。"""
     pe = m.get("pe_ttm")
     np_yoy = m.get("np_ttm_yoy")          # 百分数 10.5(理杏仁口径=3y CAGR)
     peg_lx = m.get("peg_lixinger")
-    if pe is None or np_yoy is None or np_yoy <= 0 or peg_lx is None:
-        # 兜底:净利 3y CAGR 不可用时退化到营收 CAGR(标注)
-        cagr = m.get("rev_cagr_3y") or m.get("rev_cagr_5y")
-        if pe is None or cagr is None or cagr <= 0:
-            return _missing("peg", "PEG (估值/增速)", w,
-                            "PE-TTM 或 净利润 3y CAGR")
-        peg = pe / (cagr * 100)
-        s = _clip(100 - (peg - 0.5) * 50)
-        note = (
-            f"营收 CAGR 兜底(净利负增长 {(np_yoy or 0):+.1f}%)"
-        )
-        return DimScore(
-            key="peg", label="PEG (估值/增速)", score=s, badge=_badge(s), weight=w,
-            inputs={"PE-TTM": f"{pe:.1f}", "营收CAGR(兜底)": f"{cagr*100:.1f}%",
-                    "PEG": f"{peg:.2f}"},
-            formula="PEG = PE ÷ (营收CAGR×100) — 兜底,理杏仁口径不可用时",
-            note=note,
-        )
+    if peg_lx is None:
+        return _missing("peg", "PEG (估值/增速)", w, "理杏仁 PEG")
     peg = peg_lx
     s = _clip(100 - (peg - 0.5) * 50)
     note = "便宜 (PEG<1)" if peg < 1 else "合理 (1-2)" if peg < 2 else "偏贵 (>2)"
     return DimScore(
         key="peg", label="PEG (估值/增速)", score=s, badge=_badge(s), weight=w,
-        inputs={"PE-TTM": f"{pe:.1f}", "净利TTM YoY": f"{np_yoy:+.1f}%",
+        inputs={"PE-TTM": "—" if pe is None else f"{pe:.1f}",
+                "净利3y CAGR": "—" if np_yoy is None else f"{np_yoy:+.1f}%",
                 "PEG": f"{peg:.2f}"},
-        formula="PEG = PE-TTM ÷ (净利润 TTM YoY% × 100) · 理杏仁口径",
+        formula="PEG = PE-TTM ÷ (净利润 3y CAGR × 100) · 理杏仁口径",
         note=note,
     )
 
@@ -394,13 +504,15 @@ def _score_cfo_positive(m, w):
 def _score_cash_to_mc(m, w):
     cash_mc = m.get("cash_to_market_cap")
     if cash_mc is None:
+        warning = m.get("cash_to_market_cap_warning")
+        what = warning or "现金/总市值 (数据待装配)"
         return _missing("cash_to_mc", "现金/市值", w,
-                        "现金/总市值 (数据待装配)")
+                        what)
     s = _clip(cash_mc * 250)  # 40% → 100
     return DimScore(
         key="cash_to_mc", label="现金/市值", score=s, badge=_badge(s), weight=w,
         inputs={"现金/市值": f"{cash_mc*100:.1f}%"},
-        formula="现金/总市值 × 250(40%+ → 满分)",
+        formula="受保护口径:货币资金/总市值 × 250(40%+ → 满分)",
         note="资产密集" if cash_mc >= 0.30 else "一般",
     )
 
@@ -533,6 +645,7 @@ def _verify_financials(primary: str, m: dict) -> tuple[list[str], float]:
     debt = m.get("debt_ratio")
     div = m.get("dividend_yield")
     is_home_appliance = _is_home_appliance(m)
+    is_tech_mfg = _is_tech_manufacturing(m)
 
     if primary == "stalwart":
         if roe is not None and roe < 0.15:
@@ -551,7 +664,22 @@ def _verify_financials(primary: str, m: dict) -> tuple[list[str], float]:
                 f"✅ 家电校正:资产负债率 {_pct(debt)} ≤ 65%,不按通用 50% 硬卡"
             )
     elif primary == "fast_grower":
-        if debt is not None and debt >= 0.40:
+        cfo_ni = m.get("cfo_to_ni")
+        if is_tech_mfg:
+            if debt is not None and debt >= 0.70:
+                warnings.append(
+                    f"⚠️ 科技制造校正后资产负债率 {_pct(debt)} ≥ 70%,扩张风险偏高"
+                )
+                delta -= 0.15
+            elif debt is not None:
+                warnings.append(
+                    f"✅ 科技制造校正:资产负债率 {_pct(debt)} 不按通用 40% 铁律硬卡,"
+                    "需配合现金流、存货和客户集中度跟踪"
+                )
+            if cfo_ni is not None and cfo_ni < 0.70:
+                warnings.append(f"⚠️ CFO/NI {_num(cfo_ni, 2)} < 0.70,科技制造扩张质量需重审")
+                delta -= 0.10
+        elif debt is not None and debt >= 0.40:
             warnings.append(f"⚠️ 资产负债率 {_pct(debt)} ≥ 40% — 违反快速增长股「铁律」,需重审分类")
             delta -= 0.20
         if roe is not None and roe < 0.15:
@@ -629,82 +757,52 @@ def classify(m: dict[str, Any]) -> ClassificationResult:
     cagr_label = "5y" if rev_cagr_5y is not None else "3y"
     special_tags = _detect_special_features(m)
 
-    # ═══ 步骤一:行业属性优先 — 银行/保险特殊处理 ═══════════════
-    # 知识库:"传统银行=缓慢增长";保险用内含价值法,不适用普通成长分级
-    # 这里:CAGR + ROE 决定稳健 vs 缓慢,但跳过快速增长(债 > 40% 是行业特性)
-    if industry_l1 in FINANCIAL_INDUSTRIES:
-        if cagr is None or roe is None:
-            return ClassificationResult(
-                cls_id="slow_grower",
-                cls_name=CLASS_META["slow_grower"][0],
-                cls_emoji=CLASS_META["slow_grower"][1],
-                confidence=0.55,
-                reason=f"金融业「{industry_l1}」+ 数据不足 → 暂归缓慢增长(知识库:传统银行 = 缓慢)",
-                key_metrics=km,
-                notes=["金融业不适用普通成长分级(债 > 40% 是行业特性);保险应另用内含价值法"],
-            )
-        # 金融业的"稳健"门槛:CAGR ≥ 10% AND ROE ≥ 15%(招行/平安式 优秀龙头)
-        if cagr >= 0.10 and roe >= 0.15:
-            primary_fin = "stalwart"
-            reason_fin = (
-                f"金融业「{industry_l1}」 + 营收 CAGR {_pct(cagr)} ≥ 10% + ROE {_pct(roe)} ≥ 15%"
-                f" → 稳健增长型(优秀金融龙头)"
-            )
-            conf_fin = 0.85
-        else:
-            primary_fin = "slow_grower"
-            reason_fin = (
-                f"金融业「{industry_l1}」 + CAGR {_pct(cagr)} 或 ROE {_pct(roe)} 未达稳健龙头门槛"
-                f" → 缓慢增长型(知识库:传统银行 = 缓慢,主要靠股息)"
-            )
-            conf_fin = 0.85 if (div is not None and div >= 0.04) else 0.75
+    manual = _manual_a_share_override(m, km, special_tags)
+    if manual is not None:
+        return manual
 
-        notes_fin = ["⚠️ **林奇 6 类不完美适用** — 金融业核心估值用内含价值(保险 EV)/ 拨备(银行),而非 PEG / PB"]
-        notes_fin.append("金融业不适用 PEG / 现金流 / 负债率铁律(行业特性)")
+    # ═══ 步骤一:行业适配优先 — 金融/保险不进入通用林奇六类 ═════════
+    # A 股校正版:银行/保险/券商核心驱动不适合 PEG/通用负债率护栏。
+    if industry_l1 in FINANCIAL_INDUSTRIES:
+        industry_l2 = (m.get("industry_sw_l2") or "").strip()
+        if industry_l2 == "保险" or m.get("category") == "insurance":
+            framework = "保险价值修复法"
+            focus = "PB/PEV、EV/NBV、新业务价值、偿付能力、投资收益率、股息"
+        elif industry_l2 == "证券":
+            framework = "券商周期估值法"
+            focus = "PB 分位、净资本、自营/经纪/投行业务周期"
+        else:
+            framework = "银行价值评估法"
+            focus = "PB、ROE、净息差、不良率、拨备覆盖率、分红"
+
+        reason_fin = (
+            f"金融业「{industry_l1}/{industry_l2 or '—'}」不适合直接套用彼得林奇通用六类。"
+            f"高负债率、现金流口径和利润周期是行业结构,PEG/通用成长股护栏容易误导。"
+        )
+        notes_fin = [
+            f"建议切换到:{framework}",
+            f"核心观察:{focus}",
+            "林奇方法可保留“故事脚本/定性跟踪”思想,但不用于 PEG 和通用财务护栏。",
+        ]
 
         # 金融周期信号检测:净利率 5y CV > 30% → 推荐主次拆分
         # 保险投资端 / 银行不良率周期 都会让净利率剧烈波动 — 是真实的"金融周期"
         cv = m.get("net_margin_5y_cv")
-        suggest_split = False
         if cv is not None and cv > 0.30:
             cv_pct = cv * 100
             notes_fin.append(
                 f"🔴 **检测到金融周期信号**:5y 净利率变异系数 {cv_pct:.0f}% > 30% — "
-                f"利润随利率/资本市场周期剧烈波动(典型 stalwart 应 <20%)"
-            )
-            suggest_split = True
-
-        if industry_l2 := (m.get("industry_sw_l2") or "").strip():
-            if industry_l2 in ("保险", "证券"):
-                notes_fin.append(
-                    f"📐 **{industry_l2}估值法**:正确口径是"
-                    f"{'内含价值(EV)+ 新业务价值(NBV)+ 投资收益率分解' if industry_l2 == '保险' else '自营 / 经纪 / 投行 分部估值 + 净资本充足率'}"
-                    f",林奇 PEG / PB 都是粗代理"
-                )
-                suggest_split = True
-
-        # 推荐主次拆分(让用户用 _render_type_editor 标双特征)
-        if suggest_split:
-            notes_fin.append(
-                "💡 **建议主次拆分**:在下方「类型编辑器」勾选 "
-                f"主类型 = {CLASS_META[primary_fin][1]} {CLASS_META[primary_fin][0]} 70% "
-                "+ 次类型 = 🔄 周期型 30%(资本/利率周期),综合定位更准"
+                f"利润随利率/资本市场周期剧烈波动。"
             )
 
-        if primary_fin == "stalwart":
-            notes_fin.append("适合长期持有 — 关注 ROE 持续性 + 拨备覆盖率(银行)/ 内含价值(保险)")
-        else:
-            notes_fin.append("重点看股息率 + 不良/赔付率,而非成长")
-        notes_fin.append(CLASS_META[primary_fin][2])
         if special_tags:
             notes_fin.extend(special_tags)
 
-        # 给前端 UI 一个标志位,用于显示"金融周期警告 banner"
         return ClassificationResult(
-            cls_id=primary_fin,
-            cls_name=CLASS_META[primary_fin][0],
-            cls_emoji=CLASS_META[primary_fin][1],
-            confidence=conf_fin,
+            cls_id="not_applicable",
+            cls_name=CLASS_META["not_applicable"][0],
+            cls_emoji=CLASS_META["not_applicable"][1],
+            confidence=0.95,
             reason=reason_fin,
             key_metrics=km,
             notes=notes_fin,
@@ -712,13 +810,13 @@ def classify(m: dict[str, Any]) -> ClassificationResult:
                 "is_financial": True,
                 "industry_l2": industry_l2 or "",
                 "net_margin_cv": cv,
-                "suggest_split_secondary": "cyclical" if suggest_split else "",
-                "suggest_split_weight": 70 if suggest_split else 100,
                 "lynch_six_class_misfit": True,
+                "recommended_framework": framework,
+                "recommended_focus": focus,
             },
         )
 
-    if industry_l1 in CYCLICAL_INDUSTRIES:
+    if _is_cyclical_industry(m):
         # 周期型:行业属性主导,即便 CAGR 高也归周期(典型如汽车/化工)
         secondary = ""
         if cagr is not None and cagr >= 0.20:
@@ -727,6 +825,15 @@ def classify(m: dict[str, Any]) -> ClassificationResult:
             "判断买卖时点比挑公司更重要 — 看 PB / 库存 / 产能利用率",
             CLASS_META["cyclical"][2],
         ]
+        extra = {}
+        if cagr is not None and cagr >= 0.20:
+            notes.append("A 股校正:高景气周期行业需按“双特征”看,不要只按周期或只按成长。")
+            extra = {
+                "suggest_split_secondary": "fast_grower",
+                "suggest_split_weight": 65,
+                "a_share_adjusted": True,
+                "a_share_note": "周期型主 + 快速增长辅",
+            }
         if special_tags:
             notes.extend(special_tags)
         return ClassificationResult(
@@ -740,6 +847,7 @@ def classify(m: dict[str, Any]) -> ClassificationResult:
             ),
             key_metrics=km,
             notes=notes,
+            extra=extra,
         )
 
     # ═══ 步骤二之前:数据缺失兜底 ═══════════════════════════════
@@ -764,6 +872,10 @@ def classify(m: dict[str, Any]) -> ClassificationResult:
     # 知识库标准:CAGR < 10% / 10-20% / ≥ 20%(更优 ≥ 25-35%)
     # 但 P3 步骤二强调"先定性后定量"——CAGR 5-10% 边缘区如 ROE ≥ 15% + 财务稳健,
     # 仍可归稳健(消费/家电/白酒龙头典型);CAGR ≥ 10% 是更标准的稳健入场。
+    tech_mfg = _is_tech_manufacturing(m)
+    consumer_stalwart = _is_consumer_stalwart(m)
+    pharma_stalwart = _is_pharma_stalwart(m)
+
     if cagr >= 0.20:
         primary = "fast_grower"
         base_conf = 0.90 if cagr >= 0.25 else 0.80
@@ -771,20 +883,29 @@ def classify(m: dict[str, Any]) -> ClassificationResult:
             f"营收 {cagr_label} CAGR {_pct(cagr)} ≥ 20%(高速扩张区间)"
             + ("·达到 ≥ 25% 优级标准" if cagr >= 0.25 else "")
         )
+    elif tech_mfg and cagr >= 0.15:
+        primary = "fast_grower"
+        base_conf = 0.75
+        primary_reason = (
+            f"A 股科技/先进制造校正:营收 {cagr_label} CAGR {_pct(cagr)} 处 15-20% 高景气区,"
+            f"行业「{industry_l1}」常兼具成长与周期,先归快速增长型并提示周期辅因子"
+        )
     elif cagr >= 0.10:
         primary = "stalwart"
         base_conf = 0.85
         primary_reason = (
             f"营收 {cagr_label} CAGR {_pct(cagr)} 处 10-20% 稳健区间(可预测增长)"
         )
-    elif cagr >= 0.05 and roe is not None and roe >= 0.15:
+    elif cagr >= 0.05 and roe is not None and (roe >= 0.15 or (pharma_stalwart and roe >= 0.12)):
         # 边缘稳健:CAGR 5-10% + ROE ≥ 15% → 消费/家电/白酒龙头型
         # debt 高(如家电业 60%)在步骤二验证里加警告,不降级
         primary = "stalwart"
         base_conf = 0.75
         primary_reason = (
             f"营收 {cagr_label} CAGR {_pct(cagr)} 处 5-10% 边缘区,但 ROE {_pct(roe)} ≥ 15%"
-            f" → 边缘稳健型(消费/家电/白酒龙头特征,先定性后定量)"
+            f" → 边缘稳健型("
+            f"{'消费/家电/白酒龙头' if consumer_stalwart else '成熟医药/创新转型' if pharma_stalwart else '高 ROE 龙头'}"
+            f"特征,先定性后定量)"
         )
     else:
         primary = "slow_grower"
@@ -808,9 +929,17 @@ def classify(m: dict[str, Any]) -> ClassificationResult:
         and debt is not None and debt >= 0.40
         and roe is not None and roe < 0.15
     ):
-        warnings.append("→ 同时违反负债铁律 + ROE 不足,降级为稳健增长型(增速虽高但质量不达标)")
-        primary = "stalwart"
-        confidence = max(0.55, confidence - 0.10)
+        cfo_ni = m.get("cfo_to_ni")
+        if tech_mfg and debt < 0.75 and (cfo_ni is None or cfo_ni >= 0.7):
+            warnings.append(
+                "A 股科技制造校正:资产较重,负债率 40% 铁律放宽到 75%;"
+                "保留快速增长型,但必须跟踪现金流、存货和价格周期"
+            )
+            confidence = max(0.60, confidence - 0.08)
+        else:
+            warnings.append("→ 同时违反负债铁律 + ROE 不足,降级为稳健增长型(增速虽高但质量不达标)")
+            primary = "stalwart"
+            confidence = max(0.55, confidence - 0.10)
 
     # 稳健候选 ROE 严重不足(< 12%)→ 降级缓慢
     if (
@@ -831,9 +960,6 @@ def classify(m: dict[str, Any]) -> ClassificationResult:
             peg_note += (" — 估值合理(PEG<1)" if peg_lx_val < 1
                          else " — 估值偏高(PEG>2)" if peg_lx_val > 2
                          else " — 估值适中")
-        elif cagr > 0:
-            peg_fb = pe / (cagr * 100)
-            peg_note = f" · PEG ≈ {peg_fb:.2f}(营收CAGR兜底)"
 
     # 困境反转特殊处理:np 大幅下滑 + PB 低位 → 主分类升级为 turnaround
     severe_distress = (
@@ -879,6 +1005,16 @@ def classify(m: dict[str, Any]) -> ClassificationResult:
     if special_tags:
         notes.extend(special_tags)
 
+    extra = {}
+    if primary == "fast_grower" and tech_mfg:
+        extra = {
+            "suggest_split_secondary": "cyclical",
+            "suggest_split_weight": 70,
+            "a_share_adjusted": True,
+            "a_share_note": "科技/先进制造常有成长 + 景气周期双特征",
+        }
+        notes.append("A 股校正:科技/先进制造需同时看景气周期、客户集中、存货和价格战。")
+
     return ClassificationResult(
         cls_id=primary,
         cls_name=CLASS_META[primary][0],
@@ -887,6 +1023,7 @@ def classify(m: dict[str, Any]) -> ClassificationResult:
         reason=full_reason,
         key_metrics=km,
         notes=notes,
+        extra=extra,
     )
 
 
@@ -1065,6 +1202,7 @@ def quarterly_continuity(con, ticker: str, n_quarters: int = 8) -> QuarterlyCont
 
     if rows:
         df = pd.DataFrame(rows, columns=["date_str", "yoy"]).sort_values("date_str")
+        df["weight"] = 1
         return _build_continuity(df, source="direct")
 
     # ---- 路径 2:从累计营收派生单季 YoY ----
@@ -1090,22 +1228,39 @@ def quarterly_continuity(con, ticker: str, n_quarters: int = 8) -> QuarterlyCont
     rev["quarter"] = rev["date"].dt.month // 3  # 3→1 / 6→2 / 9→3 / 12→4
     rev = rev.sort_values(["year", "quarter"]).reset_index(drop=True)
 
-    # 单季还原:Q1 用累计;Q2/Q3/Q4 = 当期累计 - 上一季累计(同年内)
-    rev["prev_cum"] = rev.groupby("year")["cum_revenue"].shift(1)
-    rev["single_q"] = rev["cum_revenue"] - rev["prev_cum"].fillna(0)
+    # 把累计口径还原成"覆盖期"YoY:
+    # - 季报完整:Q4 - Q3 = 单季,权重 1
+    # - 半年报/年报:Q2 = H1,权重 2;Q4 - Q2 = H2,权重 2
+    # 这样港股半年报不会被当成 1 个季度,也不会把年报累计值误当单季。
+    cum_map = {
+        (int(row.year), int(row.quarter)): float(row.cum_revenue)
+        for row in rev.itertuples(index=False)
+        if pd.notna(row.cum_revenue)
+    }
+    periods: list[dict[str, Any]] = []
+    for row in rev.itertuples(index=False):
+        year, end_q = int(row.year), int(row.quarter)
+        prev_qs = sorted(q for (y, q) in cum_map if y == year and q < end_q)
+        start_q = (prev_qs[-1] + 1) if prev_qs else 1
+        before_q = start_q - 1
+        current_before = cum_map.get((year, before_q), 0.0) if before_q > 0 else 0.0
+        current_period = float(row.cum_revenue) - current_before
 
-    # YoY:同一 quarter 上一年单季对齐
-    rev["prev_year_single"] = rev.groupby("quarter")["single_q"].shift(1)
-    rev["yoy"] = (rev["single_q"] / rev["prev_year_single"] - 1).where(
-        rev["prev_year_single"].abs() > 1e-6
-    )
+        prev_end = cum_map.get((year - 1, end_q))
+        prev_before = cum_map.get((year - 1, before_q), 0.0) if before_q > 0 else 0.0
+        if prev_end is None or (before_q > 0 and (year - 1, before_q) not in cum_map):
+            continue
+        prev_period = prev_end - prev_before
+        if abs(prev_period) <= 1e-6:
+            continue
 
-    out = (
-        rev.dropna(subset=["yoy"])
-        .sort_values("date")
-        .tail(n_quarters)[["date_str", "yoy"]]
-        .reset_index(drop=True)
-    )
+        periods.append({
+            "date_str": row.date_str,
+            "yoy": current_period / prev_period - 1,
+            "weight": max(1, end_q - start_q + 1),
+        })
+
+    out = pd.DataFrame(periods).sort_values("date_str").tail(n_quarters).reset_index(drop=True)
     if out.empty:
         return empty
     return _build_continuity(out, source="derived")
@@ -1114,11 +1269,15 @@ def quarterly_continuity(con, ticker: str, n_quarters: int = 8) -> QuarterlyCont
 def _build_continuity(df: "pd.DataFrame", source: str) -> QuarterlyContinuity:
     """把 (date_str, yoy) 表转成 QuarterlyContinuity。"""
     series = [(str(r["date_str"])[:10], float(r["yoy"])) for _, r in df.iterrows()]
-    yoys = [y for _, y in series]
-    n = len(series)
-    hits_20 = sum(1 for y in yoys if y > 0.20)
-    hits_10 = sum(1 for y in yoys if y > 0.10)
-    hits_0 = sum(1 for y in yoys if y >= 0)
+    weighted = [
+        (float(r["yoy"]), int(r.get("weight", 1) or 1))
+        for _, r in df.iterrows()
+    ]
+    yoys = [y for y, _ in weighted]
+    n = sum(w for _, w in weighted)
+    hits_20 = sum(w for y, w in weighted if y > 0.20)
+    hits_10 = sum(w for y, w in weighted if y > 0.10)
+    hits_0 = sum(w for y, w in weighted if y >= 0)
     latest = yoys[-1] if yoys else None
     median = float(pd.Series(yoys).median()) if yoys else None
     return QuarterlyContinuity(
@@ -1321,6 +1480,68 @@ def _dividend_continuous_years(con, ticker: str) -> int | None:
     return cnt
 
 
+def _cash_to_market_cap_guarded(con, ticker: str, category: str | None) -> dict[str, Any]:
+    """受保护的现金/市值口径。
+
+    只对 A 股非金融启用。当前理杏仁 q.bs.mc.t 数据存在"货币资金 > 资产合计"
+    的异常样本,因此这里先做质量闸门,避免误触发 asset_play。
+    """
+    out: dict[str, Any] = {
+        "cash_to_market_cap": None,
+        "cash_to_market_cap_raw": None,
+        "cash_to_market_cap_source": None,
+        "cash_to_market_cap_warning": None,
+    }
+    if category and category != "non_financial":
+        out["cash_to_market_cap_warning"] = "金融/港股不使用通用现金/市值口径"
+        return out
+
+    def latest(table: str, metric: str) -> tuple[float | None, str | None]:
+        try:
+            row = con.execute(
+                f"SELECT value, date FROM {table} "
+                "WHERE ticker = ? AND metric = ? AND value IS NOT NULL "
+                "ORDER BY date DESC LIMIT 1",
+                [ticker, metric],
+            ).fetchone()
+        except Exception:
+            row = None
+        if not row or row[0] is None:
+            return None, None
+        return float(row[0]), str(row[1])
+
+    cash, cash_date = latest("safety", "货币资金")
+    assets, assets_date = latest("safety", "资产合计")
+    mcap, mcap_date = latest("valuation", "市值(元)")
+
+    if cash is None:
+        out["cash_to_market_cap_warning"] = "缺货币资金"
+        return out
+    if mcap is None or mcap <= 0:
+        out["cash_to_market_cap_warning"] = "缺市值(元)"
+        return out
+
+    raw = cash / mcap
+    out["cash_to_market_cap_raw"] = raw
+    out["cash_to_market_cap_source"] = (
+        f"货币资金:{cash_date or '—'} / 市值:{mcap_date or '—'}"
+    )
+    if assets is not None and cash > assets:
+        out["cash_to_market_cap_warning"] = (
+            f"货币资金大于资产合计,已忽略现金/市值"
+            f"(现金日:{cash_date or '—'},资产日:{assets_date or '—'})"
+        )
+        return out
+    if raw > 0.80:
+        out["cash_to_market_cap_warning"] = (
+            f"现金/市值原始值 {raw*100:.1f}% 过高,待确认单位/口径后再用于林奇资产隐蔽评分"
+        )
+        return out
+
+    out["cash_to_market_cap"] = raw
+    return out
+
+
 def _load_metrics_uncached(ticker: str, db_path: Path | str = DB_PATH,
                         industry_csv: Path | str = COMPANIES_CSV) -> dict[str, Any]:
     """从 DuckDB + companies.csv 装配单家公司的彼得林奇判断输入。"""
@@ -1395,8 +1616,8 @@ def _load_metrics_uncached(ticker: str, db_path: Path | str = DB_PATH,
         m["rev_cagr_3y"] = _rev_cagr(con, ticker, 3)
         m["pe_pct_10y"] = _pe_pct_10y(con, ticker)
 
-        # cash_to_market_cap 简化:暂无可靠数据来源,先 None
-        m["cash_to_market_cap"] = None
+        # 现金/市值只作为受保护的资产隐蔽线索:异常现金数据不参与评分。
+        m.update(_cash_to_market_cap_guarded(con, ticker, m.get("category")))
     finally:
         con.close()
 

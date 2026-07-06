@@ -23,6 +23,57 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+
+TECH_MANUFACTURING_KEYWORDS = (
+    "电子", "消费电子", "半导体", "元件", "光学光电子",
+    "通信", "通信设备", "计算机", "电力设备", "电池",
+    "新能源", "光伏", "自动化设备", "机器人", "工业自动化",
+)
+
+
+def _is_tech_manufacturing(m: dict[str, Any]) -> bool:
+    text = " ".join(str(m.get(k) or "") for k in ("industry_sw_l1", "industry_sw_l2", "industry", "name"))
+    return any(k in text for k in TECH_MANUFACTURING_KEYWORDS)
+
+
+def _limited_sample_continuity_score(
+    *,
+    n: int,
+    hits: int,
+    latest_yoy: float | None,
+    threshold_label: str,
+    strong_threshold: float,
+    fallback_hits: int | None = None,
+    fallback_label: str = "",
+) -> tuple[int, str]:
+    """样本不足时按实际命中率打临时分,但最高不超过 10/15。"""
+    latest_pct = (latest_yoy or 0) * 100
+    hit_ratio = hits / max(n, 1)
+    fallback_ratio = (fallback_hits or 0) / max(n, 1)
+
+    if hits == n and latest_yoy is not None and latest_yoy >= strong_threshold:
+        score = 10
+        verdict = "已有样本全部达标"
+    elif hit_ratio >= 0.50:
+        score = 8
+        verdict = "已有样本多数达标"
+    elif fallback_hits is not None and fallback_ratio >= 0.50:
+        score = 6
+        verdict = f"未达{threshold_label},但多数达到{fallback_label}"
+    elif latest_yoy is not None and latest_yoy > 0:
+        score = 4
+        verdict = "样本偏弱但最新仍为正"
+    else:
+        score = 2
+        verdict = "已有样本不足且增长偏弱"
+
+    return score, (
+        f"有效单季 YoY 仅 {n}/8 个,样本不足;"
+        f"{hits}/{n} {threshold_label},{verdict};最新 {latest_pct:+.1f}%。"
+        "临时分最高 10/15,不按 8 季铁律判定通过或失败"
+    )
+
+
 # ───── 数据结构 ──────────────────────────────────────────────────────────
 
 
@@ -191,7 +242,15 @@ def _stalwart_company(m: dict, manual: dict) -> tuple[list[ScoreItem], list[Adju
     if qc is not None and qc.n_quarters > 0:
         n, h10 = qc.n_quarters, qc.hits_10pct
         latest_pct = (qc.latest_yoy or 0) * 100
-        if h10 >= 6:
+        if n < 6:
+            sc, lab = _limited_sample_continuity_score(
+                n=n,
+                hits=h10,
+                latest_yoy=qc.latest_yoy,
+                threshold_label=">10%",
+                strong_threshold=0.10,
+            )
+        elif h10 >= 6:
             sc, lab = 15, f"近 {n} 季 {h10}/{n} >10%(稳健铁律达标);最新 {latest_pct:+.1f}%"
         elif h10 >= 4:
             sc, lab = 10, f"近 {n} 季 {h10}/{n} >10%(部分达标);最新 {latest_pct:+.1f}%"
@@ -412,13 +471,7 @@ def _stalwart_price(m: dict, manual: dict) -> tuple[list[ScoreItem], list[Adjust
     # 1.1 PEG 估值(35)
     peg = m.get("peg_lixinger")
     if peg is None:
-        # 退化:用 PE / 5y CAGR
-        pe = m.get("pe_ttm")
-        cagr = m.get("rev_cagr_5y")
-        if pe and cagr and cagr > 0:
-            peg = pe / (cagr * 100)
-    if peg is None:
-        items.append(_missing("peg", "PEG 估值", 35, "PE-TTM 或 CAGR"))
+        items.append(_missing("peg", "PEG 估值", 35, "理杏仁 PEG"))
     else:
         if peg <= 0.8:
             sc, lab = 35, f"PEG {peg:.2f} ≤ 0.8(高度低估)"
@@ -551,10 +604,6 @@ def _stalwart_price_adjusts(m: dict, manual: dict) -> list[AdjustItem]:
         # PEG > 1.5 自动判断
         if key == "peg_high":
             peg = m.get("peg_lixinger")
-            if peg is None:
-                pe = m.get("pe_ttm"); cagr = m.get("rev_cagr_5y")
-                if pe and cagr and cagr > 0:
-                    peg = pe / (cagr * 100)
             triggered = (peg or 0) > 1.5
             out.append(AdjustItem(key, label, delta if triggered else 0,
                                     triggered, polarity,
@@ -598,7 +647,17 @@ def _fast_company(m: dict, manual: dict) -> tuple[list[ScoreItem], list[AdjustIt
     if qc is not None and qc.n_quarters > 0:
         n, h20, h10 = qc.n_quarters, qc.hits_20pct, qc.hits_10pct
         latest_pct = (qc.latest_yoy or 0) * 100
-        if h20 >= 6:
+        if n < 6:
+            sc, lab = _limited_sample_continuity_score(
+                n=n,
+                hits=h20,
+                latest_yoy=qc.latest_yoy,
+                threshold_label=">20%",
+                strong_threshold=0.20,
+                fallback_hits=h10,
+                fallback_label=">10%",
+            )
+        elif h20 >= 6:
             sc, lab = 15, f"近 {n} 季 {h20}/{n} >20%(快速铁律达标);最新 {latest_pct:+.1f}%"
         elif h20 >= 4:
             sc, lab = 10, f"近 {n} 季 {h20}/{n} >20%(快速边缘);最新 {latest_pct:+.1f}%"
@@ -703,20 +762,30 @@ def _fast_company(m: dict, manual: dict) -> tuple[list[ScoreItem], list[AdjustIt
                                 raw_value=score))
 
     # 3. 财务安全(20)
-    # 3.1 资产负债率(10) — 林奇铁律 < 40%
+    # 3.1 资产负债率(10) — 普通快速成长 <40%;A 股科技制造按资产较重口径放宽。
     debt = m.get("debt_ratio")
     if debt is None:
         items.append(_missing("debt_ratio", "资产负债率", 10, "debt"))
     else:
         pct = debt * 100 if debt < 1 else debt
-        if pct < 30:
-            sc, lab = 10, f"{pct:.1f}% < 30%(优秀)"
-        elif pct < 40:
-            sc, lab = 7, f"{pct:.1f}% < 40%(林奇铁律)"
-        elif pct < 50:
-            sc, lab = 4, f"{pct:.1f}% 偏高"
+        if _is_tech_manufacturing(m):
+            if pct < 50:
+                sc, lab = 10, f"{pct:.1f}% < 50%(科技制造优秀)"
+            elif pct < 65:
+                sc, lab = 7, f"{pct:.1f}% < 65%(科技制造可接受)"
+            elif pct < 70:
+                sc, lab = 5, f"{pct:.1f}% 接近科技制造上限"
+            else:
+                sc, lab = 0, f"{pct:.1f}% ≥ 70%(科技制造扩张风险)"
         else:
-            sc, lab = 0, f"{pct:.1f}% > 50%(高度风险)"
+            if pct < 30:
+                sc, lab = 10, f"{pct:.1f}% < 30%(优秀)"
+            elif pct < 40:
+                sc, lab = 7, f"{pct:.1f}% < 40%(林奇铁律)"
+            elif pct < 50:
+                sc, lab = 4, f"{pct:.1f}% 偏高"
+            else:
+                sc, lab = 0, f"{pct:.1f}% > 50%(高度风险)"
         items.append(ScoreItem("debt_ratio", "资产负债率", sc, 10,
                                 "auto", lab, raw_value=pct))
 
@@ -770,12 +839,7 @@ def _fast_price(m: dict, manual: dict) -> tuple[list[ScoreItem], list[AdjustItem
     # 1.1 PEG(45)— 快速类容忍度更高
     peg = m.get("peg_lixinger")
     if peg is None:
-        pe = m.get("pe_ttm")
-        cagr = m.get("rev_cagr_3y") or m.get("rev_cagr_5y")
-        if pe and cagr and cagr > 0:
-            peg = pe / (cagr * 100)
-    if peg is None:
-        items.append(_missing("peg", "PEG 估值", 45, "PE / CAGR"))
+        items.append(_missing("peg", "PEG 估值", 45, "理杏仁 PEG"))
     else:
         if peg <= 1.0:
             sc, lab = 45, f"PEG {peg:.2f} ≤ 1.0(甜蜜区)"

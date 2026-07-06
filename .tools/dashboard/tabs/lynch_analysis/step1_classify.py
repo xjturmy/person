@@ -4,6 +4,7 @@ from __future__ import annotations
 import sys
 from datetime import date as _date_cls
 from datetime import timedelta
+from html import escape
 from pathlib import Path
 from typing import Any
 
@@ -116,10 +117,10 @@ def _step_1_classification(ticker: str, cls: ClassificationResult, m: dict,
                 sec_styler = sdf.style.map(_style_status, subset=["状态"])
                 st.dataframe(sec_styler, width="stretch", hide_index=True)
 
-    # ─── 📝 故事脚本(自动派生 + 用户编辑)─────────────────────────────
+    # ─── 📝 故事要点(只读 Top3)──────────────────────────────────────
     st.divider()
-    st.markdown("#### 📝 故事脚本(自动从财报派生,可编辑)")
-    st.caption("林奇:'如果你不能用三句话讲清楚为什么买它,就别买。' 下面三段先由系统从财报自动总结,你再编辑。")
+    st.markdown("#### 📝 故事要点")
+    st.caption("只保留最重要的 3 条:为什么看、现在靠什么支撑、什么情况说明看错。")
 
     industry = m.get("industry_sw_l1", "") or ""
     auto_story = derive_story(m, cls, cls_id_used, industry=industry)
@@ -142,58 +143,63 @@ def _step_1_classification(ticker: str, cls: ClassificationResult, m: dict,
                 + "\n".join(sec_signals)
             )
 
-    # 持久化:首次进或切换公司/类型 → 重置为 auto;若用户编辑过,保留编辑
+    # 持久化给后续“故事更新/综合结论”使用;页面这里只做只读摘要。
     story_key = f"lynch_story_{ticker}"
     story_meta_key = f"lynch_story_meta_{ticker}"  # 记录用了哪个 cls_id_used
     last_meta = st.session_state.get(story_meta_key)
     cur_meta = (cls_id_used, secondary, weight, _fmt_num(m.get("rev_cagr_5y"), 3))
 
-    # 类型变了 → 重新生成
     if last_meta != cur_meta:
         st.session_state[story_key] = dict(auto_story)
         st.session_state[story_meta_key] = cur_meta
 
-    story = st.session_state.get(story_key, dict(auto_story))
+    story = dict(auto_story)
+    st.session_state[story_key] = story
 
-    # 顶部:并排显示"自动派生 vs 当前编辑"
-    btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 2])
-    with btn_col1:
-        if st.button("🤖 重新自动生成", key=f"{story_key}_regen",
-                     help="覆盖当前编辑,用财报数据重新生成 3 段"):
-            st.session_state[story_key] = dict(auto_story)
-            st.rerun()
-    with btn_col2:
-        edited_flag = (story != auto_story)
-        if edited_flag:
-            st.caption("✏️ 已编辑(与自动派生不同)")
-        else:
-            st.caption("🤖 自动派生(未编辑)")
+    def _useful_lines(raw: str, *, fallback: str, limit: int = 3) -> list[str]:
+        out: list[str] = []
+        for line in str(raw or "").splitlines():
+            text = line.strip().lstrip("•- ").strip()
+            if not text or text.endswith(":") or text.endswith("："):
+                continue
+            out.append(text)
+            if len(out) >= limit:
+                break
+        return out or [fallback]
 
-    s1 = st.text_input(
-        "🎯 故事一句话",
-        value=story.get("oneline", ""),
-        key=f"{story_key}_oneline",
+    supports = _useful_lines(
+        story.get("evidence", ""),
+        fallback="当前财报证据不足,先看下一期收入、利润和现金流是否继续验证。",
+    )
+    risks = _useful_lines(
+        story.get("not_happen", ""),
+        fallback="若核心增长或现金流连续转弱,说明原始故事需要重审。",
+    )
+    support_html = "".join(
+        f"<li style='margin:4px 0;line-height:1.45;'>{escape(x)}</li>"
+        for x in supports[:3]
+    )
+    risk_html = "".join(
+        f"<li style='margin:4px 0;line-height:1.45;'>{escape(x)}</li>"
+        for x in risks[:3]
     )
 
-    # 验证证据 — 逐条预览 + 行内编辑 + 增删按钮
-    s2 = _editable_list(
-        label="✅ 验证证据(从财报数据派生,可补充行业/管理层信号)",
-        key_base=f"{story_key}_evidence",
-        raw_value=story.get("evidence", ""),
-        placeholder="如:营收 5y CAGR 18%(高速扩张,远超 GDP)",
-        hint="每行 1 条;点 ✕ 删除,点 ➕ 添加",
+    st.markdown(
+        f"""
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:8px;">
+          <div style="border:1px solid #E5E7EB;border-radius:8px;padding:12px;background:#FFFFFF;">
+            <div style="font-size:12px;color:#6B7280;font-weight:760;">① 为什么看</div>
+            <div style="font-size:15px;color:#111827;font-weight:760;line-height:1.55;margin-top:5px;">{escape(str(story.get("oneline", "—")))}</div>
+          </div>
+          <div style="border:1px solid #DCFCE7;border-radius:8px;padding:12px;background:#F0FDF4;">
+            <div style="font-size:12px;color:#15803D;font-weight:760;">② 最关键支撑 Top3</div>
+            <ol style="font-size:14px;color:#111827;font-weight:720;padding-left:18px;margin:6px 0 0 0;">{support_html}</ol>
+          </div>
+          <div style="border:1px solid #FEE2E2;border-radius:8px;padding:12px;background:#FEF2F2;">
+            <div style="font-size:12px;color:#B91C1C;font-weight:760;">③ 看错/卖出信号 Top3</div>
+            <ol style="font-size:14px;color:#111827;font-weight:720;padding-left:18px;margin:6px 0 0 0;">{risk_html}</ol>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
-
-    # 不会发生的事 / 卖出信号 — 同上
-    s3 = _editable_list(
-        label="❌ 不会发生的事 / 卖出信号",
-        key_base=f"{story_key}_not_happen",
-        raw_value=story.get("not_happen", ""),
-        placeholder="如:连续 2 季营收 YoY < 20% — 增长断档",
-        hint="每行 1 条;点 ✕ 删除,点 ➕ 添加",
-    )
-
-    st.session_state[story_key] = {
-        "oneline": s1, "evidence": s2, "not_happen": s3,
-    }
-

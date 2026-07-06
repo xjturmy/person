@@ -41,6 +41,12 @@ def render() -> None:
     with head_mid:
         if score is not None:
             st.plotly_chart(render_radar(score, height=280), width="stretch")
+            st.markdown(
+                '<div style="margin-top:-8px;font-size:11px;color:#9CA3AF;">'
+                '六维:估值 / 盈利 / 成长 / 现金流 / 安全 / 策略'
+                '</div>',
+                unsafe_allow_html=True,
+            )
         else:
             st.info("无法生成雪花图")
 

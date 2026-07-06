@@ -42,7 +42,11 @@ from .summary import _step_6_summary
 def _method_hint(m: dict, cls: ClassificationResult) -> tuple[bool, str, str, str]:
     industry = f"{m.get('industry_sw_l1') or ''} {m.get('industry_sw_l2') or ''}"
     category = (m.get("category") or "").lower()
-    if cls.extra.get("lynch_six_class_misfit"):
+    if cls.cls_id == "not_applicable" or cls.extra.get("lynch_six_class_misfit"):
+        framework = cls.extra.get("recommended_framework")
+        focus = cls.extra.get("recommended_focus")
+        if framework and focus:
+            return True, framework, cls.reason, focus
         if "保险" in industry or category == "insurance":
             return True, "保险价值修复法", "保险不是典型林奇成长股,PEG/负债率护栏容易误导。", "低 PB/PEV + EV/NBV 修复 + 偿付能力 + 投资收益率 + 股息回报"
         if "银行" in industry or category == "bank":

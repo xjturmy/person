@@ -28,6 +28,7 @@ import ui.score_card as sc  # noqa: E402
 DB_PATH = ROOT / "data" / "preson.duckdb"
 PEERS_DB_PATH = ROOT / "data" / "peers.duckdb"
 PEERS_CSV = ROOT / ".config" / "peers.csv"
+PEER_OVERRIDES_CSV = ROOT / ".config" / "peer_overrides.csv"
 COMPANIES_CSV = ROOT / ".config" / "companies.csv"
 
 DIM_ORDER = ["valuation", "profitability", "growth", "cashflow", "safety", "strategies"]
@@ -78,6 +79,37 @@ def _read_peer_rows_from_csv(ticker: str, max_n: int) -> list[dict]:
     return out
 
 
+def _read_peer_rows_from_override(ticker: str, max_n: int) -> list[dict]:
+    """读取人工指定的主题同行。
+
+    用于三花智控这类“买入逻辑来自主题 ETF，而不是传统申万细分行业”的公司。
+    这类覆盖只改变同行比较口径，不改变公司自身行业或估值/财务数据。
+    """
+    if not PEER_OVERRIDES_CSV.exists():
+        return []
+    out: list[dict] = []
+    with PEER_OVERRIDES_CSV.open("r", encoding="utf-8-sig", newline="") as f:
+        for row in csv.DictReader(f):
+            if _norm_ticker(row.get("ticker", "")) != _norm_ticker(ticker):
+                continue
+            peer_ticker = _norm_ticker(row.get("peer_ticker", ""))
+            if not peer_ticker:
+                continue
+            out.append({
+                "ticker": _norm_ticker(ticker),
+                "name": row.get("name", ""),
+                "industry_em": row.get("peer_group", "") or "主题同行",
+                "rank": row.get("rank") or len(out) + 1,
+                "peer_ticker": peer_ticker,
+                "peer_name": row.get("peer_name", "") or peer_ticker,
+                "note": row.get("note", ""),
+                "_source": "peer_overrides.csv",
+            })
+            if len(out) >= max_n:
+                break
+    return out
+
+
 def _companies_rows() -> list[dict]:
     if not COMPANIES_CSV.exists():
         return []
@@ -118,6 +150,9 @@ def peer_pool_rows(ticker: str, db_path: Path = DB_PATH, max_n: int = 5) -> list
     """返回严格同细分行业的同行明细;不再按 non_financial 等宽分类兜底。"""
     if not ticker:
         return []
+    rows = _read_peer_rows_from_override(ticker, max_n)
+    if rows:
+        return rows
     rows = _read_peer_rows_from_db(ticker, max_n)
     if rows:
         return rows
@@ -142,7 +177,11 @@ def peer_group_label(ticker: str, max_n: int = 5) -> str:
     if not rows:
         return "暂无同细分行业同行"
     industry = str(rows[0].get("industry_em") or "").strip()
-    industry_label = f"同细分行业「{industry}」" if industry else "同细分行业"
+    source = str(rows[0].get("_source") or "").strip()
+    if source == "peer_overrides.csv":
+        industry_label = f"主题同行「{industry}」" if industry else "主题同行"
+    else:
+        industry_label = f"同细分行业「{industry}」" if industry else "同细分行业"
     names = "、".join(str(r.get("peer_name") or r.get("peer_ticker")) for r in rows if r.get("peer_ticker"))
     return f"{industry_label}同行({len(rows)}家):{names}"
 

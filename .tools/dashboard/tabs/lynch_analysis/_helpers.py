@@ -425,8 +425,8 @@ def derive_key_indicators(m: dict, cls_id: str) -> list[dict]:
             status = "✅" if debt <= 0.40 else ("🟡" if debt <= 0.50 else "🔴")
             _row("资产负债率", _fmt_pct(debt), "< 40%(林奇铁律)", status,
                  "内生增长" if debt <= 0.40 else "边缘" if debt <= 0.50 else "加杠杆撑场")
-        if pe and rev_3y and rev_3y > 0:
-            peg = pe / (rev_3y * 100)
+        peg = m.get("peg_lixinger")
+        if peg is not None:
             status = "✅" if peg < 1.0 else ("🟡" if peg < 1.5 else "🔴")
             _row("PEG", _fmt_num(peg, 2), "< 1.5(快速放宽)", status,
                  "便宜" if peg < 1 else "合理" if peg < 1.5 else "贵")
@@ -442,8 +442,8 @@ def derive_key_indicators(m: dict, cls_id: str) -> list[dict]:
             _row("营收 5y CAGR", _fmt_pct(rev_5y), "10-20%", status,
                  "稳健成长" if 0.10 <= rev_5y <= 0.20 else "偏快(留意降速)" if rev_5y > 0.20
                  else "偏慢")
-        if pe and rev_3y and rev_3y > 0:
-            peg = pe / (rev_3y * 100)
+        peg = m.get("peg_lixinger")
+        if peg is not None:
             status = "✅" if peg <= 1.0 else ("🟡" if peg <= 1.3 else "🔴")
             _row("PEG", _fmt_num(peg, 2), "≤ 1.0(稳健核心)", status,
                  "理想" if peg <= 1 else "略贵" if peg <= 1.3 else "估值透支")

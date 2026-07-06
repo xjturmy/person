@@ -167,8 +167,8 @@ def _step_2_growth_check(ticker: str, m: dict, cls_id_used: str) -> None:
         # 命中数 + 类型铁律达标判断 + 退化提示
         n, h20, h10 = qc.n_quarters, qc.hits_20pct, qc.hits_10pct
         c_a, c_b, c_c, c_d = st.columns(4)
-        c_a.metric("8 季中 >20% 命中", f"{h20}/{n}")
-        c_b.metric("8 季中 >10% 命中", f"{h10}/{n}")
+        c_a.metric("有效季度 >20% 命中", f"{h20}/{n}")
+        c_b.metric("有效季度 >10% 命中", f"{h10}/{n}")
         if qc.median_yoy is not None:
             c_c.metric("中位 YoY", f"{qc.median_yoy*100:+.1f}%")
         if qc.latest_yoy is not None:
@@ -176,7 +176,13 @@ def _step_2_growth_check(ticker: str, m: dict, cls_id_used: str) -> None:
             c_d.metric("最新季 YoY", f"{qc.latest_yoy*100:+.1f}%",
                        delta_color=delta_color)
 
-        if cls_id_used == "fast_grower":
+        if n < 6:
+            st.info(
+                f"ℹ️ 季度连续性样本不足 — 当前只有 {n}/8 个有效单季 YoY。"
+                "上市时间短或只披露半年报/年报时,不能据此判定增长属性丧失;请优先看年度 CAGR、PEG 和最新财报。",
+                icon="ℹ️",
+            )
+        elif cls_id_used == "fast_grower":
             if qc.fast_grower_pass():
                 st.success(f"✅ 快速增长铁律达标 — 近 {n} 季 {h20}/{n} >20%(≥6/8)", icon="✅")
             elif h10 >= 6:
@@ -213,7 +219,7 @@ def _step_2_growth_check(ticker: str, m: dict, cls_id_used: str) -> None:
 
         if qc.source == "derived":
             st.caption("📐 数据派生口径:营业收入累计 → 单季还原(Q1=累计;Q2/Q3/Q4=当期-上期);"
-                       "YoY = 单季今年 / 单季去年同期 - 1")
+                       "YoY = 单季今年 / 单季去年同期 - 1。若缺上一季累计值,该期不参与判断。")
 
     # 层 3:增长来源(简化版,行业适配)
     st.markdown("**层 3:增长来源(质量)**")
@@ -234,4 +240,3 @@ def _step_2_growth_check(ticker: str, m: dict, cls_id_used: str) -> None:
         st.warning(f"⚠️ 营收 5y CAGR {rev_5y*100:.1f}% 未达 {threshold_label}", icon="⚠️")
     else:
         st.info("ℹ️ 数据不足,建议人工确认")
-

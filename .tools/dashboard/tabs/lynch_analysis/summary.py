@@ -4,6 +4,7 @@ from __future__ import annotations
 import sys
 from datetime import date as _date_cls
 from datetime import timedelta
+from html import escape
 from pathlib import Path
 from typing import Any
 
@@ -11,11 +12,13 @@ import duckdb
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+import yaml
 
 ROOT = Path(__file__).resolve().parents[4]
 DASHBOARD_DIR = ROOT / ".tools" / "dashboard"
 DB_PATH = ROOT / "data" / "preson.duckdb"
 COMPANIES_DIR = ROOT / "02_companies"
+LYNCH_THESIS_PATH = ROOT / ".config" / "lynch_thesis.yaml"
 
 if str(DASHBOARD_DIR) not in sys.path:
     sys.path.insert(0, str(DASHBOARD_DIR))
@@ -39,6 +42,188 @@ from ._helpers import (
     _render_type_editor, _editable_list,
 )
 from .step6_abcd import _render_lynch_price_zones
+
+
+def _norm_ticker(ticker: str) -> str:
+    s = str(ticker or "").strip()
+    if s.isdigit() and len(s) <= 4:
+        return s.zfill(6)
+    return s
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def _load_lynch_thesis() -> dict[str, dict[str, Any]]:
+    if not LYNCH_THESIS_PATH.exists():
+        return {}
+    data = yaml.safe_load(LYNCH_THESIS_PATH.read_text(encoding="utf-8")) or {}
+    return {_norm_ticker(k): v for k, v in data.items() if isinstance(v, dict)}
+
+
+def _metric_value(m: dict, key: str):
+    return m.get(key)
+
+
+def _format_rule_value(key: str, value) -> str:
+    if value is None:
+        return "—"
+    if key in {"roe", "debt_ratio", "dividend_yield", "rev_cagr_3y", "rev_cagr_5y", "pe_pct_10y"}:
+        return _fmt_pct(value)
+    if key == "cfo_to_ni":
+        return _fmt_num(value, 2)
+    if key == "peg_lixinger":
+        return _fmt_num(value, 2)
+    return str(value)
+
+
+def _eval_rule(current, op: str, target) -> bool | None:
+    if current is None or target is None:
+        return None
+    try:
+        cur = float(current)
+        tgt = float(target)
+    except (TypeError, ValueError):
+        return None
+    if op == ">=":
+        return cur >= tgt
+    if op == ">":
+        return cur > tgt
+    if op == "<=":
+        return cur <= tgt
+    if op == "<":
+        return cur < tgt
+    return None
+
+
+def _action_from_thesis(pass_n: int, warn_n: int, fail_n: int, default_bias: str) -> tuple[str, str, str]:
+    if fail_n >= 2:
+        return "🔴 需要重审", "#DC2626", "买入假设已有多处不匹配,先暂停加仓并复核原始逻辑。"
+    if fail_n == 1:
+        return "🟠 持有观察", "#EA580C", "有一个关键条件没有满足,可以持有但不宜主动加仓。"
+    if pass_n >= 3:
+        return "🟢 逻辑仍成立", "#16A34A", default_bias or "买入假设仍成立,按价格区间决定是否加仓。"
+    if warn_n >= 2:
+        return "🟡 证据不足", "#CA8A04", "数据支持不够完整,更适合观察,等待下一份财报验证。"
+    return "🟡 继续观察", "#CA8A04", default_bias or "维持观察,等更多证据。"
+
+
+def _render_lynch_thesis_review(ticker: str, cls_id_used: str, m: dict) -> None:
+    cfg = _load_lynch_thesis().get(_norm_ticker(ticker))
+    if not cfg:
+        st.info("这家公司还没有录入“林奇投资假设复核表”。")
+        return
+
+    expected_type = str(cfg.get("lynch_type") or "").strip()
+    acceptable_types = {str(x).strip() for x in (cfg.get("acceptable_types") or []) if str(x).strip()}
+    if expected_type:
+        acceptable_types.add(expected_type)
+    expected_label = CLASS_META.get(expected_type, ("", expected_type))[0] if expected_type else "—"
+    actual_label = CLASS_META.get(cls_id_used, ("", cls_id_used))[0]
+    type_ok = (not acceptable_types) or cls_id_used in acceptable_types
+
+    rule_rows: list[dict[str, str]] = []
+    pass_n = warn_n = fail_n = 0
+    supports: list[str] = []
+    objections: list[str] = []
+    for rule in cfg.get("auto_rules") or []:
+        key = str(rule.get("metric") or "")
+        cur = _metric_value(m, key)
+        ok = _eval_rule(cur, str(rule.get("op") or ""), rule.get("value"))
+        if ok is True:
+            status = "✅"
+            pass_n += 1
+            supports.append(str(rule.get("pass") or rule.get("label") or key))
+        elif ok is False:
+            status = "🔴"
+            fail_n += 1
+            objections.append(str(rule.get("fail") or rule.get("label") or key))
+        else:
+            status = "⚪"
+            warn_n += 1
+            objections.append(f"{rule.get('label') or key} 数据不足,等待下一次财报/数据刷新。")
+        target = f"{rule.get('op', '')} {_format_rule_value(key, rule.get('value'))}".strip()
+        rule_rows.append({
+            "指标": str(rule.get("label") or key),
+            "当前": _format_rule_value(key, cur),
+            "要求": target,
+            "状态": status,
+        })
+
+    if type_ok:
+        if expected_type == cls_id_used:
+            supports.insert(0, f"采用类型与假设一致:{expected_label or actual_label}。")
+        else:
+            supports.insert(0, f"当前类型「{actual_label}」在该假设允许范围内。")
+    else:
+        objections.insert(0, f"当前采用类型是「{actual_label}」,与原始假设「{expected_label}」不一致。")
+        fail_n += 1
+
+    action, color, action_note = _action_from_thesis(
+        pass_n=pass_n, warn_n=warn_n, fail_n=fail_n,
+        default_bias=str(cfg.get("operation_bias") or ""),
+    )
+
+    st.markdown("### 🧭 投资假设复核")
+    st.caption("这部分只回答:当初为什么买/持有,现在证据还支不支持。")
+    st.markdown(
+        f'<div style="border:1px solid #E5E7EB;border-left:4px solid {color};border-radius:8px;'
+        f'padding:14px 15px;background:#FFFFFF;margin:8px 0 12px;">'
+        f'<div style="display:flex;justify-content:space-between;gap:14px;align-items:flex-start;">'
+        f'<div>'
+        f'<div style="font-size:12px;color:#6B7280;font-weight:700;">当前操作判断</div>'
+        f'<div style="font-size:24px;font-weight:850;color:{color};margin-top:3px;">{escape(action)}</div>'
+        f'<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:6px;">{escape(action_note)}</div>'
+        f'</div>'
+        f'<div style="font-size:12px;color:#6B7280;text-align:right;min-width:160px;">'
+        f'假设类型:{escape(expected_label or "—")}<br>当前类型:{escape(actual_label)}<br>'
+        f'支持 {pass_n} · 反对 {fail_n} · 缺数据 {warn_n}'
+        f'</div>'
+        f'</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    c1, c2 = st.columns([1.05, 1.0], gap="medium")
+    with c1:
+        st.markdown("**原始买入/持有逻辑**")
+        st.markdown(f"- **核心假设**:{cfg.get('thesis', '—')}")
+        st.markdown(f"- **买入理由**:{cfg.get('buy_reason', '—')}")
+        st.markdown(f"- **方法备注**:{cfg.get('method_note', '—')}")
+        st.markdown(f"- **下次复核**:{cfg.get('next_review', '—')}")
+    with c2:
+        st.markdown("**当前证据怎么说**")
+        if supports:
+            st.markdown("支持:")
+            for item in supports[:4]:
+                st.markdown(f"- ✅ {item}")
+        if objections:
+            st.markdown("需要留意:")
+            for item in objections[:4]:
+                st.markdown(f"- ⚠️ {item}")
+
+    if rule_rows:
+        df = pd.DataFrame(rule_rows)
+
+        def _style_rule_state(v):
+            if v == "✅": return "background-color:#d4edda; font-weight:700"
+            if v == "🔴": return "background-color:#f8d7da; font-weight:700"
+            return "background-color:#f3f4f6"
+
+        st.dataframe(df.style.map(_style_rule_state, subset=["状态"]), hide_index=True, width="stretch")
+
+    with st.expander("查看完整持有条件 / 风险信号", expanded=False):
+        c3, c4, c5 = st.columns(3)
+        with c3:
+            st.markdown("**必须继续成立**")
+            for item in cfg.get("must_hold") or []:
+                st.markdown(f"- {item}")
+        with c4:
+            st.markdown("**重点观察**")
+            for item in cfg.get("watch") or []:
+                st.markdown(f"- {item}")
+        with c5:
+            st.markdown("**失效信号**")
+            for item in cfg.get("fail_signals") or []:
+                st.markdown(f"- {item}")
 
 
 def _step_6_summary(ticker: str, folder: str, cls: ClassificationResult,
@@ -87,11 +272,9 @@ def _step_6_summary(ticker: str, folder: str, cls: ClassificationResult,
         rows.append({"步骤": "③ 财务护栏", "结果": "数据缺失", "状态": "⚪"})
 
     # 步 4
-    pe = m.get("pe_ttm")
-    cagr = m.get("rev_cagr_3y") or m.get("rev_cagr_5y")
+    peg = m.get("peg_lixinger")
     peg_cfg = PEG_BY_TYPE.get(cls_id_used, PEG_BY_TYPE["stalwart"])
-    if peg_cfg["applicable"] and pe and cagr and cagr > 0:
-        peg = pe / (cagr * 100)
+    if peg_cfg["applicable"] and peg is not None:
         rows.append({
             "步骤": "④ PEG 估值",
             "结果": f"PEG {peg:.2f}",
@@ -214,6 +397,7 @@ def _step_6_summary(ticker: str, folder: str, cls: ClassificationResult,
             )
 
     _render_lynch_price_zones(ticker, cls_id_used, m)
+    _render_lynch_thesis_review(ticker, cls_id_used, m)
 
     # 操作按钮
     st.markdown("---")
@@ -325,13 +509,15 @@ def _export_md(ticker: str, folder: str, cls: ClassificationResult,
         "",
     ])
     pe = m.get("pe_ttm")
-    cagr = m.get("rev_cagr_3y") or m.get("rev_cagr_5y")
+    peg = m.get("peg_lixinger")
+    np_yoy = m.get("np_ttm_yoy")
     peg_cfg = PEG_BY_TYPE.get(cls_id_used, PEG_BY_TYPE["stalwart"])
-    if peg_cfg["applicable"] and pe and cagr and cagr > 0:
-        peg = pe / (cagr * 100)
-        lines.append(f"- PE-TTM:{pe:.1f}")
-        lines.append(f"- CAGR:{cagr*100:.1f}%")
-        lines.append(f"- **PEG = {peg:.2f}**(目标 ≤ {peg_cfg['target']})")
+    if peg_cfg["applicable"] and peg is not None:
+        if pe is not None:
+            lines.append(f"- PE-TTM:{pe:.1f}")
+        if np_yoy is not None:
+            lines.append(f"- 净利润 3y CAGR:{np_yoy:.1f}%")
+        lines.append(f"- **PEG = {peg:.2f}**(理杏仁口径,目标 ≤ {peg_cfg['target']})")
     else:
         lines.append(f"- {peg_cfg['note']}")
     lines.extend([

@@ -228,9 +228,9 @@ def _suggested_evidence_scores(m: dict, cls_id_used: str, n: int) -> list[int]:
             parts.append(75)
         else:
             parts.append(45)
-    # PEG
-    if pe is not None and cagr and cagr > 0:
-        peg = pe / (cagr * 100)
+    # PEG:只采用理杏仁口径,不使用营收 CAGR 自行兜底
+    peg = m.get("peg_lixinger")
+    if peg is not None:
         parts.append(90 if peg < 1 else 70 if peg < 1.5 else 50 if peg < 2 else 30)
 
     if not parts:
@@ -244,20 +244,17 @@ def _evaluate_sell_triggers(m: dict, cls_id_used: str, story_avg: float) -> list
     rev_yoy = m.get("rev_yoy_recent")
     np_yoy = m.get("np_yoy_recent")
     debt = m.get("debt_ratio")
-    pe = m.get("pe_ttm")
-    cagr = m.get("rev_cagr_3y") or m.get("rev_cagr_5y")
+    peg = m.get("peg_lixinger")
 
     # ① PEG > 2.0
-    if pe is not None and cagr and cagr > 0:
-        peg = pe / (cagr * 100)
+    if peg is not None:
         peg_fired = peg > 2.0
         peg_cur = f"{peg:.2f}"
-        peg_detail = f"PE {pe:.1f} ÷ CAGR {cagr*100:.1f}% = {peg:.2f}"
+        peg_detail = f"理杏仁 PEG = {peg:.2f}"
     else:
-        peg = None
         peg_fired = False
         peg_cur = "—"
-        peg_detail = "缺 PE 或 CAGR 数据"
+        peg_detail = "缺理杏仁 PEG 数据"
 
     # ② 连续 2 季单季 YoY < 20%(快速类阈值,其它类放宽到 10% / 0)
     yoy_th = 20 if cls_id_used == "fast_grower" else 10 if cls_id_used == "stalwart" else 0
@@ -333,4 +330,3 @@ def _evaluate_sell_triggers(m: dict, cls_id_used: str, story_avg: float) -> list
 
 
 # ─── ⑥ ABCD/12345 综合评级 ──────────────────────────────────────────────
-

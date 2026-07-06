@@ -351,6 +351,17 @@ def score_lynch_classifier_all(df: pd.DataFrame) -> pd.DataFrame:
             # (旧代码 classify_ticker 内部已 load 一次,循环又 load 一次 → 2×)。
             m = load_metrics_from_db(ticker)
             cls = classify(m)
+            if cls.cls_id == "not_applicable" or cls.extra.get("lynch_six_class_misfit"):
+                cols["score"].append(float("nan"))
+                cols["rating"].append("⚪ 不适用")
+                cols["valid_rules"].append(0)
+                cols["lynch_type"].append(cls.cls_id)
+                cols["lynch_type_cn"].append(cls.cls_name)
+                cols["lynch_type_emoji"].append(cls.cls_emoji)
+                cols["lynch_confidence"].append(cls.confidence)
+                cols["dim_top"].append("转行业专属框架")
+                cols["dim_bot"].append("PEG/通用护栏不适用")
+                continue
             dims = compute_lynch_dims(m, cls.cls_id)
             overall, _badge = overall_lynch(dims)
 

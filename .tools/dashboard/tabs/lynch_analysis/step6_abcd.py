@@ -97,8 +97,9 @@ def _step_6_abcd_evaluation(ticker: str, m: dict, cls_id_used: str) -> None:
     # 主次拆分提示
     if secondary and applicable(secondary):
         sec_meta = CLASS_META[secondary]
+        primary_emoji = CLASS_META.get(result.cls_id, ("", "", ""))[1]
         st.success(
-            f"🎯 **双特征综合评分**:主 {result.cls_emoji} {result.cls_name} "
+            f"🎯 **双特征综合评分**:主 {primary_emoji} {result.cls_name} "
             f"({weight}%) + 次 {sec_meta[1]} {sec_meta[0]} ({100-weight}%) — "
             f"下方两套打分独立,综合分 = 主×{weight}% + 次×{100-weight}%",
             icon="🎯",
@@ -117,7 +118,8 @@ def _step_6_abcd_evaluation(ticker: str, m: dict, cls_id_used: str) -> None:
 
     # ═══ 主类型评分 ═══
     if secondary:
-        st.markdown(f"## 🥇 主类型评分 · {result.cls_emoji} {result.cls_name} ({weight}%)")
+        primary_emoji = CLASS_META.get(result.cls_id, ("", "", ""))[1]
+        st.markdown(f"## 🥇 主类型评分 · {primary_emoji} {result.cls_name} ({weight}%)")
 
     st.markdown("### 🏛️ 公司质量评分(好公司)")
     new_manual_company = _render_score_panel(
@@ -408,31 +410,88 @@ def _lynch_price_inputs_cached(ticker: str, mtime: float) -> dict[str, Any]:
 
         pe, pe_date = latest("valuation", "PE-TTM")
         pb, pb_date = latest("valuation", "PB")
+        price, price_date = latest("valuation", "股价(港币)")
+        if price is None:
+            price, price_date = latest("valuation", "股价(元)")
         mcap, mcap_date = latest("valuation", "市值(元)")
+        if mcap is None:
+            mcap, mcap_date = latest("valuation", "市值(港币)")
         eps, eps_date = latest("growth", "基本每股收益")
         ni, ni_date = latest("growth", "归属于母公司普通股股东的净利润")
+
+        market_price, market_price_date = (None, None)
+        if len(str(ticker)) == 5:  # 港股 prices.close 是未复权收盘价;A 股表内 close 多为复权价,不能混用。
+            row = con.execute(
+                "SELECT close, date FROM prices "
+                "WHERE ticker=? AND close IS NOT NULL "
+                "ORDER BY date DESC LIMIT 1",
+                [ticker],
+            ).fetchone()
+            if row:
+                market_price, market_price_date = float(row[0]), row[1]
     finally:
         con.close()
 
     current = None
-    if mcap is not None and eps is not None and ni is not None and eps > 0 and ni > 0:
+    anchor_price = None
+    if price is not None and price > 0:
+        current = price
+        anchor_price = price
+    elif mcap is not None and eps is not None and ni is not None and eps > 0 and ni > 0:
         current = mcap / (ni / eps)
+        anchor_price = current
+
+    price_source = "valuation"
+    if market_price is not None and market_price > 0:
+        current = market_price
+        price_source = "prices"
+
+    price_ratio = 1.0
+    if current is not None and anchor_price is not None and anchor_price > 0:
+        price_ratio = current / anchor_price
+        if pe is not None:
+            pe *= price_ratio
+        if pb is not None:
+            pb *= price_ratio
+
     return {
         "current": current,
         "pe": pe,
         "pb": pb,
-        "as_of": pe_date or pb_date or mcap_date or eps_date or ni_date,
+        "as_of": market_price_date if price_source == "prices" else price_date or pe_date or pb_date or mcap_date or eps_date or ni_date,
+        "valuation_as_of": price_date or pe_date or pb_date or mcap_date or eps_date or ni_date,
+        "price_source": price_source,
+        "price_ratio": price_ratio,
     }
 
 
-def _growth_for_lynch(m: dict) -> tuple[float | None, str, bool]:
-    np_yoy = m.get("np_ttm_yoy")
-    if np_yoy is not None and np_yoy > 0:
-        return float(np_yoy), "净利润 3y CAGR", False
-    cagr = m.get("rev_cagr_3y") or m.get("rev_cagr_5y")
-    if cagr is not None and cagr > 0:
-        return float(cagr) * 100, "营收 CAGR 兜底", True
-    return None, "增长率", False
+@st.cache_data(ttl=600, show_spinner=False)
+def _valuation_quantiles_cached(ticker: str, mtime: float) -> dict[str, dict[str, float]]:
+    cutoff = (_date_cls.today() - timedelta(days=365 * 10)).isoformat()
+    con = duckdb.connect(str(DB_PATH), read_only=True)
+    out: dict[str, dict[str, float]] = {}
+    try:
+        for metric in ("PE-TTM", "PB", "股息率"):
+            df = con.execute(
+                """
+                SELECT value FROM valuation
+                WHERE ticker=? AND metric=? AND value IS NOT NULL AND date>=?
+                ORDER BY date
+                """,
+                [ticker, metric, cutoff],
+            ).fetchdf()
+            if df.empty:
+                continue
+            s = pd.to_numeric(df["value"], errors="coerce").dropna()
+            if s.empty:
+                continue
+            out[metric] = {
+                f"q{int(q * 100)}": float(s.quantile(q))
+                for q in (0.1, 0.2, 0.5, 0.7)
+            }
+    finally:
+        con.close()
+    return out
 
 
 def _peg_price_at(current: float, current_peg: float, target_peg: float) -> float:
@@ -474,6 +533,78 @@ def _metric_items(
     ]
 
 
+def _render_mature_value_price_zones(
+    ticker: str,
+    current: float,
+    pe: float | None,
+    pb: float | None,
+    div_yield: float | None,
+    as_of: Any,
+    current_peg: float | None,
+    np3: float | None,
+    reason: str,
+) -> None:
+    db_mtime = DB_PATH.stat().st_mtime if DB_PATH.exists() else 0.0
+    quantiles = _valuation_quantiles_cached(ticker, db_mtime)
+
+    metrics = [
+        ("当前价", _fmt_price(current), f"数据日:{as_of or '—'}"),
+        ("理杏仁 PEG", "—" if current_peg is None else f"{current_peg:.2f}", "PEG 失真时不用于倒推价格"),
+        ("净利 3y CAGR", "—" if np3 is None else f"{np3:.2f}%", "低增速成熟股不适合用 PEG 定价"),
+        ("当前股息率", "—" if div_yield is None else f"{div_yield*100:.2f}%", "成熟现金流型辅助锚"),
+    ]
+
+    rows: list[dict[str, str]] = []
+    pe_q = quantiles.get("PE-TTM") or {}
+    if pe and pe > 0 and pe_q:
+        for label, key in (("PE 低位(10%)", "q10"), ("PE 低位(20%)", "q20"),
+                           ("PE 中位", "q50"), ("PE 偏高(70%)", "q70")):
+            target = pe_q.get(key)
+            if target is not None:
+                rows.append({
+                    "锚": label,
+                    "目标倍数/收益率": f"{target:.2f}x",
+                    "对应价格": _fmt_price(_pe_price_at(current, pe, target)),
+                    "用途": "成熟现金流型主参考",
+                })
+
+    pb_q = quantiles.get("PB") or {}
+    if pb and pb > 0 and pb_q:
+        for label, key in (("PB 低位(10%)", "q10"), ("PB 低位(20%)", "q20"),
+                           ("PB 中位", "q50")):
+            target = pb_q.get(key)
+            if target is not None:
+                rows.append({
+                    "锚": label,
+                    "目标倍数/收益率": f"{target:.2f}x",
+                    "对应价格": _fmt_price(_pb_price_at(current, pb, target)),
+                    "用途": "资产/ROE 辅助校验",
+                })
+
+    if div_yield and div_yield > 0:
+        for label, target in (("股息率 4%", 0.04), ("股息率 3.5%", 0.035),
+                              ("股息率 3%", 0.03)):
+            rows.append({
+                "锚": label,
+                "目标倍数/收益率": f"{target*100:.1f}%",
+                "对应价格": _fmt_price(_yield_price_at(current, div_yield, target)),
+                "用途": "收息回报辅助校验",
+            })
+
+    st.warning(f"{reason} 已切换为成熟现金流/历史估值口径。", icon="⚠️")
+    c1, c2, c3, c4 = st.columns(4)
+    for col, item in zip((c1, c2, c3, c4), metrics):
+        col.metric(item[0], item[1], help=item[2])
+    if rows:
+        st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
+        st.caption(
+            "PEG 失真时,合理价格用 PE/PB 十年分位与股息率交叉验证。"
+            "通常低位分位对应观察/分批区,中位附近对应合理持有区。"
+        )
+    else:
+        st.info("历史估值或股息率数据不足,暂不能形成成熟现金流价格锚。")
+
+
 def _render_lynch_price_zones(ticker: str, cls_id: str, m: dict) -> None:
     """Render Lynch-method buy/hold/sell price zones below the final decision."""
     db_mtime = DB_PATH.stat().st_mtime if DB_PATH.exists() else 0.0
@@ -487,22 +618,37 @@ def _render_lynch_price_zones(ticker: str, cls_id: str, m: dict) -> None:
     pe = inputs.get("pe") or m.get("pe_ttm")
     pb = inputs.get("pb") or m.get("pb")
     as_of = inputs.get("as_of")
+    price_ratio = inputs.get("price_ratio") or 1.0
+    price_source = inputs.get("price_source") or "valuation"
 
     st.markdown("### 💵 林奇价格区间")
     if current is None:
         st.info("当前价基础数据不足,暂不能形成林奇买入 / 卖出价格区间。")
         return
+    try:
+        stale_days = (_date_cls.today() - as_of).days if as_of else None
+    except Exception:
+        stale_days = None
+    if stale_days is not None and stale_days > 7:
+        st.warning(
+            f"价格数据日为 {as_of},距今天 {_date_cls.today()} 已 {stale_days} 天;"
+            "当前价格区间仅作历史估值参考,建议先更新行情/估值数据。",
+            icon="⚠️",
+        )
+    elif price_source == "prices":
+        st.caption(f"当前价读取最新行情收盘价,数据日:{as_of}。")
 
     rows: list[dict[str, str]] = []
     metrics: list[tuple[str, str, str]] = [("当前价", _fmt_price(current), f"数据日:{as_of or '—'}")]
     caption = ""
 
     if PEG_BY_TYPE.get(cls_id, {}).get("applicable"):
-        growth_pct, growth_label, fallback = _growth_for_lynch(m)
-        if pe is None or pe <= 0 or growth_pct is None or growth_pct <= 0:
-            st.info("PE-TTM 或增长率不足,暂不能按林奇 PEG 形成价格区间。")
+        current_peg = m.get("peg_lixinger")
+        if current_peg is not None:
+            current_peg *= price_ratio
+        if current_peg is None or current_peg <= 0:
+            st.info("理杏仁 PEG 数据不足,暂不能按林奇 PEG 形成价格区间。")
             return
-        current_peg = pe / growth_pct
         if current_peg <= 0:
             st.info("当前 PEG 无法计算,暂不能形成价格区间。")
             return
@@ -514,12 +660,26 @@ def _render_lynch_price_zones(ticker: str, cls_id: str, m: dict) -> None:
             safe_peg, buy_peg, hold_peg, sell_peg = 0.8, 1.2, 1.8, 1.8
             scheme = "稳健增长型:PEG ≤ 0.8 安全,0.8-1.2 分批,> 1.8 需要减仓/卖出"
 
+        np3 = m.get("np_ttm_yoy")
+        div_yield = _as_ratio(m.get("dividend_yield"))
+        if (np3 is not None and np3 < 8) or current_peg > 3:
+            if np3 is not None and np3 < 5:
+                reason = f"净利润 3y CAGR 仅 {np3:.2f}%,PEG 分母过小,倒推价格会失真。"
+            elif np3 is not None and np3 < 8:
+                reason = f"净利润 3y CAGR {np3:.2f}% 偏低,PEG 只适合作辅助观察。"
+            else:
+                reason = f"理杏仁 PEG {current_peg:.2f} 过高,直接倒推价格会失真。"
+            _render_mature_value_price_zones(
+                ticker, current, pe, pb, div_yield, as_of, current_peg, np3, reason
+            )
+            return
+
         safe_price = _peg_price_at(current, current_peg, safe_peg)
         buy_price = _peg_price_at(current, current_peg, buy_peg)
         hold_price = _peg_price_at(current, current_peg, hold_peg)
 
         metrics.extend([
-            ("当前 PEG", f"{current_peg:.2f}", f"PE {pe:.1f} ÷ {growth_label} {growth_pct:.1f}%"),
+            ("当前 PEG", f"{current_peg:.2f}", "理杏仁 PEG 口径"),
             ("安全买入线", _fmt_price(safe_price), f"PEG {safe_peg:.1f}"),
             ("减仓/卖出线", _fmt_price(sell_price := hold_price), f"PEG {sell_peg:.1f}"),
         ])
@@ -530,8 +690,7 @@ def _render_lynch_price_zones(ticker: str, cls_id: str, m: dict) -> None:
             {"区间": "减仓/卖出", "价格范围": _range_label(sell_price, None), "动作": "除非成长率上修,否则优先降风险"},
         ]
         caption = (
-            f"{scheme}。本区间只按林奇 PEG 口径计算:价格变动会等比例改变 PE 和 PEG。"
-            + (" 当前使用营收 CAGR 兜底,需注意和净利润 CAGR 口径不同。" if fallback else "")
+            f"{scheme}。本区间只按理杏仁 PEG 口径换算:价格变动会等比例改变 PE 和 PEG。"
         )
 
     elif cls_id == "slow_grower":
