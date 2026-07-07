@@ -14,6 +14,7 @@ mkdir -p .temp
 
 echo "[1/3] 杀掉所有 streamlit 进程..."
 pkill -f "streamlit run .tools/dashboard/app.py" 2>/dev/null || true
+pkill -f "python -m streamlit run .tools/dashboard/app.py" 2>/dev/null || true
 # 兜底:端口占用的进程也清掉
 if lsof -ti tcp:"$PORT" >/dev/null 2>&1; then
   echo "      端口 $PORT 仍被占用,强制释放..."
@@ -26,18 +27,18 @@ echo "[2/3] 激活 venv..."
 source .venv/bin/activate
 
 echo "[3/3] 启动 Dashboard (port=$PORT) → 日志 $LOG"
-nohup streamlit run "$APP" \
+nohup .venv/bin/python -m streamlit run "$APP" \
   --server.port "$PORT" \
   --server.headless true \
   > "$LOG" 2>&1 &
 
 PID=$!
-sleep 2
+sleep 3
 
-if ps -p "$PID" >/dev/null 2>&1; then
+if curl -fsS "http://localhost:$PORT/_stcore/health" >/dev/null 2>&1 || lsof -ti tcp:"$PORT" >/dev/null 2>&1; then
   echo "✅ 已启动 PID=$PID  http://localhost:$PORT"
   echo "   tail -f $LOG    # 看实时日志"
-  echo "   kill $PID       # 手动停止"
+  echo "   ./restart_dashboard.sh $PORT    # 重启"
 else
   echo "❌ 启动失败,看日志:"
   tail -n 30 "$LOG"
