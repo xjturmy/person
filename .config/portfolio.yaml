@@ -155,8 +155,25 @@ holdings:
 - ticker: '002050'
   name: 三花智控
   status: watch
+  last_price: 42.85
   target_weight: 0.04
   max_weight: 0.08
+  price_band:
+    method: 林奇快速增长型 + 机器人题材溢价约束
+    watch_below: 40.0
+    buy_below: 36.0
+    add_below: 32.0
+    trim_above: 45.0
+    exit_above: 55.0
+    note: 当前PE约49.6且处高分位,机器人预期已经给溢价; 36以下才认真研究,32以下才考虑观察仓。
+  position_band:
+    company_type: 快速增长型 / 主题成长
+    role: 观察仓
+    min_weight: 0.0
+    target_weight: 0.02
+    max_weight: 0.04
+    source: 2026-07-09 本周重点关注价格清单
+    note: 只在估值明显回落后建观察仓,不因题材热度追高。
   thesis: 热管理龙头;储能 + 机器人新业务,F-Score 2025 拿到 8/9
   tags:
   - 新能源
@@ -177,8 +194,25 @@ holdings:
 - ticker: '000333'
   name: 美的集团
   status: watch
+  last_price: 79.33
   target_weight: 0.05
   max_weight: 0.1
+  price_band:
+    method: 林奇稳健增长型 + 股息安全边际
+    watch_below: 80.0
+    buy_below: 75.0
+    add_below: 70.0
+    trim_above: 85.0
+    exit_above: 90.0
+    note: 当前成长性一般但现金流和股息强; 78-80为观察区,75以下小买,70附近才有更舒服安全边际。
+  position_band:
+    company_type: 稳健增长型 / 家电现金牛
+    role: 低波动替代仓
+    min_weight: 0.0
+    target_weight: 0.03
+    max_weight: 0.06
+    source: 2026-07-09 本周重点关注价格清单
+    note: 适合替代部分主题仓,不适合在高仓位状态下额外大幅提高权益。
   thesis: 家电龙头 + 海外扩张;高股息 + F-Score 反弹
   tags:
   - 消费
@@ -196,6 +230,120 @@ holdings:
   - PEG 升至 1.5 以上
   - 海外业务增速跌破 15%
   - 股息率跌破 2.5%
+- ticker: '000999'
+  name: 华润三九
+  status: watch
+  last_price: 23.66
+  target_weight: 0.03
+  max_weight: 0.06
+  price_band:
+    method: 格雷厄姆偏成长 + 中药OTC稳健增长
+    watch_below: 24.0
+    buy_below: 22.0
+    add_below: 20.0
+    trim_above: 27.0
+    exit_above: 28.0
+    note: 2021-2024营收CAGR约21.7%、净利CAGR约18.1%;但2026Q1利润同比下滑,22以下再考虑观察仓更稳。
+  position_band:
+    company_type: 中药OTC / 价值成长
+    role: 观察仓
+    min_weight: 0.0
+    target_weight: 0.02
+    max_weight: 0.05
+    source: 2026-07-09 本周重点关注价格清单
+    note: 成长性好于传统防御股,但短期利润波动需要跟踪,先小仓观察。
+  thesis: 中药OTC龙头;营收成长强,估值不高,但短期利润波动需验证。
+  tags:
+  - 医药
+  - 中药
+  - 价值成长
+  school: 价值成长
+  rationale: 2026Q1营收同比约18.6%,归母净利同比约-15.3%;PE约12.4、股息率约4.3%,适合按成长型格雷厄姆观察。
+  criteria_met:
+  - 2021-2024营收CAGR ≥ 15%
+  - 2021-2024净利CAGR ≥ 15%
+  - PE-TTM ≤ 15
+  - 股息率 ≥ 4%
+  review_triggers:
+  - 归母净利连续两个季度下滑
+  - 营收增速跌破10%
+  - 股息率跌破3%
+- ticker: '600406'
+  name: 国电南瑞
+  status: watch
+  last_price: 21.68
+  target_weight: 0.03
+  max_weight: 0.06
+  price_band:
+    method: 格雷厄姆偏成长 + 电网稳健需求
+    watch_below: 22.0
+    buy_below: 20.0
+    add_below: 18.5
+    trim_above: 25.0
+    exit_above: 27.0
+    note: 2021-2024营收和净利CAGR均约10%;当前可观察,20以下更符合安全边际。
+  position_band:
+    company_type: 电网二次设备 / 稳健成长
+    role: 观察仓
+    min_weight: 0.0
+    target_weight: 0.02
+    max_weight: 0.05
+    source: 2026-07-09 本周重点关注价格清单
+    note: 成长速度不爆发,但确定性和财务质量较好,适合作为格雷厄姆偏成长候选。
+  thesis: 电网自动化龙头;新型电力系统和电网智能化带来稳健成长。
+  tags:
+  - 电力设备
+  - 电网
+  - 价值成长
+  school: 价值成长
+  rationale: 2026Q1营收同比约7.5%、净利同比约6.0%;2021-2024营收CAGR约10.6%、净利CAGR约10.5%。
+  criteria_met:
+  - 2021-2024营收CAGR ≥ 8%
+  - 2021-2024净利CAGR ≥ 8%
+  - 电网需求确定性较强
+  - 央企属性与分红稳定
+  review_triggers:
+  - 电网投资增速放缓
+  - 净利增速连续两个季度低于5%
+  - PE显著抬升至25倍以上
+- ticker: '600660'
+  name: 福耀玻璃
+  status: watch
+  last_price: 50.68
+  target_weight: 0.03
+  max_weight: 0.06
+  price_band:
+    method: 格雷厄姆偏成长 + 全球汽车玻璃龙头
+    watch_below: 51.0
+    buy_below: 48.0
+    add_below: 44.0
+    trim_above: 58.0
+    exit_above: 60.0
+    note: 2021-2024长期成长强,但2026Q1利润承压;48以下更适合试仓,44-45才有明显安全边际。
+  position_band:
+    company_type: 汽车零部件 / 全球龙头
+    role: 观察仓
+    min_weight: 0.0
+    target_weight: 0.02
+    max_weight: 0.05
+    source: 2026-07-09 本周重点关注价格清单
+    note: 适合长期观察,但当前不追,先确认短期利润下滑是否暂时性。
+  thesis: 全球汽车玻璃龙头;长期营收和利润成长好,短期利润下滑需验证。
+  tags:
+  - 汽车
+  - 零部件
+  - 价值成长
+  school: 价值成长
+  rationale: 2021-2024营收CAGR约18.5%、净利CAGR约33.6%;PE约14.8、股息率约4.1%,但2026Q1净利同比约-15.7%。
+  criteria_met:
+  - 2021-2024营收CAGR ≥ 15%
+  - 2021-2024净利CAGR ≥ 20%
+  - PE-TTM ≤ 15
+  - 股息率 ≥ 4%
+  review_triggers:
+  - 归母净利连续两个季度下滑
+  - 汽车玻璃毛利率明显下行
+  - 海外业务增长不及预期
 - ticker: '600887'
   name: 伊利股份
   status: watch
@@ -343,8 +491,25 @@ holdings:
 - ticker: '002475'
   name: 立讯精密
   status: watch
+  last_price: 64.46
   target_weight: 0.02
   max_weight: 0.05
+  price_band:
+    method: 林奇快速增长型 + 平台制造折扣
+    watch_below: 55.0
+    buy_below: 50.0
+    add_below: 42.0
+    trim_above: 65.0
+    exit_above: 75.0
+    note: 当前价格高于旧减仓线60元,不新买; 55以下重新观察,50以下小仓,42以下才进入强买/加仓区。
+  position_band:
+    company_type: 快速增长型 / 精密制造平台
+    role: 观察仓
+    min_weight: 0.0
+    target_weight: 0.02
+    max_weight: 0.05
+    source: 2026-07-09 本周重点关注价格清单
+    note: 需要同时验证汽车/AI业务放量和现金流质量,否则不放大仓位。
   thesis: 苹果产业链;F-Score 走弱待新增量
   tags:
   - 科技
@@ -406,7 +571,7 @@ holdings:
   status: active
   shares: 1600
   cost_basis: 31.806875
-  last_price: 34.34
+  last_price: 35.39
   first_buy_date: '2026-07-08'
   target_weight: 0.047
   max_weight: 0.08

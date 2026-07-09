@@ -59,9 +59,45 @@ entries:
   preset: 🌱 林奇六类分析
   score: 75.6
   rating: 🟢 优秀
-  status: closed
-  notes: ''
+  status: pending
+  notes: 2026-07-09重点关注:78-80观察,75以下小买,70附近更好。
   source_industry: unknown
+- ticker: '002050'
+  name: 三花智控
+  added_at: '2026-07-09'
+  preset: 林奇快速增长型
+  score: null
+  rating: null
+  status: pending
+  notes: 2026-07-09重点关注:40附近只观察,36以下认真研究,32以下观察仓。
+  source_industry: 家电零部件
+- ticker: '000999'
+  name: 华润三九
+  added_at: '2026-07-09'
+  preset: 格雷厄姆偏成长
+  score: null
+  rating: null
+  status: pending
+  notes: 2026-07-09重点关注:23-24观察,22以下试仓,20-21更好。
+  source_industry: 中药
+- ticker: '600406'
+  name: 国电南瑞
+  added_at: '2026-07-09'
+  preset: 格雷厄姆偏成长
+  score: null
+  rating: null
+  status: pending
+  notes: 2026-07-09重点关注:21-22观察,20以下试仓,18.5-19.5更好。
+  source_industry: 电网二次设备
+- ticker: '600660'
+  name: 福耀玻璃
+  added_at: '2026-07-09'
+  preset: 格雷厄姆偏成长
+  score: null
+  rating: null
+  status: pending
+  notes: 2026-07-09重点关注:49-51观察,47-48试仓,44-45更好。
+  source_industry: 汽车零部件
 - ticker: '603379'
   name: 三美股份
   added_at: '2026-06-11'
@@ -77,8 +113,8 @@ entries:
   preset: 🌱 林奇六类分析
   score: 60.0
   rating: 🟡 合格
-  status: closed
-  notes: ''
+  status: pending
+  notes: 2026-07-09重点关注:60以上不新买,55以下重新观察,50以下小仓,42以下强买区。
   source_industry: unknown
 - ticker: '515030'
   name: 新能源车ETF
