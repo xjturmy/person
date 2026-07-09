@@ -44,3 +44,5 @@ folder,company_ticker,company_name,rank,etf_code,etf_name,etf_type
 16_宁德时代,300750,宁德时代,1,159755,电池ETF,sector
 16_宁德时代,300750,宁德时代,2,515030,新能源车ETF,sector
 16_宁德时代,300750,宁德时代,3,516390,新能源ETF,sector
+_holding_focus,FOCUS,我的持仓,1,512590,红利低波ETF,holding_focus
+_holding_focus,FOCUS,我的持仓,2,510880,红利50ETF,holding_focus

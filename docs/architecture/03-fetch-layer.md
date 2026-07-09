@@ -14,7 +14,7 @@
 | 同行对标 | `db/fetch_peers.py` | 周末 |
 | L1 全 A 市场 | `db/fetch_market_spot.py` | 每日（~13min，可 skip） |
 | 宏观 | `db/fetch_macro.py` | 按需 |
-| ETF | `db/fetch_etf.py` / `fetch_gold_etf*.py` | 按需 |
+| ETF | `lixinger-archiver/fetch_lixinger_etf.py` / `db/fetch_etf.py` / `fetch_gold_etf*.py` | 按需 |
 | 周转率派生 | `db/fetch_turnover.py` | 季度 |
 
 ## 日常抓取顺序
@@ -104,6 +104,26 @@ db/ingest.py → preson.duckdb
 `ingest.py` 再导入 DuckDB。
 
 一键编排：`.tools/data_consolidator/update_pipeline.py`
+
+## 理杏仁 ETF 管线
+
+普通 ETF 优先走理杏仁 ETF 抓取器,写入 `data/etf.duckdb` 的 `etf_prices` / `etf_meta`;Dashboard 与原 ETF 行情源共用同一张表。
+
+当前已核对的理杏仁官方接口:
+
+- 基金 K 线: `https://open.lixinger.com/api/cn/fund/candlestick`
+- 参数: `token`, `stockCode`, `startDate`, `endDate`
+- 返回: `date/open/close/high/low/volume/amount/change`
+
+```bash
+# 单只 ETF,例如红利低波
+.venv/bin/python .tools/lixinger-archiver/fetch_lixinger_etf.py --only 512590 --years 5
+
+# 只看请求形态,不联网、不写库
+.venv/bin/python .tools/lixinger-archiver/fetch_lixinger_etf.py --only 512590 --dry-run
+```
+
+若理杏仁 ETF 端点或字段口径变化,可用 `--endpoint` / `--code-field` 显式覆盖;若理杏仁不可用,再用 `.tools/db/fetch_etf.py` 的 AkShare/Eastmoney/Sina 行情管线兜底。
 
 ## 近期经验：2026-07-03 缺失数据修复
 

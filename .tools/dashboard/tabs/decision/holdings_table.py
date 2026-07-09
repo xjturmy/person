@@ -106,6 +106,25 @@ def render(snap: HoldingsSnapshot, include_watch: bool = True) -> None:
     records: list[dict[str, Any]] = []
     for r in rows:
         fair = _fair_range_for(r.ticker, r.name)
+        band = getattr(r, "price_band", None) or {}
+        pos_band = getattr(r, "position_band", None) or {}
+        manual_buy = band.get("buy_below") if isinstance(band, dict) else None
+        manual_add = band.get("add_below") if isinstance(band, dict) else None
+        manual_trim = band.get("trim_above") if isinstance(band, dict) else None
+        pos_min = pos_band.get("min_weight") if isinstance(pos_band, dict) else None
+        pos_target = pos_band.get("target_weight") if isinstance(pos_band, dict) else None
+        pos_max = pos_band.get("max_weight") if isinstance(pos_band, dict) else None
+        pos_role = pos_band.get("role") if isinstance(pos_band, dict) else None
+        pos_status = "—"
+        if is_active := (r.status == "active"):
+            if pos_max is not None and r.actual_weight > float(pos_max):
+                pos_status = "超上限"
+            elif pos_target is not None and r.actual_weight >= float(pos_target):
+                pos_status = "高于目标"
+            elif pos_min is not None and r.actual_weight < float(pos_min):
+                pos_status = "低于下限"
+            elif pos_max is not None:
+                pos_status = "范围内"
         graham = getattr(fair, "graham_number", None) if fair else None
         verified = bool(getattr(fair, "verified", False)) if fair else False
         verdict = getattr(fair, "verdict_label", None) if fair else None
@@ -114,13 +133,21 @@ def render(snap: HoldingsSnapshot, include_watch: bool = True) -> None:
         if r.last_price is not None and low_line:
             gap_pct = (r.last_price - low_line) / low_line
 
-        is_active = r.status == "active"
         records.append({
             "状态": _STATUS_EMOJI.get(r.status, r.status),
             "公司": r.name,
             "代码": r.ticker,
             "流派": school_map.get(r.ticker, "—"),
+            "角色": pos_role or "—",
             "现价": r.last_price,
+            "价格口径": "人工" if any(v is not None for v in (manual_buy, manual_add, manual_trim)) else "模型",
+            "买入线": manual_buy,
+            "加仓线": manual_add,
+            "减仓线": manual_trim,
+            "仓位状态": pos_status,
+            "仓位下限": pos_min,
+            "仓位目标": pos_target,
+            "仓位上限": pos_max,
             "合理价(Graham)": graham if verified else None,
             "距低估%": gap_pct,
             "档位": verdict or "—",
@@ -163,6 +190,9 @@ def render(snap: HoldingsSnapshot, include_watch: bool = True) -> None:
         .map(_gap_color, subset=["距低估%"])
         .format({
             "现价": "{:.2f}",
+            "买入线": "{:.2f}",
+            "加仓线": "{:.2f}",
+            "减仓线": "{:.2f}",
             "合理价(Graham)": "{:.2f}",
             "距低估%": "{:+.1%}",
             "成本价": "{:.2f}",
@@ -172,6 +202,9 @@ def render(snap: HoldingsSnapshot, include_watch: bool = True) -> None:
             "浮盈%": "{:+.2%}",
             "实际权重": "{:.1%}",
             "目标权重": "{:.0%}",
+            "仓位下限": "{:.0%}",
+            "仓位目标": "{:.0%}",
+            "仓位上限": "{:.0%}",
             "偏离": "{:+.1%}",
             "PE 分位(10y)": "{:.1%}",
         }, na_rep="—")

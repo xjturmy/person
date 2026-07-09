@@ -15,18 +15,18 @@ _CSS = """
     border-left: 4px solid var(--ij-accent, #2563EB);
     border-radius: 8px;
     margin: 8px 0 12px;
-    padding: 10px 12px;
+    padding: 9px 11px 10px;
     font-family: -apple-system, "Inter", "PingFang SC", sans-serif;
 }
 .ij-head {
     align-items: center;
     display: flex;
-    gap: 12px;
+    gap: 10px;
     justify-content: space-between;
 }
 .ij-title {
     color: #111827;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 760;
     line-height: 1.25;
 }
@@ -39,28 +39,36 @@ _CSS = """
 .ij-action {
     background: var(--ij-bg, #EFF6FF);
     border: 1px solid var(--ij-border, #BFDBFE);
-    border-radius: 8px;
+    border-radius: 7px;
     color: var(--ij-fg, #1D4ED8);
     flex: 0 0 auto;
-    font-size: 18px;
+    font-size: 17px;
     font-weight: 780;
     line-height: 1;
-    min-width: 88px;
-    padding: 8px 12px;
+    min-width: 78px;
+    padding: 7px 10px;
     text-align: center;
 }
-.ij-grid {
+.ij-strip {
+    align-items: stretch;
     display: grid;
-    gap: 7px;
-    grid-template-columns: 0.9fr 1fr 1.45fr;
+    gap: 0;
+    grid-template-columns: 0.9fr 1.15fr 1.05fr 1.25fr;
     margin-top: 8px;
 }
-.ij-panel {
+.ij-cell {
     background: #F9FAFB;
     border: 1px solid #E5E7EB;
-    border-radius: 7px;
+    border-left: 0;
     min-height: 0;
-    padding: 8px 9px;
+    padding: 7px 9px;
+}
+.ij-cell:first-child {
+    border-left: 1px solid #E5E7EB;
+    border-radius: 7px 0 0 7px;
+}
+.ij-cell:last-child {
+    border-radius: 0 7px 7px 0;
 }
 .ij-label {
     color: #6B7280;
@@ -72,7 +80,7 @@ _CSS = """
 }
 .ij-main {
     color: #111827;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 750;
     line-height: 1.25;
 }
@@ -81,6 +89,18 @@ _CSS = """
     font-size: 12px;
     line-height: 1.3;
     margin-top: 3px;
+}
+.ij-evidence {
+    display: grid;
+    gap: 7px;
+    grid-template-columns: 1.15fr 0.85fr;
+    margin-top: 7px;
+}
+.ij-block {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 7px;
+    padding: 8px 9px;
 }
 .ij-list {
     color: #374151;
@@ -92,44 +112,29 @@ _CSS = """
 .ij-list li {
     margin: 0 0 2px;
 }
-.ij-bottom {
-    align-items: stretch;
-    display: grid;
-    gap: 7px;
-    grid-template-columns: 1.35fr 1fr;
-    margin-top: 7px;
-}
-.ij-next {
-    background: #F8FAFC;
-    border: 1px solid #E2E8F0;
-    border-radius: 8px;
-    color: #1F2937;
-    font-size: 12px;
-    line-height: 1.35;
-    padding: 8px 9px;
-}
 .ij-invalid {
-    background: #FFF7ED;
-    border: 1px solid #FED7AA;
-    border-radius: 8px;
     color: #7C2D12;
-    font-size: 12px;
-    line-height: 1.35;
-    padding: 8px 9px;
+}
+.ij-invalid .ij-list {
+    color: #7C2D12;
 }
 @media (max-width: 900px) {
-    .ij-head,
-    .ij-bottom {
+    .ij-head {
         display: block;
     }
     .ij-action {
         margin-top: 8px;
     }
-    .ij-grid {
+    .ij-strip,
+    .ij-evidence {
         grid-template-columns: 1fr;
     }
-    .ij-invalid {
-        margin-top: 8px;
+    .ij-cell,
+    .ij-cell:first-child,
+    .ij-cell:last-child {
+        border: 1px solid #E5E7EB;
+        border-radius: 7px;
+        margin-top: 6px;
     }
 }
 </style>
@@ -166,18 +171,34 @@ def _score_status(score: float | None) -> str:
 
 def _price_zone(raw: float | None) -> tuple[str, str]:
     if raw is None:
-        return "数据不足", "缺估值分位，暂不做价格结论"
+        return "不适合判断", "缺估值分位，先不下价格结论"
     try:
         pct = float(raw)
     except (TypeError, ValueError):
-        return "数据不足", "估值数据不可用"
+        return "不适合判断", "估值数据不可用"
     if pct < 0.30:
-        return "买入观察区", "估值处低分位，值得进入方法内价格核查"
+        return "便宜", "进入方法内买入线核查"
     if pct <= 0.55:
-        return "合理偏低", "价格未明显透支，适合结合方法继续判断"
+        return "合理", "可继续做方法内判断"
     if pct <= 0.75:
-        return "合理偏贵", "不适合追价，已有仓位以持有观察为主"
-    return "偏贵/减仓区", "估值分位偏高，需要等待价格或基本面改善"
+        return "偏贵", "不追价，已有仓位以持有观察为主"
+    return "偏贵", "等待价格回落或基本面抬升"
+
+
+def _reason_list(
+    method: str,
+    price_zone: str,
+    price_note: str,
+    period: str,
+    overall: float,
+    safety_score: float | None,
+) -> list[str]:
+    reasons = [
+        f"先按「{method}」判断，避免多方法互相抵消",
+        f"价格「{price_zone}」：{price_note}",
+        f"{period} 综合 {_score_status(float(overall))}，安全项 {_score_status(safety_score)}",
+    ]
+    return reasons[:3]
 
 
 def build_preview_judgement(
@@ -197,9 +218,9 @@ def build_preview_judgement(
     growth_score = growth.get("score")
     profit_score = profitability.get("score")
 
-    if "偏贵" in price_zone and overall < 70:
+    if price_zone == "偏贵" and overall < 70:
         action = "观察"
-    elif "买入" in price_zone and overall >= 65 and (safety_score or 0) >= 50:
+    elif price_zone == "便宜" and overall >= 65 and (safety_score or 0) >= 50:
         action = "买入"
     elif overall >= 60:
         action = "持有"
@@ -214,31 +235,33 @@ def build_preview_judgement(
         method = "保险专属"
     elif (growth_score or 0) >= 65:
         method = "林奇"
-    elif "买入" in price_zone:
+    elif price_zone == "便宜":
         method = "格雷厄姆"
     elif (profit_score or 0) >= 70:
         method = "芒格质量判断"
 
     period = (latest_period or {}).get("label") or "最新财报期"
-    reasons = [
-        f"主方法先按「{method}」校准，避免多方法混用",
-        f"价格处于「{price_zone}」：{price_note}",
-        f"{period} 下综合评分 {_score_status(float(overall))}，安全项 {_score_status(safety_score)}",
-    ]
+    reasons = _reason_list(method, price_zone, price_note, period, overall, safety_score)
     invalidations = [
-        "主方法判定不适配该公司",
+        "主方法被证伪，暂停沿用原判断",
         "价格越过方法内卖出/减仓线",
-        "最新财报触发增长、现金流或负债硬伤",
+        "新财报出现增长、现金流或负债硬伤",
     ]
 
     if action == "买入":
-        next_step = "进入方法内价格区间页，确认买入线与仓位上限后再分批执行。"
+        next_step = "确认买入线和仓位上限后，只分批执行。"
     elif action == "持有":
-        next_step = "维持观察，下一次复查放在新财报或价格触发区间变化时。"
+        next_step = "未触发卖出条件，新财报或价格越线再复查。"
     elif action == "观察":
-        next_step = "暂不追价，等待价格回到买入区或基本面继续验证。"
+        next_step = "暂不追价，等价格回到区间或基本面继续验证。"
     else:
-        next_step = "先补齐方法适配和关键数据，再做买卖判断。"
+        next_step = "先补齐方法适配和关键数据，再谈买卖。"
+
+    review_trigger = "季报/年报或价格越线"
+    if action == "买入":
+        review_trigger = "买入线、仓位上限"
+    elif action == "暂不判断":
+        review_trigger = "方法适配、关键数据"
 
     return {
         "action": action,
@@ -248,6 +271,7 @@ def build_preview_judgement(
         "reasons": reasons,
         "next_step": next_step,
         "invalidations": invalidations,
+        "review_trigger": review_trigger,
         "ticker": ticker,
         "name": score_dict.get("name") or ticker,
     }
@@ -258,8 +282,8 @@ def render_preview(judgement: dict[str, Any]) -> None:
     accent, bg, border, fg = _ACTION_STYLE.get(action, _ACTION_STYLE["暂不判断"])
     reasons = judgement.get("reasons") or []
     invalidations = judgement.get("invalidations") or []
-    reason_html = "".join(f"<li>{escape(str(item))}</li>" for item in reasons[:2])
-    invalid_html = "；".join(escape(str(item)) for item in invalidations[:3])
+    reason_html = "".join(f"<li>{escape(str(item))}</li>" for item in reasons[:3])
+    invalid_html = "".join(f"<li>{escape(str(item))}</li>" for item in invalidations[:3])
     st.markdown(_CSS, unsafe_allow_html=True)
     st.markdown(
         f'<section class="ij-wrap" style="--ij-accent:{accent};--ij-bg:{bg};'
@@ -271,25 +295,36 @@ def render_preview(judgement: dict[str, Any]) -> None:
         f'    </div>'
         f'    <div class="ij-action">{escape(action)}</div>'
         f'  </div>'
-        f'  <div class="ij-grid">'
-        f'    <div class="ij-panel">'
-        f'      <div class="ij-label">主判断方法</div>'
-        f'      <div class="ij-main">{escape(str(judgement.get("method") or "—"))}</div>'
-        f'      <div class="ij-note">先看方法是否适配</div>'
-        f'    </div>'
-        f'    <div class="ij-panel">'
-        f'      <div class="ij-label">价格位置</div>'
+        f'  <div class="ij-strip">'
+        f'    <div class="ij-cell">'
+        f'      <div class="ij-label">价格状态</div>'
         f'      <div class="ij-main">{escape(str(judgement.get("price_zone") or "—"))}</div>'
         f'      <div class="ij-note">{escape(str(judgement.get("price_note") or ""))}</div>'
         f'    </div>'
-        f'    <div class="ij-panel">'
+        f'    <div class="ij-cell">'
+        f'      <div class="ij-label">主方法</div>'
+        f'      <div class="ij-main">{escape(str(judgement.get("method") or "—"))}</div>'
+        f'      <div class="ij-note">不混用口径</div>'
+        f'    </div>'
+        f'    <div class="ij-cell">'
+        f'      <div class="ij-label">复查触发</div>'
+        f'      <div class="ij-main">{escape(str(judgement.get("review_trigger") or "季报/年报或价格越线"))}</div>'
+        f'      <div class="ij-note">触发再改判断</div>'
+        f'    </div>'
+        f'    <div class="ij-cell">'
+        f'      <div class="ij-label">下一步纪律</div>'
+        f'      <div class="ij-main">{escape(str(judgement.get("next_step") or "—"))}</div>'
+        f'    </div>'
+        f'  </div>'
+        f'  <div class="ij-evidence">'
+        f'    <div class="ij-block">'
         f'      <div class="ij-label">核心理由</div>'
         f'      <ul class="ij-list">{reason_html}</ul>'
         f'    </div>'
-        f'  </div>'
-        f'  <div class="ij-bottom">'
-        f'    <div class="ij-next"><strong>下一步：</strong>{escape(str(judgement.get("next_step") or ""))}</div>'
-        f'    <div class="ij-invalid"><strong>失效条件：</strong>{invalid_html}</div>'
+        f'    <div class="ij-block ij-invalid">'
+        f'      <div class="ij-label">失效条件</div>'
+        f'      <ul class="ij-list">{invalid_html}</ul>'
+        f'    </div>'
         f'  </div>'
         f'</section>',
         unsafe_allow_html=True,

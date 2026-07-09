@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>D4 公司现状概览 · 系统字体版</title>
+  <style>
+    :root {
+      --bg: #f7f8fa;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #667085;
+      --soft: #98a2b3;
+      --line: #dfe4ec;
+      --green: #139a56;
+      --blue: #2563eb;
+      --orange: #d97706;
+      --red: #dc2626;
+      --slate: #8a98aa;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+      letter-spacing: 0;
+    }
+
+    .frame {
+      width: 1280px;
+      height: 720px;
+      padding: 44px 72px 36px;
+      overflow: hidden;
+    }
+
+    .top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 28px;
+      line-height: 1.15;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .chips {
+      display: flex;
+      gap: 9px;
+      padding-top: 3px;
+    }
+
+    .chip {
+      height: 30px;
+      padding: 0 15px;
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .chip.active {
+      border-color: #ffc9c9;
+      background: #fff7f7;
+      color: var(--red);
+    }
+
+    .summary {
+      height: 84px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--card);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 36px 0 28px;
+      position: relative;
+      margin-bottom: 16px;
+    }
+
+    .summary::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 5px;
+      background: var(--slate);
+      border-radius: 8px 0 0 8px;
+    }
+
+    .company-line {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+
+    .company {
+      font-size: 28px;
+      font-weight: 650;
+      line-height: 1.1;
+    }
+
+    .ticker {
+      height: 22px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: #f1f3f6;
+      color: #6b7280;
+      font: 12px/22px "Helvetica Neue", Arial, sans-serif;
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.3;
+    }
+
+    .score {
+      text-align: right;
+      padding-top: 3px;
+    }
+
+    .score b {
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      font-size: 39px;
+      line-height: 1;
+      font-weight: 400;
+      color: #101828;
+    }
+
+    .score span {
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .score small {
+      display: block;
+      margin-top: 4px;
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      position: relative;
+    }
+
+    .status {
+      height: 104px;
+      padding: 16px 16px 14px;
+      overflow: hidden;
+    }
+
+    .status::before,
+    .panel::before {
+      content: "";
+      position: absolute;
+      top: -1px;
+      left: -1px;
+      bottom: -1px;
+      width: 5px;
+      border-radius: 8px 0 0 8px;
+      background: var(--accent);
+    }
+
+    .label {
+      font-size: 12px;
+      color: #586274;
+      margin-bottom: 7px;
+      font-weight: 500;
+    }
+
+    .value {
+      font-size: 23px;
+      line-height: 1.15;
+      font-weight: 650;
+      color: var(--accent);
+      margin-bottom: 7px;
+    }
+
+    .desc {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .dims {
+      height: 116px;
+      padding: 20px 24px 18px;
+      margin-bottom: 20px;
+    }
+
+    .dims-head {
+      display: flex;
+      gap: 22px;
+      align-items: baseline;
+      margin-bottom: 15px;
+    }
+
+    .dims-head strong {
+      font-size: 15px;
+      font-weight: 650;
+    }
+
+    .dims-head span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .dim-row {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+    }
+
+    .dim {
+      min-width: 0;
+      padding: 0 24px;
+      border-left: 1px solid #e8edf3;
+    }
+
+    .dim:first-child {
+      border-left: 0;
+      padding-left: 0;
+    }
+
+    .dim-name {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .dim-value {
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      font-size: 20px;
+      line-height: 1;
+      font-weight: 400;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    .bar {
+      width: 120px;
+      height: 6px;
+      border-radius: 999px;
+      background: #edf0f4;
+      overflow: hidden;
+    }
+
+    .bar i {
+      display: block;
+      height: 100%;
+      width: var(--p);
+      background: var(--accent);
+      border-radius: inherit;
+    }
+
+    .bottom {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 28px;
+    }
+
+    .panel {
+      height: 158px;
+      padding: 21px 20px 18px;
+    }
+
+    .panel h2 {
+      margin: 0 0 16px;
+      font-size: 16px;
+      line-height: 1.1;
+      font-weight: 650;
+    }
+
+    .panel p {
+      margin: 0 0 5px;
+      font-size: 14px;
+      line-height: 1.32;
+      color: #202838;
+    }
+
+    .footer {
+      margin-top: 30px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <main class="frame">
+    <section class="top">
+      <div>
+        <h1>公司研究 · 现状概览</h1>
+        <div class="subtitle">先看公司大致状态，再决定是否进入方法页深挖。</div>
+      </div>
+      <div class="chips">
+        <div class="chip active">当前持仓</div>
+        <div class="chip">观察池</div>
+        <div class="chip">全部公司</div>
+      </div>
+    </section>
+
+    <section class="summary">
+      <div>
+        <div class="company-line">
+          <div class="company">新华保险</div>
+          <div class="ticker">601336</div>
+        </div>
+        <div class="meta">INSURANCE · 保险Ⅱ · 分位窗口 10y · 最新财报期 2026Q1</div>
+      </div>
+      <div class="score">
+        <b>72.3</b><span>/100</span>
+        <small>综合评分 · 良好</small>
+      </div>
+    </section>
+
+    <section class="status-grid">
+      <div class="card status" style="--accent: var(--green)">
+        <div class="label">估值状态</div>
+        <div class="value">偏低</div>
+        <div class="desc">PE 处于过去 10 年约 26% 分位，有一定安全边际。</div>
+      </div>
+      <div class="card status" style="--accent: var(--green)">
+        <div class="label">盈利质量</div>
+        <div class="value">强</div>
+        <div class="desc">ROE 36.3%，明显高于优秀公司门槛。</div>
+      </div>
+      <div class="card status" style="--accent: var(--orange)">
+        <div class="label">成长状态</div>
+        <div class="value">稳健但非强项</div>
+        <div class="desc">营收 YoY 10.5%，温和增长。</div>
+      </div>
+      <div class="card status" style="--accent: var(--blue)">
+        <div class="label">现金流</div>
+        <div class="value">很强</div>
+        <div class="desc">CFO/NI 3.08，现金流覆盖净利润。</div>
+      </div>
+    </section>
+
+    <section class="card dims">
+      <div class="dims-head">
+        <strong>六维状态</strong>
+        <span>用来快速定位强项和短板，不替代方法页判断。</span>
+      </div>
+      <div class="dim-row">
+        <div class="dim" style="--accent: var(--green); --p: 74%"><div class="dim-name">估值</div><div class="dim-value">74/100</div><div class="bar"><i></i></div></div>
+        <div class="dim" style="--accent: var(--green); --p: 100%"><div class="dim-name">盈利</div><div class="dim-value">100/100</div><div class="bar"><i></i></div></div>
+        <div class="dim" style="--accent: var(--orange); --p: 59%"><div class="dim-name">成长</div><div class="dim-value">59/100</div><div class="bar"><i></i></div></div>
+        <div class="dim" style="--accent: var(--blue); --p: 100%"><div class="dim-name">现金流</div><div class="dim-value">100/100</div><div class="bar"><i></i></div></div>
+        <div class="dim" style="--accent: var(--soft); --p: 0%"><div class="dim-name">安全</div><div class="dim-value">N/A</div><div class="bar"><i></i></div></div>
+        <div class="dim" style="--accent: var(--blue); --p: 70%"><div class="dim-name">策略</div><div class="dim-value">70/100</div><div class="bar"><i></i></div></div>
+      </div>
+    </section>
+
+    <section class="bottom">
+      <div class="card panel" style="--accent: var(--green)">
+        <h2>主要优势</h2>
+        <p>· 盈利能力强：ROE 明显领先。</p>
+        <p>· 现金流质量好：经营现金流覆盖净利润。</p>
+        <p>· 估值处于偏低区间。</p>
+      </div>
+      <div class="card panel" style="--accent: var(--orange)">
+        <h2>待验证项</h2>
+        <p>· 成长不是最强维度，需要看新业务价值。</p>
+        <p>· 保险公司不适合套用普通负债率。</p>
+        <p>· 需补充 EV/NBV、偿付能力等保险指标。</p>
+      </div>
+      <div class="card panel" style="--accent: var(--blue)">
+        <h2>同行位置</h2>
+        <p>保险Ⅱ同行样本：中国人寿、中国平安。</p>
+        <p>当前综合分高于同行均值。</p>
+        <p>优势主要来自成长、盈利和现金流。</p>
+      </div>
+    </section>
+
+    <div class="footer">概览页目标：先建立公司现状地图，再进入补仓 / 格雷厄姆 / 芒格 / 保险等方法页深挖。</div>
+  </main>
+</body>
+</html>

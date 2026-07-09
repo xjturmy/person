@@ -35,7 +35,7 @@ nohup .venv/bin/python -m streamlit run "$APP" \
 PID=$!
 sleep 3
 
-if curl -fsS "http://localhost:$PORT/_stcore/health" >/dev/null 2>&1 || lsof -ti tcp:"$PORT" >/dev/null 2>&1; then
+if ps -p "$PID" >/dev/null 2>&1 && curl -fsS "http://localhost:$PORT/_stcore/health" >/dev/null 2>&1; then
   echo "✅ 已启动 PID=$PID  http://localhost:$PORT"
   echo "   tail -f $LOG    # 看实时日志"
   echo "   ./restart_dashboard.sh $PORT    # 重启"

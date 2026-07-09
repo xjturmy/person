@@ -30,13 +30,14 @@ from parse_screenshot import parse_image  # noqa: E402
 # v2.8+ 持仓全景重构:新增 3 个独立模块
 sys.path.insert(0, str(ROOT / ".tools" / "dashboard" / "tabs"))
 from decision import action_inbox as _inbox  # noqa: E402
+from decision import holding_focus as _focus  # noqa: E402
 from decision import holdings_table as _table  # noqa: E402
 from decision import holding_actions as _actions  # noqa: E402
 
 COMPANIES_CSV = ROOT / ".config" / "companies.csv"
 PRESON_DB = ROOT / "data" / "preson.duckdb"
 DECISIONS_DB = ROOT / "data" / "decisions.duckdb"
-PORTFOLIO_YAML = ROOT / ".tools" / "portfolio" / "portfolio.yaml"
+PORTFOLIO_YAML = ROOT / ".config" / "portfolio.yaml"
 
 
 def _mtime(p: Path) -> float:
@@ -783,6 +784,14 @@ def _render_section1_holdings(snap: HoldingsSnapshot) -> None:
     _render_holdings_overview(snap)
 
 
+def _render_section0_focus(snap: HoldingsSnapshot) -> None:
+    """段 0:用户明确持仓视角。"""
+    try:
+        _focus.render(snap)
+    except Exception as e:
+        st.warning(f"我的持仓视角渲染失败:{e}")
+
+
 def _render_section2_tracker(snap: HoldingsSnapshot) -> None:
     """段 2:持仓跟踪与决策(Agent-B 交付的 holding_tracker)。"""
     try:
@@ -870,12 +879,15 @@ def render(companies, selected, db_mtime, decisions_db, decisions_snapshot,
         f"  ·  加权 F-Score = Σ(F-Score × 目标权重)"
     )
 
-    tab_holdings, tab_tracker, tab_log, tab_reports = st.tabs([
+    tab_focus, tab_holdings, tab_tracker, tab_log, tab_reports = st.tabs([
+        "🎯 我的持仓",
         "📋 持仓总览",
         "📊 持仓跟踪",
         "📝 决策日志",
         "📅 月报历史",
     ])
+    with tab_focus:
+        _render_section0_focus(snap)
     with tab_holdings:
         _render_section1_holdings(snap)
     with tab_tracker:

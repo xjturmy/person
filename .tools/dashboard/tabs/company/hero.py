@@ -24,32 +24,49 @@ from .investment_judgement import build_preview_judgement, render_preview
 _OVERVIEW_COMPACT_CSS = """
 <style>
 .sws-hero {
-    border-radius: 12px;
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-left: 4px solid #94A3B8;
+    border-radius: 8px;
     box-shadow: none;
     margin: 0 0 8px;
-    padding: 16px 22px;
+    padding: 12px 14px;
+    color: #111827;
 }
 .sws-hero-row {
     align-items: center;
 }
 .sws-hero-name {
-    font-size: 26px;
+    color: #111827;
+    font-family: var(--preson-font-report, "Songti SC", "STSong", serif);
+    font-size: 22px;
+    font-weight: 700;
+}
+.sws-hero-ticker {
+    background: #F3F4F6;
+    color: #374151;
 }
 .sws-hero-cat {
+    color: #6B7280;
     font-size: 12px;
     margin-top: 4px;
 }
 .sws-hero-score-label {
+    color: #6B7280;
     font-size: 10px;
 }
 .sws-hero-score-num {
-    font-size: 40px;
+    color: #111827;
+    font-size: 28px;
 }
 .sws-hero-score-suffix {
-    font-size: 17px;
+    color: #6B7280;
+    font-size: 13px;
 }
 .sws-hero-score-pill {
-    padding: 2px 10px;
+    background: #F3F4F6;
+    color: #374151;
+    padding: 2px 9px;
 }
 .company-locator-badge {
     margin: 6px 0 8px !important;
@@ -76,7 +93,7 @@ _OVERVIEW_COMPACT_CSS = """
 """
 
 def render() -> None:
-    # ─── 段 1:SWS 风格 Hero + 雷达 + 五维 + Piotroski ─────────────
+    # ─── 段 1:公司识别条 + 投资判断预览 ────────────────────────
     st.markdown(_SWS_CSS, unsafe_allow_html=True)
     st.markdown(_OVERVIEW_COMPACT_CSS, unsafe_allow_html=True)
     inject_invest_ui_css()
@@ -98,7 +115,7 @@ def render() -> None:
         ov = score_dict["overall"] or 0.0
         ov_label, _ov_color = _sws_score_pill(ov)
 
-        # ─── Hero(渐变 banner)─────────────────────────────
+        # ─── 公司识别条(评分退到辅助位,判断条优先)──────────────
         st.markdown(
             f'<div class="sws-hero">'
             f'  <div class="sws-hero-row">'

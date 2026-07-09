@@ -31,6 +31,7 @@ class Holding:
     status: str = "watch"           # active / watch / exited
     shares: float | None = None
     cost_basis: float | None = None
+    last_price: float | None = None
     first_buy_date: str | None = None
     target_weight: float = 0.0
     max_weight: float = 0.0
@@ -49,6 +50,7 @@ class Holding:
     sell_rationale: str = ""
     exit_triggers: list[str] = field(default_factory=list)
     price_band: dict = field(default_factory=dict)
+    position_band: dict = field(default_factory=dict)
     short_term_signals: dict = field(default_factory=dict)
     exit_date: str | None = None
     exit_price: float | None = None
@@ -193,6 +195,7 @@ def load_portfolio(path: Path | None = None) -> Portfolio:
             status=d.get("status", "watch"),
             shares=d.get("shares"),
             cost_basis=d.get("cost_basis"),
+            last_price=d.get("last_price"),
             first_buy_date=d.get("first_buy_date"),
             target_weight=d.get("target_weight", 0.0),
             max_weight=d.get("max_weight", 0.0),
@@ -207,6 +210,7 @@ def load_portfolio(path: Path | None = None) -> Portfolio:
             sell_rationale=d.get("sell_rationale", "") or "",
             exit_triggers=d.get("exit_triggers") or [],
             price_band=d.get("price_band") or {},
+            position_band=d.get("position_band") or {},
             short_term_signals=d.get("short_term_signals") or {},
             exit_date=d.get("exit_date"),
             exit_price=d.get("exit_price"),
@@ -287,6 +291,7 @@ def upsert_holdings(
         name (str)
         shares (float)
         cost_basis (float)
+        last_price (float, optional)
         first_buy_date (str, optional)
         target_weight (float, optional, 默认 0)
         max_weight (float, optional)
@@ -315,7 +320,7 @@ def upsert_holdings(
             updated += 1
         else:
             new = {"ticker": t, "status": row.get("status", "active")}
-            for k in ("name", "shares", "cost_basis", "first_buy_date",
+            for k in ("name", "shares", "cost_basis", "last_price", "first_buy_date",
                      "target_weight", "max_weight", "thesis", "tags"):
                 v = row.get(k)
                 if v is not None and v != "":

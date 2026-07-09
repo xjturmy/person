@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Company Research V2 Decision Grid</title>
+  <style>
+    :root {
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --soft: #f9fafb;
+      --blue: #2563eb;
+      --green: #16a34a;
+      --amber: #d97706;
+      --red: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #f8fafc;
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    .page {
+      width: min(980px, calc(100vw - 52px));
+      max-width: 980px;
+      margin: 0 0 0 80px;
+      padding: 30px 26px 48px;
+    }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 14px;
+    }
+    .toolbar > div:first-child {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .scope {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .chip {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      padding: 6px 10px;
+    }
+    .chip.active {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border-color: #bfdbfe;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 260px;
+      gap: 12px;
+      align-items: start;
+    }
+    .panel {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .company {
+      border-left: 4px solid #94a3b8;
+      padding: 13px 14px;
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: center;
+    }
+    .company-name {
+      font-size: 22px;
+      font-weight: 780;
+      line-height: 1.2;
+    }
+    .ticker {
+      margin-left: 8px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #f3f4f6;
+      color: #4b5563;
+      font-size: 12px;
+    }
+    .meta {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .action {
+      min-width: 86px;
+      text-align: center;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      padding: 8px 12px;
+      font-size: 20px;
+      font-weight: 820;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border-top: 1px solid var(--border);
+    }
+    .cell {
+      padding: 11px 12px;
+      min-height: 82px;
+      border-right: 1px solid var(--border);
+      background: #fff;
+    }
+    .cell:last-child { border-right: 0; }
+    .label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+      margin-bottom: 7px;
+    }
+    .value {
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 760;
+      line-height: 1.35;
+    }
+    .note {
+      margin-top: 4px;
+      color: #4b5563;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .evidence {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .box {
+      padding: 12px 13px;
+    }
+    .box h3 {
+      margin: 0 0 8px;
+      font-size: 14px;
+    }
+    ul {
+      margin: 0;
+      padding-left: 18px;
+      font-size: 13px;
+      line-height: 1.55;
+      color: #374151;
+    }
+    .danger {
+      border-color: #fed7aa;
+      background: #fff7ed;
+      color: #7c2d12;
+    }
+    .side {
+      display: grid;
+      gap: 12px;
+    }
+    .score {
+      padding: 14px;
+    }
+    .score-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      border-bottom: 1px solid #f3f4f6;
+      padding: 8px 0;
+    }
+    .score-row:first-child { padding-top: 0; }
+    .score-row:last-child { border-bottom: 0; padding-bottom: 0; }
+    .score-row span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .score-row strong {
+      font-size: 18px;
+    }
+    .bar {
+      height: 6px;
+      border-radius: 999px;
+      background: #f3f4f6;
+      overflow: hidden;
+      margin-top: 7px;
+    }
+    .bar > i {
+      display: block;
+      height: 100%;
+      width: var(--w);
+      background: var(--c);
+      border-radius: 999px;
+    }
+    .next {
+      padding: 14px;
+      border-left: 4px solid var(--amber);
+    }
+    .next strong {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+    @media (max-width: 860px) {
+      .toolbar, .company { align-items: flex-start; flex-direction: column; }
+      h1 { white-space: normal; }
+      .layout, .evidence, .grid { grid-template-columns: 1fr; }
+      .cell { border-right: 0; border-bottom: 1px solid var(--border); }
+      .cell:last-child { border-bottom: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="toolbar">
+      <div>
+        <h1>公司研究 · 判断与证据</h1>
+        <div class="meta">判断在前，证据紧随其后；避免回到纯评分仪表盘。</div>
+      </div>
+      <div class="scope">
+        <span class="chip active">当前持仓</span>
+        <span class="chip">观察池</span>
+        <span class="chip">全部公司</span>
+      </div>
+    </header>
+
+    <section class="layout">
+      <div>
+        <div class="panel company">
+          <div>
+            <div class="company-name">新华保险 <span class="ticker">601336</span></div>
+            <div class="meta">INSURANCE · 10y 分位窗口 · 主方法：保险专属</div>
+          </div>
+          <div class="action">持有</div>
+        </div>
+
+        <div class="panel grid">
+          <div class="cell">
+            <div class="label">价格状态</div>
+            <div class="value">便宜</div>
+            <div class="note">进入方法内买入线核查</div>
+          </div>
+          <div class="cell">
+            <div class="label">主方法</div>
+            <div class="value">保险专属</div>
+            <div class="note">不混用林奇 / 格雷厄姆口径</div>
+          </div>
+          <div class="cell">
+            <div class="label">复查触发</div>
+            <div class="value">季报 / 年报 / 价格越线</div>
+            <div class="note">触发再改判断</div>
+          </div>
+          <div class="cell">
+            <div class="label">下一步纪律</div>
+            <div class="value">未触发卖出条件，暂不操作。</div>
+          </div>
+        </div>
+
+        <div class="evidence">
+          <div class="panel box">
+            <h3>核心理由</h3>
+            <ul>
+              <li>估值偏低，但保险股需用内含价值、偿付能力和投资收益率再校准。</li>
+              <li>盈利和现金流处于强项，当前更适合持有跟踪。</li>
+              <li>成长项不是强项，不用普通成长股 PEG 口径追买。</li>
+            </ul>
+          </div>
+          <div class="panel box danger">
+            <h3>失效条件</h3>
+            <ul>
+              <li>新业务价值或偿付能力连续恶化。</li>
+              <li>价格越过方法内减仓线。</li>
+              <li>投资收益率下行导致盈利质量被证伪。</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <aside class="side">
+        <div class="panel score">
+          <div class="score-row">
+            <span>综合评分</span>
+            <strong>72/100</strong>
+          </div>
+          <div class="score-row">
+            <span>盈利</span>
+            <strong>100</strong>
+          </div>
+          <div class="bar"><i style="--w:100%;--c:#16a34a"></i></div>
+          <div class="score-row">
+            <span>现金流</span>
+            <strong>100</strong>
+          </div>
+          <div class="bar"><i style="--w:100%;--c:#2563eb"></i></div>
+          <div class="score-row">
+            <span>成长</span>
+            <strong>59</strong>
+          </div>
+          <div class="bar"><i style="--w:59%;--c:#d97706"></i></div>
+        </div>
+        <div class="panel next">
+          <strong>下次看什么</strong>
+          <div class="note">先看保险专属指标：EV/NBV、偿付能力、投资收益率和分红纪律。</div>
+        </div>
+      </aside>
+    </section>
+  </main>
+</body>
+</html>

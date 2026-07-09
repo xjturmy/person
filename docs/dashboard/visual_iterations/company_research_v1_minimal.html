@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Company Research V1 Minimal</title>
+  <style>
+    :root {
+      --text: #111827;
+      --muted: #6b7280;
+      --subtle: #9ca3af;
+      --border: #e5e7eb;
+      --soft: #f9fafb;
+      --blue: #2563eb;
+      --green: #16a34a;
+      --amber: #d97706;
+      --red: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #ffffff;
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+      letter-spacing: 0;
+    }
+    .page {
+      width: min(1080px, calc(100vw - 56px));
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 34px 28px 48px;
+    }
+    .top {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 28px;
+      align-items: start;
+      margin-bottom: 18px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 26px;
+      line-height: 1.15;
+      font-weight: 780;
+    }
+    .meta {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .scope {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-bottom: 10px;
+    }
+    .chip {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      padding: 6px 10px;
+      background: #fff;
+    }
+    .chip.active {
+      border-color: #fecaca;
+      color: #b91c1c;
+      background: #fef2f2;
+    }
+    .select {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--soft);
+      padding: 11px 12px;
+      font-size: 14px;
+      color: #1f2937;
+      text-align: left;
+    }
+    .company {
+      border: 1px solid var(--border);
+      border-left: 4px solid #94a3b8;
+      border-radius: 8px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 18px 0 8px;
+    }
+    .company-name {
+      font-size: 22px;
+      font-weight: 780;
+      line-height: 1.2;
+    }
+    .ticker {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #f3f4f6;
+      color: #4b5563;
+      font-size: 12px;
+      vertical-align: middle;
+    }
+    .score {
+      text-align: right;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+    .score strong {
+      display: block;
+      color: var(--text);
+      font-size: 28px;
+      line-height: 1.1;
+    }
+    .judgement {
+      border: 1px solid #d8dee8;
+      border-left: 4px solid var(--blue);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+    }
+    .j-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+    }
+    .j-title {
+      font-size: 15px;
+      font-weight: 760;
+      margin-bottom: 3px;
+    }
+    .j-sub {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .action {
+      min-width: 76px;
+      text-align: center;
+      border: 1px solid #bfdbfe;
+      border-radius: 7px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      padding: 8px 12px;
+      font-size: 18px;
+      font-weight: 800;
+    }
+    .rule {
+      display: grid;
+      grid-template-columns: 130px 1fr;
+      gap: 14px;
+      padding: 8px 0;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .rule:last-child { border-bottom: 0; }
+    .label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .value {
+      font-size: 14px;
+      font-weight: 720;
+      line-height: 1.45;
+    }
+    .value.muted {
+      font-weight: 500;
+      color: #374151;
+    }
+    .footer {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .note {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: #fff;
+    }
+    .note.warn {
+      border-color: #fed7aa;
+      background: #fff7ed;
+      color: #7c2d12;
+    }
+    ul {
+      margin: 6px 0 0;
+      padding-left: 18px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .below {
+      border-top: 1px solid var(--border);
+      margin-top: 16px;
+      padding-top: 12px;
+      color: var(--muted);
+      font-size: 13px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .ghost {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 5px 9px;
+      background: var(--soft);
+    }
+    @media (max-width: 760px) {
+      .page { padding: 22px 16px; }
+      .top, .footer, .rule { grid-template-columns: 1fr; }
+      .scope { justify-content: flex-start; flex-wrap: wrap; }
+      .company, .j-head { align-items: flex-start; flex-direction: column; }
+      .score { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="top">
+      <div>
+        <h1>公司研究</h1>
+        <div class="meta">首屏只回答一个问题：这家公司现在该不该动。</div>
+      </div>
+      <div>
+        <div class="scope">
+          <span class="chip active">当前持仓</span>
+          <span class="chip">观察池</span>
+          <span class="chip">全部公司</span>
+        </div>
+        <div class="select">01_新华保险</div>
+      </div>
+    </section>
+
+    <section class="company">
+      <div>
+        <div class="company-name">新华保险 <span class="ticker">601336</span></div>
+        <div class="meta">INSURANCE · 分位窗口 10y · 主方法先按保险专属判断</div>
+      </div>
+      <div class="score">Snowflake 综合评分 <strong>72<span style="font-size:13px;color:#6b7280">/100</span></strong>良好</div>
+    </section>
+
+    <section class="judgement">
+      <div class="j-head">
+        <div>
+          <div class="j-title">当前投资判断</div>
+          <div class="j-sub">先回答该不该动、依据什么、错了怎么办</div>
+        </div>
+        <div class="action">持有</div>
+      </div>
+
+      <div class="rule">
+        <div class="label">价格状态</div>
+        <div class="value">便宜 <span class="value muted">· 进入方法内买入线核查</span></div>
+      </div>
+      <div class="rule">
+        <div class="label">下一步纪律</div>
+        <div class="value">未触发卖出条件，新财报或价格越线再复查。</div>
+      </div>
+      <div class="rule">
+        <div class="label">复查触发</div>
+        <div class="value">季报 / 年报 / 价格越过方法区间</div>
+      </div>
+
+      <div class="footer">
+        <div class="note">
+          <div class="label">核心理由</div>
+          <ul>
+            <li>先按「保险专属」判断，避免多方法互相抵消。</li>
+            <li>估值处低分位，但仍需核查保险内含价值与偿付能力。</li>
+            <li>盈利与现金流强，成长项需要继续观察。</li>
+          </ul>
+        </div>
+        <div class="note warn">
+          <div class="label">失效条件</div>
+          <ul>
+            <li>主方法被证伪，暂停沿用原判断。</li>
+            <li>价格越过方法内卖出 / 减仓线。</li>
+            <li>新财报出现增长、现金流或负债硬伤。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="below">
+      <span class="ghost">证据层：综合评分 72</span>
+      <span class="ghost">同行：保险Ⅱ</span>
+      <span class="ghost">优势：盈利、现金流</span>
+      <span class="ghost">短板：成长</span>
+    </section>
+  </main>
+</body>
+</html>

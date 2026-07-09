@@ -71,6 +71,8 @@ class HoldingRow:
     tags: list[str] = field(default_factory=list)
     thesis: str = ""
     school: str = ""
+    price_band: dict = field(default_factory=dict)
+    position_band: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -461,14 +463,14 @@ def build_snapshot(
     for h in actives:
         if h.shares is None:
             continue
-        px = prices.get(h.ticker)
+        px = h.last_price if h.last_price is not None else prices.get(h.ticker)
         px = px if px is not None else (h.cost_basis or 0)
         market_values[h.ticker] = h.shares * px
 
     total_active_mv = sum(market_values.values()) or 0.0
 
     for h in visible_holdings:
-        last_px = prices.get(h.ticker)
+        last_px = h.last_price if h.last_price is not None else prices.get(h.ticker)
         mv = (h.shares * last_px) if (h.shares is not None and last_px is not None) else None
         cost_t = h.cost_total
         pnl = (mv - cost_t) if (mv is not None and cost_t is not None) else None
@@ -488,6 +490,8 @@ def build_snapshot(
             fscore=fs, pe_pct=pct,
             tags=list(h.tags or []), thesis=h.thesis or "",
             school=h.school or "",
+            price_band=dict(h.price_band or {}),
+            position_band=dict(h.position_band or {}),
         ))
 
     # 行业聚合(按 tags[0] 主标签)

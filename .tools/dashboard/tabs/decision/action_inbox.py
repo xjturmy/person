@@ -64,6 +64,62 @@ class _Signal:
 def _detect(snap: HoldingsSnapshot) -> list[_Signal]:
     sigs: list[_Signal] = []
     for r in snap.rows:
+        pos_band = getattr(r, "position_band", None) or {}
+        if r.status == "active" and isinstance(pos_band, dict):
+            max_w = pos_band.get("max_weight")
+            target_w = pos_band.get("target_weight")
+            role = pos_band.get("role") or "仓位"
+            if max_w is not None and r.actual_weight > float(max_w):
+                sigs.append(_Signal(
+                    sev=6, emoji="⚖️", title="超过类型上限",
+                    detail=f"{r.name} ({r.ticker}) · {role} 当前 {r.actual_weight * 100:.1f}% > 上限 {float(max_w) * 100:.0f}%",
+                ))
+            elif target_w is not None and r.actual_weight > float(target_w) + 0.02:
+                sigs.append(_Signal(
+                    sev=3, emoji="⚖️", title="高于目标仓位",
+                    detail=f"{r.name} ({r.ticker}) · {role} 当前 {r.actual_weight * 100:.1f}% > 目标 {float(target_w) * 100:.0f}%",
+                ))
+
+        band = getattr(r, "price_band", None) or {}
+        manual_hit = False
+        if isinstance(band, dict) and r.last_price is not None:
+            px = float(r.last_price)
+            stop_loss = band.get("stop_loss_below")
+            add_below = band.get("add_below")
+            buy_below = band.get("buy_below")
+            trim_above = band.get("trim_above")
+            exit_above = band.get("exit_above")
+            if stop_loss is not None and px <= float(stop_loss):
+                manual_hit = True
+                sigs.append(_Signal(
+                    sev=6, emoji="🔴", title="跌破人工失效线",
+                    detail=f"{r.name} ({r.ticker}) · 现价 {px:g} ≤ {float(stop_loss):g}",
+                ))
+            elif add_below is not None and px <= float(add_below):
+                manual_hit = True
+                sigs.append(_Signal(
+                    sev=4, emoji="🟢", title="人工加仓区",
+                    detail=f"{r.name} ({r.ticker}) · 现价 {px:g} ≤ {float(add_below):g}",
+                ))
+            elif buy_below is not None and px <= float(buy_below):
+                manual_hit = True
+                sigs.append(_Signal(
+                    sev=3, emoji="🟢", title="人工买入区",
+                    detail=f"{r.name} ({r.ticker}) · 现价 {px:g} ≤ {float(buy_below):g}",
+                ))
+            elif exit_above is not None and px >= float(exit_above):
+                manual_hit = True
+                sigs.append(_Signal(
+                    sev=6, emoji="🔥", title="人工清仓评估",
+                    detail=f"{r.name} ({r.ticker}) · 现价 {px:g} ≥ {float(exit_above):g}",
+                ))
+            elif trim_above is not None and px >= float(trim_above):
+                manual_hit = True
+                sigs.append(_Signal(
+                    sev=4, emoji="🟡", title="人工减仓区",
+                    detail=f"{r.name} ({r.ticker}) · 现价 {px:g} ≥ {float(trim_above):g}",
+                ))
+
         # 🔴 F-Score 跌破
         if r.fscore is not None and r.fscore < 4:
             sigs.append(_Signal(
@@ -84,7 +140,7 @@ def _detect(snap: HoldingsSnapshot) -> list[_Signal]:
             ))
         # 🟢 已跌破低估线
         rng = _cached_fair_range(r.ticker, r.name)
-        if rng and rng["verified"] and rng["graham_number"] and r.last_price:
+        if not manual_hit and rng and rng["verified"] and rng["graham_number"] and r.last_price:
             low_line = rng["graham_number"] * 0.85
             if r.last_price <= low_line:
                 gap_pct = (r.last_price / low_line - 1) * 100

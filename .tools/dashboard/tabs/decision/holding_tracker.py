@@ -89,7 +89,7 @@ def render(snap) -> None:
     guide = compute_holding_guide(row, snap, fair)
 
     # 标题
-    st.markdown(f"#### 📖 {row.name} ({row.ticker}) · {guide.school_label}")
+    st.markdown(f"#### 📖 {row.name} ({row.ticker}) · {guide.school_label} · {guide.price_source}")
 
     # 数据降级提示
     if not guide.verified and guide.notes:
@@ -117,7 +117,7 @@ def render(snap) -> None:
 
         if unit == UNIT_LONG:
             st.markdown(f"### {UNIT_LONG}")
-            st.caption(f"流派:{guide.school_label} · 决定买不买 / 买多便宜")
+            st.caption(f"流派:{guide.school_label} · 价格口径:{guide.price_source} · 决定买不买 / 买多便宜")
             k1, k2, k3 = st.columns(3)
             k1.metric("合理价", _fmt_price(guide.fair_price))
             k2.metric("安全买入线", _fmt_price(guide.buy_line),
@@ -127,8 +127,20 @@ def render(snap) -> None:
                       delta_color="inverse",
                       help="当前 vs 买入线;负值=已进入买入区")
             st.markdown(f"**档位:** {guide.verdict_label}")
+            if guide.position_range_label:
+                st.markdown(f"**仓位范围:** {guide.position_range_label}")
+            if guide.position_status:
+                st.markdown(f"**仓位判断:** {guide.position_status}")
+            if guide.manual_band_note:
+                st.caption(f"人工备注:{guide.manual_band_note}")
             with st.expander("▼ 方法论详情(展开看公式)", expanded=False):
-                if guide.rule == "graham":
+                if guide.price_source == "人工最终确认":
+                    st.markdown(
+                        "- **当前采用人工最终确认价格区间**:来自 `portfolio.yaml.price_band`\n"
+                        "- 操作优先级高于模型估算价\n"
+                        "- 缺少人工区间时,才回退 Graham / 林奇 / 巴菲特口径"
+                    )
+                elif guide.rule == "graham":
                     st.markdown(
                         "- **合理价** = Graham Number = √(22.5 × EPS × BVPS)\n"
                         "- **安全买入线** = 合理价 × 0.85\n"

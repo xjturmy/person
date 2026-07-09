@@ -170,6 +170,50 @@ def ttyd_stop() -> tuple[bool, str]:
 # ──────────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="投资智能体", page_icon="📊", layout="wide")
 
+st.markdown(
+    """
+    <style>
+      :root {
+        --preson-font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC",
+          "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+        --preson-font-report: "Songti SC", "STSong", "Songti TC", "SimSun",
+          "Times New Roman", serif;
+        --preson-font-number: "Helvetica Neue", Arial, sans-serif;
+      }
+
+      html, body, [class*="css"], .stApp {
+        font-family: var(--preson-font-sans);
+        letter-spacing: 0;
+      }
+
+      .stApp h1,
+      .stApp h2,
+      .stApp h3,
+      .stApp [data-testid="stMarkdownContainer"] h1,
+      .stApp [data-testid="stMarkdownContainer"] h2,
+      .stApp [data-testid="stMarkdownContainer"] h3 {
+        font-family: var(--preson-font-report);
+        font-weight: 700;
+        letter-spacing: 0;
+        color: #111827;
+      }
+
+      .stMetric [data-testid="stMetricValue"],
+      .stApp [data-testid="stMetricValue"] {
+        font-family: var(--preson-font-number);
+        font-weight: 500;
+        letter-spacing: 0;
+      }
+
+      .preson-report-title,
+      .preson-report-title * {
+        font-family: var(--preson-font-report) !important;
+      }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 inject_zh_column_menu()
 
 DB_MTIME = _db_mtime()
@@ -282,6 +326,41 @@ with title_col:
     st.title("📊 投资智能体")
 with company_col:
     st.caption("当前公司")
+    scope_hint = ""
+    scope = "全部公司"
+    scoped_companies = list(companies)
+    if page == PAGE_COMPANY:
+        try:
+            from tabs.company.company_scope import (
+                SCOPE_ACTIVE,
+                SCOPE_ALL,
+                SCOPE_OPTIONS,
+                filter_companies_by_scope,
+            )
+
+            scope = st.radio(
+                "公司范围",
+                SCOPE_OPTIONS,
+                index=0,
+                key="company_scope",
+                horizontal=True,
+                label_visibility="collapsed",
+            )
+            scoped_companies, scope_hint = filter_companies_by_scope(
+                companies,
+                _folder_to_ticker(DB_MTIME),
+                scope,
+            )
+            if not scoped_companies:
+                scoped_companies = list(companies)
+                if scope in (SCOPE_ACTIVE,):
+                    scope_hint = scope_hint or "当前持仓为空,已显示全部公司。"
+                else:
+                    scope_hint = scope_hint or "该范围暂无公司,已显示全部公司。"
+        except Exception as _scope_exc:
+            scoped_companies = list(companies)
+            scope_hint = f"公司范围加载失败,已显示全部公司:{_scope_exc}"
+
     query = st.text_input(
         "搜索公司",
         placeholder="代码 / 名称 / 拼音 / 行业",
@@ -290,14 +369,20 @@ with company_col:
     )
     if query and search_index:
         matched_folders = company_search.search_folders(query, search_index, limit=20)
+        scoped_set = set(scoped_companies)
+        if page == PAGE_COMPANY and scope != "全部公司":
+            matched_folders = [f for f in matched_folders if f in scoped_set]
         if matched_folders:
             options = matched_folders + [show_all_label]
             st.caption(f"命中 {len(matched_folders)} 家")
         else:
-            options = list(companies)
-            st.caption("无匹配,显示全部")
+            options = list(scoped_companies)
+            st.caption("无匹配,显示当前范围")
     else:
-        options = list(companies)
+        options = list(scoped_companies)
+
+    if scope_hint and not query:
+        st.caption(scope_hint)
 
     options_signature = tuple(options)
     if st.session_state.get("_company_options_sig") != options_signature:

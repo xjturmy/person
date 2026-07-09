@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>公司研究概览候选 C · 持仓操作约束</title>
+  <style>
+    :root {
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --soft: #f9fafb;
+      --surface: #ffffff;
+      --blue: #2563eb;
+      --green: #16a34a;
+      --amber: #d97706;
+      --red: #dc2626;
+      --slate: #475569;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: #f8fafc;
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    .page {
+      width: min(1120px, calc(100vw - 40px));
+      margin: 0 auto;
+      padding: 28px 20px 46px;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: start;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .scope {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .chip,
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+      padding: 7px 10px;
+      white-space: nowrap;
+    }
+
+    .chip.active {
+      border-color: #bfdbfe;
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: currentColor;
+      flex: 0 0 auto;
+    }
+
+    .identity {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--blue);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 14px 15px;
+      margin-bottom: 12px;
+    }
+
+    .company-name {
+      display: flex;
+      align-items: baseline;
+      gap: 9px;
+      min-width: 0;
+      font-size: 24px;
+      font-weight: 820;
+      line-height: 1.15;
+    }
+
+    .ticker {
+      border-radius: 999px;
+      background: #f3f4f6;
+      color: #4b5563;
+      font-size: 12px;
+      font-weight: 750;
+      padding: 3px 8px;
+    }
+
+    .meta-line {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+      margin-top: 9px;
+    }
+
+    .badge.blue {
+      border-color: #bfdbfe;
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+
+    .badge.green {
+      border-color: #bbf7d0;
+      background: #f0fdf4;
+      color: #166534;
+    }
+
+    .badge.gray {
+      background: #f9fafb;
+      color: #4b5563;
+    }
+
+    .scorebox {
+      min-width: 132px;
+      text-align: right;
+    }
+
+    .scorebox .label,
+    .label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 7px;
+    }
+
+    .score {
+      font-size: 24px;
+      font-weight: 830;
+      line-height: 1;
+    }
+
+    .score-note {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .constraint-grid {
+      display: grid;
+      grid-template-columns: 1.08fr 1fr 1fr 1.18fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 12px 13px;
+      min-width: 0;
+    }
+
+    .card.action {
+      border-left: 4px solid var(--blue);
+    }
+
+    .card.no {
+      border-left: 4px solid var(--red);
+      background: #fffafa;
+    }
+
+    .card.can {
+      border-left: 4px solid var(--green);
+    }
+
+    .card.must {
+      border-left: 4px solid var(--amber);
+      background: #fffdf7;
+    }
+
+    .card.invalid {
+      border-color: #fed7aa;
+      background: #fff7ed;
+    }
+
+    .value {
+      font-size: 19px;
+      font-weight: 820;
+      line-height: 1.2;
+    }
+
+    .body-copy {
+      margin-top: 7px;
+      color: #374151;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .invalid .body-copy {
+      color: #7c2d12;
+    }
+
+    .overview {
+      display: grid;
+      grid-template-columns: 1.25fr 0.75fr;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 16px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    .summary {
+      display: grid;
+      gap: 9px;
+    }
+
+    .summary-row {
+      display: grid;
+      grid-template-columns: 104px minmax(0, 1fr);
+      gap: 12px;
+      padding: 9px 0;
+      border-top: 1px solid #f3f4f6;
+    }
+
+    .summary-row:first-of-type {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .summary-value {
+      color: #1f2937;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+
+    .evidence-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .evidence-item {
+      display: grid;
+      grid-template-columns: 9px minmax(0, 1fr);
+      gap: 9px;
+      color: #374151;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .mark {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      margin-top: 5px;
+      background: var(--blue);
+    }
+
+    .mark.green { background: var(--green); }
+    .mark.amber { background: var(--amber); }
+
+    .side-stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .metric {
+      display: grid;
+      gap: 10px;
+    }
+
+    .metric-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: baseline;
+      padding-bottom: 9px;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .metric-row:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .metric-name {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .metric-value {
+      font-size: 15px;
+      font-weight: 800;
+      text-align: right;
+    }
+
+    .bar {
+      height: 7px;
+      border-radius: 999px;
+      background: #f3f4f6;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .bar i {
+      display: block;
+      width: 72%;
+      height: 100%;
+      border-radius: 999px;
+      background: var(--blue);
+    }
+
+    .review {
+      border-left: 4px solid var(--amber);
+    }
+
+    @media (max-width: 900px) {
+      .topbar,
+      .identity,
+      .constraint-grid,
+      .overview {
+        grid-template-columns: 1fr;
+      }
+
+      .scope {
+        justify-content: flex-start;
+      }
+
+      .scorebox {
+        min-width: 0;
+        text-align: left;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .page {
+        width: min(100vw, calc(100vw - 24px));
+        padding: 20px 12px 36px;
+      }
+
+      h1 {
+        font-size: 22px;
+      }
+
+      .company-name {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 23px;
+      }
+
+      .summary-row {
+        grid-template-columns: 1fr;
+        gap: 5px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <div>
+        <h1>公司研究 · 概览</h1>
+        <div class="subtitle">候选 C：持仓公司先看操作约束，再看证据摘要。</div>
+      </div>
+      <nav class="scope" aria-label="研究范围">
+        <span class="chip active">当前持仓</span>
+        <span class="chip">观察池</span>
+        <span class="chip">全部公司</span>
+      </nav>
+    </header>
+
+    <section class="identity" aria-label="公司与当前判断">
+      <div>
+        <div class="company-name">
+          <span>新华保险</span>
+          <span class="ticker">601336</span>
+        </div>
+        <div class="meta-line">
+          <span class="badge blue"><span class="dot"></span>持有</span>
+          <span class="badge green"><span class="dot"></span>便宜</span>
+          <span class="badge gray">保险专属</span>
+        </div>
+      </div>
+      <div class="scorebox">
+        <div class="label">综合质量</div>
+        <div class="score">72/100</div>
+        <div class="score-note">评分只作证据，不替代动作</div>
+      </div>
+    </section>
+
+    <section class="constraint-grid" aria-label="持仓操作约束">
+      <article class="card action">
+        <div class="label">当前动作</div>
+        <div class="value">继续持有</div>
+        <div class="body-copy">未触发卖出条件；价格便宜但不自动加仓。</div>
+      </article>
+
+      <article class="card no">
+        <div class="label">不要做</div>
+        <div class="value">不因便宜追买</div>
+        <div class="body-copy">先检查保险专属指标，不把普通低 PE 当作买入理由。</div>
+      </article>
+
+      <article class="card can">
+        <div class="label">可以做</div>
+        <div class="value">等待加仓线</div>
+        <div class="body-copy">若价格回到计划区间，同时仓位未超上限，再记录理由。</div>
+      </article>
+
+      <article class="card must">
+        <div class="label">必须记</div>
+        <div class="value">仓位上限</div>
+        <div class="body-copy">任何加仓前，写清目标仓位、买入线和复查日期。</div>
+      </article>
+    </section>
+
+    <section class="overview" aria-label="概览证据层">
+      <article class="card">
+        <div class="section-title">
+          <h2>判断摘要</h2>
+          <span class="badge blue"><span class="dot"></span>概览页</span>
+        </div>
+        <div class="summary">
+          <div class="summary-row">
+            <div class="label">仓位纪律</div>
+            <div class="summary-value">持有为主；暂停无计划加仓，避免把估值便宜误读为立即行动。</div>
+          </div>
+          <div class="summary-row">
+            <div class="label">价格判断</div>
+            <div class="summary-value">当前归类为便宜，但保险股需要结合偿付能力、新业务价值与投资收益质量复核。</div>
+          </div>
+          <div class="summary-row">
+            <div class="label">主方法</div>
+            <div class="summary-value">保险专属优先；林奇或格雷厄姆口径只作为辅助旁证。</div>
+          </div>
+          <div class="summary-row">
+            <div class="label">复查触发</div>
+            <div class="summary-value">季报更新、价格越过计划区间、或核心保险指标连续变差。</div>
+          </div>
+        </div>
+      </article>
+
+      <div class="side-stack">
+        <article class="card invalid">
+          <div class="section-title">
+            <h2>失效条件</h2>
+          </div>
+          <div class="evidence-list">
+            <div class="evidence-item">
+              <span class="mark amber"></span>
+              <span>新业务价值或偿付能力连续恶化。</span>
+            </div>
+            <div class="evidence-item">
+              <span class="mark amber"></span>
+              <span>投资收益率下行，盈利质量无法解释。</span>
+            </div>
+            <div class="evidence-item">
+              <span class="mark amber"></span>
+              <span>价格越过方法内减仓线且基本面没有同步改善。</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="card review">
+          <div class="label">下次复查</div>
+          <div class="value">季报 / 价格触发</div>
+          <div class="body-copy">先更新保险专属指标，再决定是否调整动作。</div>
+        </article>
+      </div>
+    </section>
+
+    <section class="overview" aria-label="证据摘要" style="margin-top: 12px;">
+      <article class="card">
+        <div class="section-title">
+          <h2>证据摘要</h2>
+        </div>
+        <div class="evidence-list">
+          <div class="evidence-item">
+            <span class="mark green"></span>
+            <span>估值处于偏低区域，支持继续跟踪，不单独构成加仓指令。</span>
+          </div>
+          <div class="evidence-item">
+            <span class="mark"></span>
+            <span>质量评分 72/100，说明基本面有支撑，但仍需保险方法内确认。</span>
+          </div>
+          <div class="evidence-item">
+            <span class="mark amber"></span>
+            <span>保险公司利润波动受投资端影响，需防止短期利润掩盖长期质量变化。</span>
+          </div>
+        </div>
+      </article>
+
+      <aside class="card">
+        <div class="section-title">
+          <h2>概览指标</h2>
+        </div>
+        <div class="metric">
+          <div>
+            <div class="metric-row">
+              <span class="metric-name">综合质量</span>
+              <span class="metric-value">72/100</span>
+            </div>
+            <div class="bar" aria-hidden="true"><i></i></div>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">当前动作</span>
+            <span class="metric-value">持有</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">价格状态</span>
+            <span class="metric-value">便宜</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">适用方法</span>
+            <span class="metric-value">保险专属</span>
+          </div>
+        </div>
+      </aside>
+    </section>
+  </main>
+</body>
+</html>

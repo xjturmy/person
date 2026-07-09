@@ -1,12 +1,12 @@
 _meta:
   version: '1.0'
-  status: demo
+  status: live
   base_currency: CNY
-  last_updated: '2026-06-16'
+  last_updated: '2026-07-08'
   schema_version: '2.8'
 account:
-  total_capital: 1000000
-  target_equity_ratio: 0.7
+  total_capital: 1213316.91
+  target_equity_ratio: 0.967
   cash_min_ratio: 0.1
   cash_max_ratio: 0.5
 rebalance:
@@ -241,9 +241,29 @@ holdings:
   - 拨备覆盖跌破 200%
 - ticker: '601336'
   name: 新华保险
-  status: watch
-  target_weight: 0.03
-  max_weight: 0.06
+  status: active
+  shares: 1300
+  cost_basis: 67.3376
+  last_price: 63.15
+  first_buy_date: '2026-07-08'
+  target_weight: 0.07
+  max_weight: 0.09
+  price_band:
+    method: 保险PEV + 安全边际
+    buy_below: 70.0
+    add_below: 55.0
+    trim_above: 92.0
+    exit_above: 110.0
+    stop_loss_below: 45.0
+    note: 基于2025内含价值约2878亿元、当前PEV约0.7附近估算; 0.6x PEV以下加仓,1.0x PEV附近减仓,1.2x PEV以上清仓评估。
+  position_band:
+    company_type: 金融保险 / 防御修复
+    role: 机会持仓
+    min_weight: 0.03
+    target_weight: 0.05
+    max_weight: 0.08
+    source: 林奇金融适配 + 下半年计划普通/机会持仓
+    note: 保险股利润受资本市场波动影响大,低估可持有,但不宜当作单一核心重仓。
   thesis: 寿险;F-Score 行业版数据待 P3 解锁
   tags:
   - 金融
@@ -282,9 +302,29 @@ holdings:
   - PB 分位升至 70% 以上
 - ticker: '601766'
   name: 中国中车
-  status: watch
-  target_weight: 0.03
-  max_weight: 0.06
+  status: active
+  shares: 17600
+  cost_basis: 6.313757
+  last_price: 5.41
+  first_buy_date: '2026-07-08'
+  target_weight: 0.081
+  max_weight: 0.1
+  position_band:
+    company_type: 周期型 + 稳健
+    role: 机会持仓
+    min_weight: 0.03
+    target_weight: 0.05
+    max_weight: 0.08
+    source: 02_companies/05_中国中车/05_投资决策/03_综合决策分析.md
+    note: 原分析给出3-5%当前可建仓,5.5元以下可加至5-8%;超过8%后价格再便宜也先不加。
+  price_band:
+    method: 周期低估修复
+    buy_below: 6.0
+    add_below: 5.5
+    trim_above: 8.0
+    exit_above: 10.0
+    stop_loss_below: 5.0
+    note: 依据 02_companies/05_中国中车/05_投资决策/03_综合决策分析.md 的关键价位表; 6-7元为合理持有区。
   thesis: 轨交装备;F-Score 改善 + 政策受益
   tags:
   - 制造
@@ -320,11 +360,31 @@ holdings:
   - 苹果订单份额下滑
   - 汽车业务增速跌破 50%
   - 净利率跌破 4%
-- ticker: 02097
+- ticker: '02097'
   name: 蜜雪集团
-  status: watch
-  target_weight: 0.0
-  max_weight: 0.03
+  status: active
+  shares: 400
+  cost_basis: 285.935675
+  last_price: 184.108
+  first_buy_date: '2026-07-08'
+  target_weight: 0.063
+  max_weight: 0.08
+  price_band:
+    method: 快速增长型 + IPO数据折扣
+    buy_below: 200.0
+    add_below: 160.0
+    trim_above: 320.0
+    exit_above: 400.0
+    stop_loss_below: 150.0
+    note: 基于蜜雪IPO后历史估值区间、2025 EPS与当前大幅回撤做保守折扣; 数据历史短,需后续用年报/中报重算。
+  position_band:
+    company_type: 快速增长型 / 港股IPO
+    role: 观察持仓
+    min_weight: 0.01
+    target_weight: 0.03
+    max_weight: 0.06
+    source: 林奇快速增长型 + IPO数据天花板约束
+    note: 数据历史短、港股流动性和估值锚仍需验证,超过6%先不继续加仓。
   thesis: 港股新股;数据天花板,IPO < 1 年观察
   tags:
   - 消费
@@ -341,6 +401,382 @@ holdings:
   - 门店增速跌破 10%
   - 同店收入连续 2 季度负增长
   - 净利率跌破 12%
+- ticker: '002415'
+  name: 海康威视
+  status: active
+  shares: 1600
+  cost_basis: 31.806875
+  last_price: 34.34
+  first_buy_date: '2026-07-08'
+  target_weight: 0.047
+  max_weight: 0.08
+  price_band:
+    method: 稳健成长 + 历史PE分位
+    buy_below: 36.0
+    add_below: 30.0
+    trim_above: 50.0
+    exit_above: 60.0
+    stop_loss_below: 28.0
+    note: 基于海康威视历史PE分位、2026Q1基本面和当前持仓现价校准; 需补正式公司一页结论后再固化。
+  position_band:
+    company_type: 稳健成长 / 科技制造
+    role: 普通持仓
+    min_weight: 0.03
+    target_weight: 0.05
+    max_weight: 0.08
+    source: 下半年计划普通持仓 + 稳健/成长混合口径
+    note: 需补最终投研结论;在创新业务和海外恢复未确认前,按普通持仓管理。
+  thesis: 安防与智能物联龙头，先按截图录入真实持仓，后续补充投资逻辑。
+  tags:
+  - 科技
+  - 安防
+  school: 成长
+  rationale: '[截图录入] 市值 54,944.00，浮盈 4,053.00，收益率 7.96%。'
+  criteria_met: []
+  review_triggers:
+  - 待补充业务与估值复核条件
+- ticker: '510880'
+  name: 红利50
+  status: active
+  shares: 105200
+  cost_basis: 1.076382
+  last_price: 1.084
+  first_buy_date: '2026-07-08'
+  target_weight: 0.097
+  max_weight: 0.12
+  position_band:
+    company_type: 红利ETF / 防御底仓
+    role: 核心底仓
+    min_weight: 0.05
+    target_weight: 0.08
+    max_weight: 0.12
+    source: 下半年计划核心/防御仓 + 红利ETF工具属性
+    note: 与红利低波合并看红利暴露,红利类合计过高时优先做再平衡。
+  price_band:
+    method: 红利ETF股息吸引力 + 区间纪律
+    buy_below: 1.08
+    add_below: 1.02
+    trim_above: 1.20
+    exit_above: 1.30
+    stop_loss_below: 0.95
+    note: 红利ETF不追求短期价差,低于1.08可作为防御底仓买入区; 低于1.02再考虑加仓,但需合并红利低波检查红利总仓位。
+  thesis: 高股息红利资产底仓，按截图录入真实持仓。
+  tags:
+  - 红利
+  - ETF
+  school: 防御
+  rationale: '[截图录入] 市值 114,036.80，浮盈 801.40，收益率 0.74%。'
+  criteria_met: []
+  review_triggers:
+  - 红利拥挤度明显升高
+  - 股息率相对债券吸引力下降
+- ticker: '512000'
+  name: 券商ETF
+  status: active
+  shares: 24100
+  cost_basis: 1.149315
+  last_price: 1.069
+  first_buy_date: '2026-07-08'
+  target_weight: 0.022
+  max_weight: 0.05
+  position_band:
+    company_type: 券商ETF / 市场Beta
+    role: 周期工具仓
+    min_weight: 0.0
+    target_weight: 0.02
+    max_weight: 0.05
+    source: 下半年计划主题/周期仓0-5%
+    note: 只在市场冰点或政策催化下加仓,不作为长期核心仓。
+  price_band:
+    method: 券商Beta冰点交易 + 政策催化
+    buy_below: 1.05
+    add_below: 0.98
+    trim_above: 1.25
+    exit_above: 1.40
+    stop_loss_below: 0.92
+    note: 券商ETF只做市场Beta工具仓; 跌回1.05以下才进入买入区,0.98以下才考虑加仓,反弹到1.25以上优先减仓兑现。
+  thesis: 券商Beta仓位，按截图录入真实持仓。
+  tags:
+  - 金融
+  - ETF
+  school: 周期
+  rationale: '[截图录入] 市值 25,762.90，浮亏 1,935.60，收益率 -6.96%。'
+  criteria_met: []
+  review_triggers:
+  - 市场成交额持续低迷
+  - 券商板块估值修复完成
+- ticker: '516020'
+  name: 化工ETF
+  status: active
+  shares: 90000
+  cost_basis: 0.9105
+  last_price: 0.823
+  first_buy_date: '2026-07-08'
+  target_weight: 0.063
+  max_weight: 0.08
+  position_band:
+    company_type: 化工ETF / 周期工具
+    role: 周期工具仓
+    min_weight: 0.0
+    target_weight: 0.03
+    max_weight: 0.05
+    source: 下半年计划主题/周期仓0-5%
+    note: 行业价格信号未确认前按工具仓管理,超过5%需要主动压回。
+  price_band:
+    method: 化工周期底部观察 + 产品价格确认
+    buy_below: 0.82
+    add_below: 0.75
+    trim_above: 0.95
+    exit_above: 1.08
+    stop_loss_below: 0.68
+    note: 当前接近观察买入线,但化工景气未确认前不主动重仓; 0.75以下才属于深度加仓区,反弹到0.95以上先做仓位修复。
+  thesis: 化工周期配置仓位，按截图录入真实持仓。
+  tags:
+  - 化工
+  - ETF
+  school: 周期
+  rationale: '[截图录入] 市值 74,070.00，浮亏 7,875.00，收益率 -9.66%。'
+  criteria_met: []
+  review_triggers:
+  - 化工景气继续下行
+  - 主要产品价格无法企稳
+- ticker: '512400'
+  name: 有色
+  status: active
+  shares: 52000
+  cost_basis: 1.194442
+  last_price: 0.931
+  first_buy_date: '2026-07-08'
+  target_weight: 0.041
+  max_weight: 0.06
+  position_band:
+    company_type: 有色ETF / 商品周期
+    role: 周期工具仓
+    min_weight: 0.0
+    target_weight: 0.03
+    max_weight: 0.05
+    source: 下半年计划主题/周期仓0-5%
+    note: 与黄金股、黄金ETF合并看资源/黄金暴露,单独不应继续加大。
+  price_band:
+    method: 有色商品周期 + 资源暴露约束
+    buy_below: 0.95
+    add_below: 0.85
+    trim_above: 1.15
+    exit_above: 1.30
+    stop_loss_below: 0.78
+    note: 有色ETF波动大,低于0.95可进入观察买入区; 加仓必须同时确认金属价格和制造业需求,并合并黄金股/黄金ETF看资源总暴露。
+  thesis: 有色金属周期仓位，按截图录入真实持仓。
+  tags:
+  - 有色
+  - ETF
+  school: 周期
+  rationale: '[截图录入] 市值 48,412.00，浮亏 13,699.00，收益率 -22.03%。'
+  criteria_met: []
+  review_triggers:
+  - 全球制造业需求继续走弱
+  - 金属价格中枢明显下移
+- ticker: '511360'
+  name: 短融ETF
+  status: active
+  shares: 1800
+  cost_basis: 113.585783
+  last_price: 113.657
+  first_buy_date: '2026-07-08'
+  target_weight: 0.174
+  max_weight: 0.22
+  position_band:
+    company_type: 短融ETF / 现金管理
+    role: 现金替代
+    min_weight: 0.10
+    target_weight: 0.15
+    max_weight: 0.25
+    source: 现金管理仓位;区别于权益风险仓
+    note: 这是流动性缓冲,不按股票单只仓位上限约束。
+  thesis: 短久期现金管理仓位，按截图录入真实持仓。
+  tags:
+  - 固收
+  - ETF
+  school: 防御
+  rationale: '[截图录入] 市值 204,582.60，浮盈 128.19，收益率 0.06%。'
+  criteria_met: []
+  review_triggers:
+  - 现金需求变化
+  - 短端利率明显变化
+- ticker: '512890'
+  name: 红利低波
+  status: active
+  shares: 45000
+  cost_basis: 1.168784
+  last_price: 1.116
+  first_buy_date: '2026-07-08'
+  target_weight: 0.043
+  max_weight: 0.06
+  position_band:
+    company_type: 红利低波ETF / 防御底仓
+    role: 防御底仓
+    min_weight: 0.03
+    target_weight: 0.05
+    max_weight: 0.08
+    source: 下半年计划普通/防御持仓
+    note: 与红利50合并看红利暴露,优先控制红利类合计仓位。
+  price_band:
+    method: 红利低波防御仓 + 股息拥挤度
+    buy_below: 1.10
+    add_below: 1.03
+    trim_above: 1.25
+    exit_above: 1.35
+    stop_loss_below: 0.96
+    note: 红利低波用于降低组合波动; 1.10以下可买入,1.03以下再考虑加仓,若红利因子拥挤且价格到1.25以上优先减仓。
+  thesis: 红利低波动防御仓位，按截图录入真实持仓。
+  tags:
+  - 红利
+  - ETF
+  school: 防御
+  rationale: '[截图录入] 市值 50,220.00，浮亏 2,375.26，收益率 -4.53%。'
+  criteria_met: []
+  review_triggers:
+  - 红利因子明显拥挤
+  - 低波策略相对收益失效
+- ticker: '515030'
+  name: 新汽车
+  status: active
+  shares: 25000
+  cost_basis: 1.8862
+  last_price: 1.746
+  first_buy_date: '2026-07-08'
+  target_weight: 0.037
+  max_weight: 0.06
+  position_band:
+    company_type: 新汽车ETF / 成长主题
+    role: 主题工具仓
+    min_weight: 0.0
+    target_weight: 0.03
+    max_weight: 0.05
+    source: 下半年计划主题/周期仓0-5%
+    note: 新能源车产业链仍有周期和价格战风险,按主题工具仓处理。
+  price_band:
+    method: 新能源车成长主题 + 价格战折扣
+    buy_below: 1.70
+    add_below: 1.55
+    trim_above: 2.05
+    exit_above: 2.30
+    stop_loss_below: 1.40
+    note: 新汽车ETF受销量、价格战和产业链盈利影响较大; 1.70以下才进入买入区,1.55以下需要基本面未恶化才加仓。
+  thesis: 新能源汽车主题仓位，按截图录入真实持仓。
+  tags:
+  - 新能源
+  - ETF
+  school: 成长
+  rationale: '[截图录入] 市值 43,650.00，浮亏 3,505.00，收益率 -7.42%。'
+  criteria_met: []
+  review_triggers:
+  - 新能源车销量增速明显放缓
+  - 产业链盈利继续承压
+- ticker: '517520'
+  name: 黄金股
+  status: active
+  shares: 41600
+  cost_basis: 2.099572
+  last_price: 1.71
+  first_buy_date: '2026-07-08'
+  target_weight: 0.061
+  max_weight: 0.08
+  position_band:
+    company_type: 黄金股ETF / 黄金高Beta
+    role: 增强工具仓
+    min_weight: 0.0
+    target_weight: 0.04
+    max_weight: 0.08
+    source: 黄金投资法工具选择;黄金股高Beta需低于黄金ETF核心仓
+    note: 与工银黄金合并看黄金总暴露,黄金股只做弹性增强。
+  price_band:
+    method: 黄金股高Beta + 金价趋势确认
+    buy_below: 1.75
+    add_below: 1.55
+    trim_above: 2.10
+    exit_above: 2.40
+    stop_loss_below: 1.35
+    note: 黄金股不是黄金ETF替代品,只做弹性增强; 低于1.75可观察买入,加仓必须同时确认金价趋势未破坏。
+  thesis: 黄金股弹性仓位，按截图录入真实持仓。
+  tags:
+  - 黄金
+  - ETF
+  school: 周期
+  rationale: '[截图录入] 市值 71,136.00，浮亏 16,206.20，收益率 -18.57%。'
+  criteria_met: []
+  review_triggers:
+  - 金价趋势转弱
+  - 黄金股相对金价弹性失效
+- ticker: '518660'
+  name: 工银黄金
+  status: active
+  shares: 19300
+  cost_basis: 9.952087
+  last_price: 8.588
+  first_buy_date: '2026-07-08'
+  target_weight: 0.141
+  max_weight: 0.18
+  position_band:
+    company_type: 黄金ETF / 防御配置
+    role: 战略防御仓
+    min_weight: 0.10
+    target_weight: 0.15
+    max_weight: 0.20
+    source: 12_黄金投资法/03_配置比例量化.md + 当前萧条期黄金框架
+    note: 当前作为黄金核心仓,若黄金股也较高,黄金总暴露需一起复核。
+  price_band:
+    method: 黄金核心仓 + 实际利率/过热信号
+    buy_below: 8.80
+    add_below: 8.20
+    trim_above: 10.50
+    exit_above: 11.50
+    stop_loss_below: 7.60
+    note: 黄金ETF按战略防御仓管理,不做机械止损; 8.80以下可补核心仓,10.50以上结合实际利率和黄金过热信号减仓。
+  thesis: 黄金ETF防御与抗通胀仓位，按截图录入真实持仓。
+  tags:
+  - 黄金
+  - ETF
+  school: 防御
+  rationale: '[截图录入] 市值 165,748.40，浮亏 26,327.28，收益率 -13.71%。'
+  criteria_met: []
+  review_triggers:
+  - 实际利率明显上行
+  - 黄金配置逻辑失效
+- ticker: '562500'
+  name: 机器人
+  status: active
+  shares: 63800
+  cost_basis: 1.027835
+  last_price: 1.091
+  first_buy_date: '2026-07-08'
+  target_weight: 0.059
+  max_weight: 0.08
+  position_band:
+    company_type: 机器人ETF / 成长主题
+    role: 主题工具仓
+    min_weight: 0.0
+    target_weight: 0.03
+    max_weight: 0.05
+    source: 下半年计划主题/周期仓0-5%
+    note: 主题热度高、估值弹性大,超过5%后不再追高加仓。
+  price_band:
+    method: 机器人高弹性主题 + 热度约束
+    buy_below: 1.00
+    add_below: 0.90
+    trim_above: 1.20
+    exit_above: 1.35
+    stop_loss_below: 0.82
+    note: 机器人ETF主题热度高,只在回落后买; 1.20以上进入减仓区,若仓位已经超过5%则价格到位也不继续加仓。
+  thesis: 机器人主题成长仓位，按截图录入真实持仓。
+  tags:
+  - 机器人
+  - ETF
+  school: 成长
+  rationale: '[截图录入] 市值 69,605.80，浮盈 4,029.90，收益率 6.13%。'
+  criteria_met: []
+  review_triggers:
+  - 机器人主题估值明显过热
+  - 产业进展低于预期
 exited: []
 benchmarks:
 - name: 沪深300

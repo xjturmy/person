@@ -60,6 +60,12 @@ class HoldingGuide:
     pe_pct: float | None = None
     overheat_threshold: float = 0.85
     short_term_action: str = "持有观望"
+    price_source: str = "模型估算"
+    manual_band_note: str = ""
+    position_role: str = ""
+    position_status: str = ""
+    position_range_label: str = ""
+    position_note: str = ""
     # 行动摘要 markdown
     summary_md: str = ""
     # 降级标记
@@ -85,6 +91,15 @@ def _summary_md(row, guide: "HoldingGuide") -> str:
     lines: list[str] = []
     # 当前档位
     lines.append(f"- **当前档位**:{guide.verdict_label}")
+    lines.append(f"- **价格口径**:{guide.price_source}")
+    if guide.manual_band_note:
+        lines.append(f"- **价格区间备注**:{guide.manual_band_note}")
+    if guide.position_range_label:
+        lines.append(f"- **仓位范围**:{guide.position_range_label}")
+    if guide.position_status:
+        lines.append(f"- **仓位判断**:{guide.position_status}")
+    if guide.position_note:
+        lines.append(f"- **仓位备注**:{guide.position_note}")
     # 距低估
     if guide.gap_to_low_pct is not None:
         sign = "+" if guide.gap_to_low_pct >= 0 else ""
@@ -100,6 +115,128 @@ def _summary_md(row, guide: "HoldingGuide") -> str:
     if guide.notes:
         lines.append(f"- _数据降级_:{' / '.join(guide.notes)}")
     return "\n".join(lines)
+
+
+def _num(v: Any) -> float | None:
+    if v is None:
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _apply_manual_band(guide: HoldingGuide, row: Any) -> bool:
+    """优先使用 portfolio.yaml.price_band 的人工确认区间。
+
+    支持字段:
+      - fair_price: 合理价/中枢价
+      - buy_below: 进入买入区的上沿
+      - add_below: 进入加仓区的上沿
+      - trim_above: 进入减仓区的下沿
+      - exit_above: 进入清仓评估区的下沿
+      - stop_loss_below: 价格型止损/重新评估线
+      - note: 人工备注
+    """
+    band = getattr(row, "price_band", None) or {}
+    if not isinstance(band, dict) or not band:
+        return False
+
+    current = _num(getattr(row, "last_price", None))
+    fair_price = _num(band.get("fair_price"))
+    buy_below = _num(band.get("buy_below"))
+    add_below = _num(band.get("add_below"))
+    trim_above = _num(band.get("trim_above"))
+    exit_above = _num(band.get("exit_above"))
+    stop_loss_below = _num(band.get("stop_loss_below"))
+    note = str(band.get("note") or "").strip()
+
+    if not any(v is not None for v in (fair_price, buy_below, add_below, trim_above, exit_above, stop_loss_below)):
+        return False
+
+    guide.price_source = "人工最终确认"
+    guide.manual_band_note = note
+    guide.fair_price = fair_price
+    guide.buy_line = buy_below
+    guide.current_price = current
+    if buy_below and current is not None:
+        guide.gap_to_low_pct = (current - buy_below) / buy_below * 100
+
+    if current is None:
+        guide.verdict_label = "⚪ 缺少现价"
+        guide.short_term_action = "补行情后判断"
+    elif stop_loss_below is not None and current <= stop_loss_below:
+        guide.verdict_label = "🔴 失效/止损区"
+        guide.short_term_action = "重新评估或减仓"
+    elif add_below is not None and current <= add_below:
+        guide.verdict_label = "🟢 加仓区"
+        guide.short_term_action = "按计划加仓"
+    elif buy_below is not None and current <= buy_below:
+        guide.verdict_label = "🟢 买入区"
+        guide.short_term_action = "可买入/补仓"
+    elif exit_above is not None and current >= exit_above:
+        guide.verdict_label = "🔥 清仓评估区"
+        guide.short_term_action = "评估清仓"
+    elif trim_above is not None and current >= trim_above:
+        guide.verdict_label = "🟡 减仓区"
+        guide.short_term_action = "评估减仓"
+    else:
+        guide.verdict_label = "⚪ 持有区"
+        guide.short_term_action = "持有观望"
+
+    pyramid: list[tuple[str, float, float, bool]] = []
+    if buy_below is not None:
+        pyramid.append(("买入线", buy_below, 0.30, bool(current is not None and current <= buy_below)))
+    if add_below is not None:
+        pyramid.append(("加仓线", add_below, 0.40, bool(current is not None and current <= add_below)))
+    if stop_loss_below is not None:
+        pyramid.append(("失效线", stop_loss_below, 0.00, bool(current is not None and current <= stop_loss_below)))
+    guide.pyramid = pyramid
+    guide.take_profit = trim_above or exit_above
+    guide.stop_loss_rule = f"跌破 {stop_loss_below:g} 重新评估" if stop_loss_below is not None else guide.stop_loss_rule
+    guide.rebalance_rule = "按人工价格区间 + 目标权重执行"
+    return True
+
+
+def _fmt_weight(v: float | None) -> str:
+    if v is None:
+        return "—"
+    return f"{v * 100:.0f}%"
+
+
+def _apply_position_band(guide: HoldingGuide, row: Any) -> None:
+    band = getattr(row, "position_band", None) or {}
+    if not isinstance(band, dict) or not band:
+        return
+
+    min_w = _num(band.get("min_weight"))
+    target_w = _num(band.get("target_weight"))
+    max_w = _num(band.get("max_weight"))
+    actual_w = _num(getattr(row, "actual_weight", None))
+    guide.position_role = str(band.get("role") or "")
+    guide.position_note = str(band.get("note") or "").strip()
+    guide.position_range_label = (
+        f"{guide.position_role or '仓位'} "
+        f"{_fmt_weight(min_w)} / {_fmt_weight(target_w)} / {_fmt_weight(max_w)}"
+        " (下限/目标/上限)"
+    )
+
+    if actual_w is None:
+        guide.position_status = "缺少实际仓位"
+        return
+
+    if max_w is not None and actual_w > max_w:
+        guide.position_status = f"超出上限:当前 {_fmt_weight(actual_w)} > 上限 {_fmt_weight(max_w)}"
+        if "加仓" in guide.short_term_action or "买入" in guide.short_term_action:
+            guide.short_term_action = "价格到位但仓位超上限,先不加仓"
+    elif target_w is not None and actual_w >= target_w:
+        guide.position_status = f"高于目标:当前 {_fmt_weight(actual_w)} ≥ 目标 {_fmt_weight(target_w)}"
+        if "加仓" in guide.short_term_action or "买入" in guide.short_term_action:
+            guide.short_term_action = "价格到位但仓位已足,谨慎加仓"
+    elif min_w is not None and actual_w < min_w:
+        guide.position_status = f"低于下限:当前 {_fmt_weight(actual_w)} < 下限 {_fmt_weight(min_w)}"
+    elif max_w is not None:
+        guide.position_status = f"范围内:当前 {_fmt_weight(actual_w)}"
 
 
 # ─── graham 规则 ────────────────────────────────────────────────────
@@ -215,7 +352,11 @@ def compute_holding_guide(row: Any, snap: Any, fair: Any) -> HoldingGuide:
     # 优先用真实股价数据;fair 缺失则降级
     fair_ok = fair is not None and getattr(fair, "verified", False) and getattr(fair, "graham_number", None)
 
-    if fair_ok:
+    manual_ok = _apply_manual_band(guide, row)
+
+    if manual_ok:
+        pass
+    elif fair_ok:
         if rule == "graham":
             _apply_graham(guide, fair)
         elif rule == "lynch":
@@ -227,8 +368,11 @@ def compute_holding_guide(row: Any, snap: Any, fair: Any) -> HoldingGuide:
     else:
         _apply_no_fair(guide)
 
-    # 短期建议
-    guide.short_term_action = _short_term_action(row.pe_pct, guide.overheat_threshold)
+    # 短期建议。人工区间已给出明确动作时,不再用 PE 分位覆盖。
+    if not manual_ok:
+        guide.short_term_action = _short_term_action(row.pe_pct, guide.overheat_threshold)
+
+    _apply_position_band(guide, row)
 
     # 行动摘要
     guide.summary_md = _summary_md(row, guide)
