@@ -21,7 +21,7 @@ from pathlib import Path
 
 
 def _kb_root() -> Path:
-    return Path(__file__).resolve().parent
+    return Path(__file__).resolve().parent.parent
 
 
 def _infer_exchange(code: str, category: str = "") -> str:
@@ -93,7 +93,7 @@ def _run_one(
     ts_code = company["ts_code"]
     name = company["name"]
     is_hk = company.get("is_hk", False)
-    output_dir = (kb_root / "02_companies" / company["folder"] / "04_research").resolve()
+    output_dir = (kb_root / "02_companies" / company["folder"] / "04_券商分析").resolve()
 
     df = None
     rc_note = ""

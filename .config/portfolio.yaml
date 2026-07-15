@@ -2,11 +2,12 @@ _meta:
   version: '1.0'
   status: live
   base_currency: CNY
-  last_updated: '2026-07-08'
+  last_updated: '2026-07-15'
   schema_version: '2.8'
 account:
-  total_capital: 1213316.91
-  target_equity_ratio: 0.967
+  total_capital: 1213689.83
+  target_equity_ratio: 0.973
+  available_cash: 32299.76
   cash_min_ratio: 0.1
   cash_max_ratio: 0.5
 rebalance:
@@ -308,8 +309,11 @@ holdings:
   - PE显著抬升至25倍以上
 - ticker: '600660'
   name: 福耀玻璃
-  status: watch
-  last_price: 50.68
+  status: active
+  shares: 300
+  cost_basis: 51.117
+  last_price: 52.9
+  first_buy_date: '2026-07-15'
   target_weight: 0.03
   max_weight: 0.06
   price_band:
@@ -390,9 +394,9 @@ holdings:
 - ticker: '601336'
   name: 新华保险
   status: active
-  shares: 1300
-  cost_basis: 67.3376
-  last_price: 63.15
+  shares: 1500
+  cost_basis: 66.763
+  last_price: 65.55
   first_buy_date: '2026-07-08'
   target_weight: 0.07
   max_weight: 0.09
@@ -428,6 +432,42 @@ holdings:
   - 新业务价值率跌破 8%
   - 投资端连续 2 年亏损
   - P/EV 升至 1.0 以上
+- ticker: '601628'
+  name: 中国人寿
+  status: active
+  shares: 700
+  cost_basis: 38.948
+  last_price: 40.42
+  first_buy_date: '2026-07-15'
+  target_weight: 0.023
+  max_weight: 0.05
+  position_band:
+    company_type: 金融保险 / 防御修复
+    role: 观察持仓
+    min_weight: 0.0
+    target_weight: 0.02
+    max_weight: 0.05
+    source: 2026-07-15 持仓截图录入
+    note: 与新华保险合并看保险股暴露,不应单独放大。
+  price_band:
+    method: 保险PEV + 金融Beta
+    buy_below: 38.0
+    add_below: 34.0
+    trim_above: 46.0
+    exit_above: 52.0
+    stop_loss_below: 30.0
+    note: 初始区间来自持仓截图和保险股仓位纪律,后续需用内含价值重算。
+  thesis: 寿险龙头观察仓,按 2026-07-15 截图录入真实持仓。
+  tags:
+  - 金融
+  - 保险
+  school: 防御
+  rationale: '[截图录入] 市值 28,294.00，浮盈 1,030.73，收益率 3.78%。'
+  criteria_met: []
+  review_triggers:
+  - 权益市场明显转弱
+  - 保险股估值修复完成
+  - 与新华保险合计仓位过高
 - ticker: '603379'
   name: 三美股份
   status: watch
@@ -452,8 +492,8 @@ holdings:
   name: 中国中车
   status: active
   shares: 17600
-  cost_basis: 6.313757
-  last_price: 5.41
+  cost_basis: 6.314
+  last_price: 5.6
   first_buy_date: '2026-07-08'
   target_weight: 0.081
   max_weight: 0.1
@@ -529,8 +569,8 @@ holdings:
   name: 蜜雪集团
   status: active
   shares: 400
-  cost_basis: 285.935675
-  last_price: 184.108
+  cost_basis: 285.936
+  last_price: 190.602
   first_buy_date: '2026-07-08'
   target_weight: 0.063
   max_weight: 0.08
@@ -570,8 +610,8 @@ holdings:
   name: 海康威视
   status: active
   shares: 1600
-  cost_basis: 31.806875
-  last_price: 35.39
+  cost_basis: 31.807
+  last_price: 34.1
   first_buy_date: '2026-07-08'
   target_weight: 0.047
   max_weight: 0.08
@@ -600,12 +640,12 @@ holdings:
   criteria_met: []
   review_triggers:
   - 待补充业务与估值复核条件
-- ticker: '510880'
+- ticker: '159758'
   name: 红利50
   status: active
   shares: 105200
-  cost_basis: 1.076382
-  last_price: 1.084
+  cost_basis: 1.076
+  last_price: 1.101
   first_buy_date: '2026-07-08'
   target_weight: 0.097
   max_weight: 0.12
@@ -635,12 +675,12 @@ holdings:
   review_triggers:
   - 红利拥挤度明显升高
   - 股息率相对债券吸引力下降
-- ticker: '512000'
+- ticker: '159842'
   name: 券商ETF
   status: active
   shares: 24100
-  cost_basis: 1.149315
-  last_price: 1.069
+  cost_basis: 1.149
+  last_price: 1.077
   first_buy_date: '2026-07-08'
   target_weight: 0.022
   max_weight: 0.05
@@ -670,12 +710,48 @@ holdings:
   review_triggers:
   - 市场成交额持续低迷
   - 券商板块估值修复完成
+- ticker: '159915'
+  name: 创业板
+  status: active
+  shares: 5000
+  cost_basis: 3.706
+  last_price: 3.828
+  first_buy_date: '2026-07-15'
+  target_weight: 0.016
+  max_weight: 0.04
+  position_band:
+    company_type: 创业板ETF / 成长宽基
+    role: 小额观察仓
+    min_weight: 0.0
+    target_weight: 0.02
+    max_weight: 0.04
+    source: 2026-07-15 持仓截图录入
+    note: 与机器人、新汽车、海康等成长暴露合并观察,不单独追高。
+  price_band:
+    method: 成长宽基估值分位 + 风险偏好
+    buy_below: 3.6
+    add_below: 3.3
+    trim_above: 4.2
+    exit_above: 4.6
+    stop_loss_below: 3.0
+    note: 初始区间按截图价格和成长仓纪律粗设,需补创业板估值分位后重算。
+  thesis: 创业板成长宽基观察仓,按 2026-07-15 截图录入真实持仓。
+  tags:
+  - 成长
+  - ETF
+  school: 成长
+  rationale: '[截图录入] 市值 19,140.00，浮盈 610.00，收益率 3.29%。'
+  criteria_met: []
+  review_triggers:
+  - 创业板估值分位升至高位
+  - 成长风格风险偏好转弱
+  - 与主题成长ETF合计仓位过高
 - ticker: '516020'
   name: 化工ETF
   status: active
   shares: 90000
-  cost_basis: 0.9105
-  last_price: 0.823
+  cost_basis: 0.911
+  last_price: 0.773
   first_buy_date: '2026-07-08'
   target_weight: 0.063
   max_weight: 0.08
@@ -709,8 +785,8 @@ holdings:
   name: 有色
   status: active
   shares: 52000
-  cost_basis: 1.194442
-  last_price: 0.931
+  cost_basis: 1.194
+  last_price: 0.899
   first_buy_date: '2026-07-08'
   target_weight: 0.041
   max_weight: 0.06
@@ -743,9 +819,9 @@ holdings:
 - ticker: '511360'
   name: 短融ETF
   status: active
-  shares: 1800
-  cost_basis: 113.585783
-  last_price: 113.657
+  shares: 900
+  cost_basis: 113.504
+  last_price: 113.691
   first_buy_date: '2026-07-08'
   target_weight: 0.174
   max_weight: 0.22
@@ -771,8 +847,8 @@ holdings:
   name: 红利低波
   status: active
   shares: 45000
-  cost_basis: 1.168784
-  last_price: 1.116
+  cost_basis: 1.169
+  last_price: 1.152
   first_buy_date: '2026-07-08'
   target_weight: 0.043
   max_weight: 0.06
@@ -806,8 +882,8 @@ holdings:
   name: 新汽车
   status: active
   shares: 25000
-  cost_basis: 1.8862
-  last_price: 1.746
+  cost_basis: 1.886
+  last_price: 1.621
   first_buy_date: '2026-07-08'
   target_weight: 0.037
   max_weight: 0.06
@@ -840,9 +916,9 @@ holdings:
 - ticker: '517520'
   name: 黄金股
   status: active
-  shares: 41600
-  cost_basis: 2.099572
-  last_price: 1.71
+  shares: 51600
+  cost_basis: 2.016
+  last_price: 1.703
   first_buy_date: '2026-07-08'
   target_weight: 0.061
   max_weight: 0.08
@@ -876,8 +952,8 @@ holdings:
   name: 工银黄金
   status: active
   shares: 19300
-  cost_basis: 9.952087
-  last_price: 8.588
+  cost_basis: 9.952
+  last_price: 8.393
   first_buy_date: '2026-07-08'
   target_weight: 0.141
   max_weight: 0.18
@@ -910,9 +986,9 @@ holdings:
 - ticker: '562500'
   name: 机器人
   status: active
-  shares: 63800
-  cost_basis: 1.027835
-  last_price: 1.091
+  shares: 83800
+  cost_basis: 1.02
+  last_price: 1.046
   first_buy_date: '2026-07-08'
   target_weight: 0.059
   max_weight: 0.08

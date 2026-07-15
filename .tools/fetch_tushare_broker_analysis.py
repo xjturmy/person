@@ -34,7 +34,7 @@ RATING_ORDER = {
 
 
 def _kb_root() -> Path:
-    return Path(__file__).resolve().parent
+    return Path(__file__).resolve().parent.parent
 
 
 def _parse_date(raw: str) -> datetime | None:
@@ -493,7 +493,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--output-dir",
-        default="02_companies/01_新华保险/04_research",
+        default="02_companies/01_新华保险/04_券商分析",
         help="输出目录（相对知识库根目录）",
     )
     args = parser.parse_args()

@@ -68,6 +68,7 @@ class Holding:
 class Account:
     total_capital: float = 0.0
     target_equity_ratio: float = 0.7
+    available_cash: float | None = None
     cash_min_ratio: float = 0.10
     cash_max_ratio: float = 0.50
 

@@ -63,6 +63,13 @@ AGENTS.md
 *.log
 *.tmp
 
+# 根目录临时截图应归档到具体复盘 assets/
+/*.webp
+/*.jpeg
+/*.jpg
+/*.png
+!*README*.png
+
 # 旧目录（迁移前的备份）
 01_投资方法与体系/
 02_公司档案库/
